@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include<stdlib.h>
 #include <signal.h>
+#include <string.h>
 
 bool isExit = false;
 
@@ -63,14 +64,15 @@ int main(int argc, char ** argv)
 			printf("event.type = %d\n", event.type);
 			switch (event.type)
 			{
-			case ENET_EVENT_TYPE_CONNECT:
+			case ENET_EVENT_TYPE_CONNECT:{
 				printf("A new client connected from %x:%u.\n",
 					event.peer->address.host,
 					event.peer->address.port);
 				/* Store any relevant client information here. */
 				event.peer->data = (char*)"Client information";
 				break;
-			case ENET_EVENT_TYPE_RECEIVE:
+			}
+			case ENET_EVENT_TYPE_RECEIVE:{
 				printf("A packet of length %u containing %s was received from %s on channel %u.\n",
 					event.packet->dataLength,
 					event.packet->data,
@@ -78,9 +80,10 @@ int main(int argc, char ** argv)
 					event.channelID);
 				/* Clean up the packet now that we're done using it. */
 				enet_packet_destroy(event.packet);
-
+				ENetPacket * packet = enet_packet_create("world", strlen("world")+1, ENET_PACKET_FLAG_RELIABLE);
+				enet_peer_send(event.peer, 0, packet);
 				break;
-
+			}
 			case ENET_EVENT_TYPE_DISCONNECT:
 				printf("%s disconnected.\n", event.peer->data);
 				/* Reset the peer's client information. */
