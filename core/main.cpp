@@ -26,7 +26,7 @@ int main(int argc, char ** argv)
 	/* Bind the server to the default localhost.     */
 	/* A specific host address can be specified by   */
 	/* enet_address_set_host (& address, "x.x.x.x"); */
-	enet_address_set_host (&address, "localhost");
+	enet_address_set_host (&address, "0.0.0.0");
 	//address.host = ENET_HOST_ANY;
 	/* Bind the server to port 1234. */
 	address.port = 18888;
