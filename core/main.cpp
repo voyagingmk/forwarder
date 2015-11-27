@@ -26,9 +26,10 @@ int main(int argc, char ** argv)
 	/* Bind the server to the default localhost.     */
 	/* A specific host address can be specified by   */
 	/* enet_address_set_host (& address, "x.x.x.x"); */
-	address.host = ENET_HOST_ANY;
+	enet_address_set_host (&address, "localhost");
+	//address.host = ENET_HOST_ANY;
 	/* Bind the server to port 1234. */
-	address.port = 1234;
+	address.port = 15555;
 	server = enet_host_create(&address /* the address to bind the server host to */,
 		32      /* allow up to 32 clients and/or outgoing connections */,
 		2      /* allow up to 2 channels to be used, 0 and 1 */,
@@ -40,7 +41,6 @@ int main(int argc, char ** argv)
 			"An error occurred while trying to create an ENet server host.\n");
 		exit(EXIT_FAILURE);
 	}
-
 	ENetHost * client;
 	client = enet_host_create(NULL /* create a client host */,
 		1 /* only allow 1 outgoing connection */,
@@ -54,13 +54,13 @@ int main(int argc, char ** argv)
 		exit(EXIT_FAILURE);
 	}
 
-
 	ENetEvent event;
 	/* Wait up to 1000 milliseconds for an event. */
 	while (!isExit) {
 		int ret;
-		while (ret = enet_host_service(client, &event, 1000) > 0)
+		while (ret = enet_host_service(server, &event, 10) > 0)
 		{
+			printf("event.type = %d\n", event.type);
 			switch (event.type)
 			{
 			case ENET_EVENT_TYPE_CONNECT:
@@ -88,7 +88,7 @@ int main(int argc, char ** argv)
 			}
 		}
 		//std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		printf("ret = %d\n", ret);
+		
 	}
 
 	enet_host_destroy(client);
