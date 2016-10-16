@@ -14,10 +14,13 @@ include_directories("${PROJECT_SOURCE_DIR}/enet")
 add_subdirectory (enet)
 set (EXTRA_LIBS ${EXTRA_LIBS} enet)
 
+set (CMAKE_CXX_STANDARD 11)
 
 # add the executable
 add_executable(forwarder main.cpp)
 target_link_libraries (forwarder  ${EXTRA_LIBS})
-target_link_libraries (forwarder winmm.lib ws2_32.lib)
+if (WIN32)
+  target_link_libraries (forwarder winmm.lib ws2_32.lib)
+endif (WIN32)
 
 install (TARGETS forwarder DESTINATION bin)
