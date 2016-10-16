@@ -12,12 +12,12 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 
 include_directories("${PROJECT_SOURCE_DIR}/enet")
 add_subdirectory (enet)
-set (EXTRA_LIBS ${EXTRA_LIBS} libenet)
+set (EXTRA_LIBS ${EXTRA_LIBS} enet)
 
 
 # add the executable
 add_executable(forwarder main.cpp)
 target_link_libraries (forwarder  ${EXTRA_LIBS})
-
+target_link_libraries (forwarder winmm.lib ws2_32.lib)
 
 install (TARGETS forwarder DESTINATION bin)
