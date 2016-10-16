@@ -1,2 +1,0 @@
-Program('forwarder','main.cpp', CPPPATH = ['./include'], LIBS=['enet','winmm',
-'ws2_32'], LIBPATH='./lib')
