@@ -1,26 +1,18 @@
 FROM ubuntu:latest
 RUN cat /dev/null >> /etc/apt/sources.list
-RUN echo 'deb http://mirrors.163.com/ubuntu/ precise main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://mirrors.163.com/ubuntu/ precise-security main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://mirrors.163.com/ubuntu/ precise-updates main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://mirrors.163.com/ubuntu/ precise-proposed main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://mirrors.163.com/ubuntu/ precise-backports main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://mirrors.163.com/ubuntu/ precise main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://mirrors.163.com/ubuntu/ precise-security main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://mirrors.163.com/ubuntu/ precise-updates main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://mirrors.163.com/ubuntu/ precise-proposed main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://mirrors.163.com/ubuntu/ precise-backports main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb http://cn.archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb http://cn.archive.ubuntu.com/ubuntu/ xenial-security main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb http://cn.archive.ubuntu.com/ubuntu/ xenial-updates main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb http://cn.archive.ubuntu.com/ubuntu/ xenial-backports main restricted universe multiverse' >> /etc/apt/sources.list
 
-RUN echo 'deb http://tw.archive.ubuntu.com/ubuntu precise main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://tw.archive.ubuntu.com/ubuntu precise-security main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://tw.archive.ubuntu.com/ubuntu precise-updates main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://tw.archive.ubuntu.com/ubuntu precise-backports main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb http://tw.archive.ubuntu.com/ubuntu precise-proposed main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://tw.archive.ubuntu.com/ubuntu precise main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://tw.archive.ubuntu.com/ubuntu precise-security main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://tw.archive.ubuntu.com/ubuntu precise-updates main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://tw.archive.ubuntu.com/ubuntu precise-backports main restricted universe multiverse' >> /etc/apt/sources.list
-RUN echo 'deb-src http://tw.archive.ubuntu.com/ubuntu precise-proposed main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb http://cn.archive.ubuntu.com/ubuntu/ xenial-proposed main restricted universe multiverse' >> /etc/apt/sources.list
+
+RUN echo 'deb-src http://cn.archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb-src http://cn.archive.ubuntu.com/ubuntu/ xenial-security main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb-src http://cn.archive.ubuntu.com/ubuntu/ xenial-updates main restricted universe multiverse' >> /etc/apt/sources.list
+RUN echo 'deb-src http://cn.archive.ubuntu.com/ubuntu/ xenial-backports main restricted universe multiverse' >> /etc/apt/sources.list
+
+RUN echo 'deb-src http://cn.archive.ubuntu.com/ubuntu/ xenial-proposed main restricted universe multiverse' >> /etc/apt/sources.list
 
 RUN apt-get -y update
 RUN apt-get install -y vim

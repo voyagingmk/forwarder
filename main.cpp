@@ -1,5 +1,8 @@
 #include <enet/enet.h>
 #include <spdlog/spdlog.h>
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
 #include <stdio.h>
 #include<stdlib.h>
 #include <signal.h>
@@ -9,6 +12,8 @@
 
 bool isExit = false;
 namespace spd = spdlog;
+using namespace rapidjson;
+
 void cs(int n)
 {
 	if (n == SIGINT)
@@ -25,6 +30,23 @@ void err_handler_example();
 
 int main(int argc, char ** argv)
 {
+	// 1. Parse a JSON string into DOM.
+	const char* json = "{\"project\":\"rapidjson\",\"stars\":10}";
+	Document d;
+	d.Parse(json);
+
+	// 2. Modify it by DOM.
+	Value& s = d["stars"];
+	s.SetInt(s.GetInt() + 1);
+
+	// 3. Stringify the DOM
+	StringBuffer buffer;
+	Writer<StringBuffer> writer(buffer);
+	d.Accept(writer);
+
+	// Output {"project":"rapidjson","stars":11}
+	std::cout << buffer.GetString() << std::endl;
+
 	auto console = spd::stdout_color_mt("console");
 	console->info("Welcome to spdlog!");
 	console->error("Some error message with arg{}..", 1);
@@ -43,7 +65,7 @@ int main(int argc, char ** argv)
 	my_logger->info("Some log message");
 
 	// Create a file rotating logger with 5mb size max and 3 rotated files
-	auto rotating_logger = spd::rotating_logger_mt("some_logger_name", "logs/mylogfile", 1048576 * 5, 3);
+	auto rotating_logger = spd::rotating_logger_mt("some_logger_name", "./logs/mylogfile", 1048576 * 5, 3);
 	for (int i = 0; i < 10; ++i)
 		rotating_logger->info("{} * {} equals {:>10}", i, i, i*i);
 
@@ -74,13 +96,13 @@ int main(int argc, char ** argv)
 	async_example();
 
 	// syslog example. linux/osx only
-	syslog_example();
+	//syslog_example();
 
 	// Log user-defined types example
-	user_defined_example();
+	//user_defined_example();
 
 	// Change default log error handler
-	err_handler_example();
+	//err_handler_example();
 
 	// Apply a function on all registered loggers
 	spd::apply_all([&](std::shared_ptr<spdlog::logger> l)
@@ -181,7 +203,7 @@ void async_example()
 {
     size_t q_size = 4096; //queue size must be power of 2
     spdlog::set_async_mode(q_size);
-    auto async_file = spd::daily_logger_st("async_file_logger", "logs/async_log.txt");
+    auto async_file = spd::daily_logger_st("async_file_logger", "./logs/async_log.txt");
     for (int i = 0; i < 100; ++i)
         async_file->info("Async message #{}", i);
 }
