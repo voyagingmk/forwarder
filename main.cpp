@@ -39,9 +39,32 @@ string readFile(const string &fileName)
 	return string(&bytes[0], fileSize);
 }
 
+bool is_file_exist(const char *fileName)
+{
+    std::ifstream infile(fileName);
+    return infile.good();
+}
+
 int main(int argc, char ** argv)
 {
-	string json = readFile("./../config.json");
+	printf("forwarder started.\n");
+	std::vector<spdlog::sink_ptr> sinks;
+	sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>("daily","txt", 0, 0));
+	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
+	auto logger = make_shared<spdlog::logger>("my_logger", begin(sinks), end(sinks));
+	spdlog::register_logger(logger);
+	logger->flush_on(spd::level::err);
+	spd::set_pattern("[%D %H:%M:%S:%e][%l] %v");
+	spd::set_level(spd::level::info);
+	logger->set_level(spd::level::debug);
+	logger->info("logger created successfully.");
+
+	const char * configPath = "./../config.json";
+	if(!is_file_exist(configPath)){	
+		logger->error("config.json not found!");
+		return EXIT_FAILURE;
+	}
+	string json = readFile(configPath);
 	Document config;
 	config.Parse(json.c_str());
 	/*
@@ -58,16 +81,6 @@ int main(int argc, char ** argv)
 	std::cout << buffer.GetString() << std::endl;
 	*/
 
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>("daily","txt", 0, 0));
-	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
-	auto logger = make_shared<spdlog::logger>("my_logger", begin(sinks), end(sinks));
-	spdlog::register_logger(logger);
-	logger->flush_on(spd::level::err);
-	spd::set_pattern("[%D %H:%M:%S:%e][%l] %v");
-	spd::set_level(spd::level::info);
-	logger->set_level(spd::level::debug);
-	logger->info("logger created successfully.");
 
 	signal(SIGINT, cs);
 	if (enet_initialize() != 0)
