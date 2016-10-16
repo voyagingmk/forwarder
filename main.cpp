@@ -50,7 +50,11 @@ int main(int argc, char ** argv)
 	printf("forwarder started.\n");
 	std::vector<spdlog::sink_ptr> sinks;
 	sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>("daily","txt", 0, 0));
+#ifdef _MSC_VER
+	sinks.push_back(make_shared<spdlog::sinks::wincolor_stdout_sink_st>());
+#else
 	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
+#endif
 	auto logger = make_shared<spdlog::logger>("my_logger", begin(sinks), end(sinks));
 	spdlog::register_logger(logger);
 	logger->flush_on(spd::level::err);
