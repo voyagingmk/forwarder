@@ -1,0 +1,6 @@
+
+
+
+Docker CMD:
+
+docker run --rm -it -v D:\workplace\project\forwarder:/data myubuntu
