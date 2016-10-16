@@ -1,0 +1,8 @@
+{
+    "host": {
+        "safe": false,
+        "port": 12000,
+        "peers": 3000,
+        "channels": 2
+    }
+}

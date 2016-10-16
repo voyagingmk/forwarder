@@ -14,7 +14,7 @@ RUN echo 'deb-src http://cn.archive.ubuntu.com/ubuntu/ xenial-backports main res
 
 RUN echo 'deb-src http://cn.archive.ubuntu.com/ubuntu/ xenial-proposed main restricted universe multiverse' >> /etc/apt/sources.list
 
-RUN apt-get -y update
-RUN apt-get install -y vim
-RUN apt-get install -y cmake
-RUN apt-get install -y clang
+RUN apt-get -y -o Dpkg::Progress-Fancy="1" update
+RUN apt-get install -y -o Dpkg::Progress-Fancy="1" vim 
+RUN apt-get install -y -o Dpkg::Progress-Fancy="1" cmake
+RUN apt-get install -y -o Dpkg::Progress-Fancy="1" clang
