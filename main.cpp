@@ -1,5 +1,6 @@
 #include <enet/enet.h>
 #include <spdlog/spdlog.h>
+#include <pool/pool.h>
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
@@ -13,6 +14,7 @@
 #include <memory>
 #include <list>
 #include <vector>
+#include <map>
 
 namespace spd = spdlog;
 using namespace std;
@@ -90,11 +92,18 @@ private:
 	UniqID count;
 };
 
-class ForwardServer {
+class ForwardClient {
 public:
-	UniqIDGenerator idGenerator;
+	ENetPeer * peer;
 	UniqID id = 0;
+};
+
+class ForwardServer {
+public:	
+	UniqID id = 0;
+	UniqIDGenerator idGenerator;
 	ENetHost * host = nullptr;
+	map<UniqID, ForwardClient> clients;
 };
 
 int main(int argc, char ** argv)
@@ -140,7 +149,7 @@ int main(int argc, char ** argv)
 			servers.push_back(server);
 		}
 	}
-
+	Pool<ForwardClient> poolForwardClient;
 	ENetEvent event;
 	while (!isExit) {
 		int ret;
@@ -151,29 +160,33 @@ int main(int argc, char ** argv)
 				switch (event.type)
 				{
 				case ENET_EVENT_TYPE_CONNECT: {
-					logger->info("A new client connected from {1}:{2}.\n",
+					UniqID id = server.idGenerator.getNewID();
+					ForwardClient* client = poolForwardClient.add();
+					client->id = id;
+					event.peer->data = client;
+					logger->info("[c:{1}] connected, from {1}:{2}.", 
+						client->id, 
 						event.peer->address.host,
 						event.peer->address.port);
-					/* Store any relevant client information here. */
-					event.peer->data = (char*)"Client information";
 					break;
 				}
 				case ENET_EVENT_TYPE_RECEIVE: {
-					printf("A packet of length %u containing %s was received from %s on channel %u.\n",
-						event.packet->dataLength,
-						event.packet->data,
-						event.peer->data,
-						event.channelID);
-					/* Clean up the packet now that we're done using it. */
+					ForwardClient* client = (ForwardClient*)event.peer->data;
+					logger->info("[c:{1}][len:{2}] {3}", 
+						client->id, 
+						event.packet->dataLength, 
+						event.packet->data);
 					enet_packet_destroy(event.packet);
-					ENetPacket * packet = enet_packet_create("world", strlen("world") + 1, ENET_PACKET_FLAG_RELIABLE);
-					enet_peer_send(event.peer, 0, packet);
+					//ENetPacket * packet = enet_packet_create("world", strlen("world") + 1, ENET_PACKET_FLAG_RELIABLE);
+					//enet_peer_send(event.peer, 0, packet);
 					break;
 				}
 				case ENET_EVENT_TYPE_DISCONNECT:
-					printf("%s disconnected.\n", event.peer->data);
-					/* Reset the peer's client information. */
-					event.peer->data = NULL;
+					ForwardClient* client = (ForwardClient*)event.peer->data;
+					logger->info("[c:{1}] disconnected.",
+						client->id);
+					poolForwardClient.del(client);
+					event.peer->data = nullptr;
 				}
 			}
 			//std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -184,7 +197,8 @@ int main(int argc, char ** argv)
 		servers.pop_back();
 		enet_host_destroy(server.host);
 	}
+
 	atexit(enet_deinitialize);
-	spdlog::drop_all();
+	atexit(spdlog::drop_all);
 
 }
