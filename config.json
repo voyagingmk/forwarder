@@ -1,8 +1,18 @@
 {
-    "host": {
-        "safe": false,
+    "hosts": [{
+		"id": 1,
+		"desc": "C2FS",
+		"desthost": 2,
+        "safe": true,
         "port": 12000,
         "peers": 3000,
-        "channels": 2
-    }
+        "channels": 1
+    },{
+		"id": 2,
+		"desc": "GS2FS",
+        "safe": false,
+        "port": 9999,
+        "peers": 1,
+        "channels": 1
+    }]
 }
