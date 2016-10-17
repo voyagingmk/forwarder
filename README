@@ -1,10 +1,6 @@
 
 ## Third Party Library
 
-### pool.h
-
-https://github.com/mdashti/HPDS/blob/master/src/utils/pool.h
-
 ### spdlog
 
 https://github.com/gabime/spdlog
@@ -16,6 +12,13 @@ https://github.com/miloyip/rapidjson
 ### enet
 
 https://github.com/lsalzman/enet
+
+
+### pool.h
+
+https://github.com/mdashti/HPDS/blob/master/src/utils/pool.h
+
+https://www.quora.com/What-is-the-most-efficient-memory-pooling-mechanism-used-in-C-or-C%2B%2B-with-an-explanation-about-how-it-works/answer/Mohammad-Dashti?srid=2JGa
 
 
 # Installation
