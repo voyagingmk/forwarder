@@ -90,6 +90,13 @@ private:
 	UniqID count;
 };
 
+class ForwardServer {
+public:
+	UniqIDGenerator idGenerator;
+	UniqID id = 0;
+	ENetHost * host = nullptr;
+};
+
 int main(int argc, char ** argv)
 {
 	printf("forwarder started.\n");
@@ -110,38 +117,35 @@ int main(int argc, char ** argv)
 		return EXIT_FAILURE;
 	}
 
-
-	Value& hosts = config["hosts"];
-
-	vector<ENetHost*> eNetHosts;
-	vector<UniqIDGenerator> generators;// 0: main generator; 1 - n: for hosts
-	int hostNum = hosts.GetArray().Size();
-	for (Value& host : hosts.GetArray()){
+	Value& serversConfig = config["servers"];
+	int serverNum = serversConfig.GetArray().Size();
+	vector<ForwardServer> servers;
+	UniqIDGenerator idGenerator;
+	for (Value& serverConfig : serversConfig.GetArray()){
 		ENetAddress address;
-		ENetHost * server;
+		ForwardServer server;
 		enet_address_set_host(&address, "0.0.0.0");
 		//address.host = ENET_HOST_ANY;
-		address.port = host["port"].GetInt();
-		server = enet_host_create(&address,
-			host["peers"].GetInt(),
-			host["channels"].GetInt(),
+		address.port = serverConfig["port"].GetInt();
+		server.host = enet_host_create(&address,
+			serverConfig["peers"].GetInt(),
+			serverConfig["channels"].GetInt(),
 			0      /* assume any amount of incoming bandwidth */,
 			0      /* assume any amount of outgoing bandwidth */);
-		if (server == NULL) {
+		if (server.host == NULL) {
 			logger->error("An error occurred while trying to create an ENet server host.");
 		}
 		else {
-			eNetHosts.push_back(server);
+			server.id = idGenerator.getNewID();
+			servers.push_back(server);
 		}
 	}
-
-
 
 	ENetEvent event;
 	while (!isExit) {
 		int ret;
-		for (auto& eNetHost: eNetHosts) {
-			while (ret = enet_host_service(eNetHost, &event, 5) > 0)
+		for (auto& server: servers) {
+			while (ret = enet_host_service(server.host, &event, 5) > 0)
 			{
 				logger->info("event.type = {}", event.type);
 				switch (event.type)
@@ -175,10 +179,10 @@ int main(int argc, char ** argv)
 			//std::this_thread::sleep_for(std::chrono::milliseconds(20));
 		}
 	}
-	while(eNetHosts.size() > 0) {
-		ENetHost* eNetHost = eNetHosts.back();
-		eNetHosts.pop_back();
-		enet_host_destroy(eNetHost);
+	while(servers.size() > 0) {
+		ForwardServer& server = servers.back();
+		servers.pop_back();
+		enet_host_destroy(server.host);
 	}
 	atexit(enet_deinitialize);
 	spdlog::drop_all();

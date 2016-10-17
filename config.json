@@ -1,5 +1,5 @@
 {
-    "hosts": [{
+    "servers": [{
 		"id": 1,
 		"desc": "C2FS",
 		"desthost": 2,
