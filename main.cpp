@@ -198,6 +198,7 @@ int main(int argc, char ** argv)
 		enet_host_destroy(server.host);
 	}
 
+	poolForwardClient.clear();
 	atexit(enet_deinitialize);
 	atexit(spdlog::drop_all);
 
