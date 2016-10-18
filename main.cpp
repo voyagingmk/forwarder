@@ -1,20 +1,5 @@
-#include <enet/enet.h>
-#include <spdlog/spdlog.h>
-#include <pool/pool.h>
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
-#include <stdio.h>
-#include<stdlib.h>
-#include <signal.h>
-#include <string.h>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <memory>
-#include <list>
-#include <vector>
-#include <map>
+#include "base.h"
+#include "utils.h"
 
 namespace spd = spdlog;
 using namespace std;
@@ -27,44 +12,6 @@ void onSIGINT(int n)
 	if (n == SIGINT){
 		isExit = true;
 	}
-}
-
-
-string readFile(const string &fileName)
-{
-	ifstream ifs(fileName.c_str(), ios::in | ios::binary | ios::ate);
-
-	ifstream::pos_type fileSize = ifs.tellg();
-	ifs.seekg(0, ios::beg);
-
-	vector<char> bytes(fileSize);
-	ifs.read(&bytes[0], fileSize);
-
-	return string(&bytes[0], fileSize);
-}
-
-bool isFileExist(const char *fileName)
-{
-    std::ifstream infile(fileName);
-    return infile.good();
-}
-
-bool setupLogger() {
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>("daily", "txt", 0, 0));
-#ifdef _MSC_VER
-	sinks.push_back(make_shared<spdlog::sinks::wincolor_stdout_sink_st>());
-#else
-	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
-#endif
-	auto logger = make_shared<spdlog::logger>("my_logger", begin(sinks), end(sinks));
-	spdlog::register_logger(logger);
-	logger->flush_on(spd::level::err);
-	spd::set_pattern("[%D %H:%M:%S:%e][%l] %v");
-	spd::set_level(spd::level::info);
-	logger->set_level(spd::level::debug);
-	logger->info("logger created successfully.");
-	return true;
 }
 
 typedef unsigned int UniqID;
