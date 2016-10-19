@@ -93,6 +93,7 @@ public:
 			add_chunk();
 		} El *el = free_;
 		free_ = free_->next;
+		new(el)T();
 		return &(el->obj);
 	}
 	FORCE_INLINE void del(T *obj)

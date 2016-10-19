@@ -4,7 +4,7 @@
 		"desc": "C2FS",
 		"destId": 2,
         "safe": true,
-        "port": 12000,
+        "port": 9998,
         "peers": 3000,
         "channels": 1
     },{

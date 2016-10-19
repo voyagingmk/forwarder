@@ -23,21 +23,28 @@ public:
 };
 
 class ForwardServer {
+public:
+	ForwardServer():
+		id(0),
+		destId(0),
+		dest(nullptr),
+		host(nullptr)
+	{}
 public:	
-	UniqID id = 0;
-	int destId = 0;
-	ForwardServer* dest = nullptr;
+	UniqID id;
+	int destId;
+	ForwardServer* dest;
+	ENetHost * host;
 	UniqIDGenerator idGenerator;
-	ENetHost * host = nullptr;
 	map<UniqID, ForwardClient> clients;
 };
 
-void initServers(Value& serversConfig, Pool<ForwardServer>& poolForwardServer, vector<ForwardServer*>& servers) {
+void initServers(Value& serversConfig, Pool<ForwardServer> * poolForwardServer, vector<ForwardServer*> * servers) {
 	auto logger = spdlog::get("my_logger");
 	UniqIDGenerator idGenerator;
 	for (Value& serverConfig : serversConfig.GetArray()) {
 		ENetAddress address;
-		ForwardServer* server = poolForwardServer.add();
+		ForwardServer* server = poolForwardServer->add();
 		enet_address_set_host(&address, "0.0.0.0");
 		//address.host = ENET_HOST_ANY;
 		address.port = serverConfig["port"].GetInt();
@@ -46,20 +53,23 @@ void initServers(Value& serversConfig, Pool<ForwardServer>& poolForwardServer, v
 			serverConfig["channels"].GetInt(),
 			0      /* assume any amount of incoming bandwidth */,
 			0      /* assume any amount of outgoing bandwidth */);
-		server->destId = serverConfig["destId"].GetInt();
+		if(serverConfig.HasMember("destId"))
+			server->destId = serverConfig["destId"].GetInt();
 		if (server->host == NULL) {
 			logger->error("An error occurred while trying to create an ENet server host.");
 		}
 		else {
 			server->id = idGenerator.getNewID();
-			servers.push_back(server);
+			servers->push_back(server);
 		}
 	}
-	for (auto it = servers.begin(); it != servers.end(); it++) {
+	for (auto it = servers->begin(); it != servers->end(); it++) {
 		ForwardServer* server = *it;
 		int destId = server->destId;
-		for (auto it2 = servers.begin(); it2 != servers.end(); it2++) {
-			ForwardServer* _server = *it;
+		if (!destId)
+			continue;
+		for (auto it2 = servers->begin(); it2 != servers->end(); it2++) {
+			ForwardServer* _server = *it2;
 			if (_server->id == destId) {
 				server->dest = _server;
 				break;
@@ -91,11 +101,11 @@ int main(int argc, char ** argv)
 
 	Value& serversConfig = config["servers"];
 	int serverNum = serversConfig.GetArray().Size();
-	Pool<ForwardServer> poolForwardServer;
-	Pool<ForwardClient> poolForwardClient;
+	Pool<ForwardServer> poolForwardServer(sizeof(ForwardServer));
+	Pool<ForwardClient> poolForwardClient(sizeof(ForwardClient));
 	vector<ForwardServer*> servers;
 
-	initServers(serversConfig, poolForwardServer, servers);
+	initServers(serversConfig, &poolForwardServer, &servers);
 
 	ENetEvent event;
 	while (!isExit) {
