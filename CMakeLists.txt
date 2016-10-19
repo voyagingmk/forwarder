@@ -14,7 +14,7 @@ include_directories("${PROJECT_SOURCE_DIR}/enet")
 add_subdirectory (enet)
 set (EXTRA_LIBS ${EXTRA_LIBS} enet)
 
-SET(SRC_LIST main.cpp src/utils.cpp)
+SET(SRC_LIST main.cpp src/utils.cpp src/uniqid.cpp)
 
 add_executable(forwarder ${SRC_LIST})
 target_link_libraries (forwarder ${EXTRA_LIBS})

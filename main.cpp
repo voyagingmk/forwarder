@@ -1,5 +1,6 @@
 #include "base.h"
 #include "utils.h"
+#include "uniqid.h"
 
 namespace spd = spdlog;
 using namespace std;
@@ -14,30 +15,6 @@ void onSIGINT(int n)
 	}
 }
 
-typedef unsigned int UniqID;
-
-class UniqIDGenerator
-{
-public:
-	UniqIDGenerator():count(0){};
-	UniqID getNewID() noexcept {
-		if (count > 10000) {
-			if (recycled.front() > 0) {
-				UniqID id = recycled.front();
-				recycled.pop_front();
-				return id;
-			}
-		}
-		count++;
-		return count;
-	}
-	void recycleID(UniqID id) noexcept {
-		recycled.push_back(id);
-	}
-private:
-	std::list<UniqID> recycled;
-	UniqID count;
-};
 
 class ForwardClient {
 public:
@@ -48,10 +25,49 @@ public:
 class ForwardServer {
 public:	
 	UniqID id = 0;
+	int destId = 0;
+	ForwardServer* dest = nullptr;
 	UniqIDGenerator idGenerator;
 	ENetHost * host = nullptr;
 	map<UniqID, ForwardClient> clients;
 };
+
+void initServers(Value& serversConfig, Pool<ForwardServer>& poolForwardServer, vector<ForwardServer*>& servers) {
+	auto logger = spdlog::get("my_logger");
+	UniqIDGenerator idGenerator;
+	for (Value& serverConfig : serversConfig.GetArray()) {
+		ENetAddress address;
+		ForwardServer* server = poolForwardServer.add();
+		enet_address_set_host(&address, "0.0.0.0");
+		//address.host = ENET_HOST_ANY;
+		address.port = serverConfig["port"].GetInt();
+		server->host = enet_host_create(&address,
+			serverConfig["peers"].GetInt(),
+			serverConfig["channels"].GetInt(),
+			0      /* assume any amount of incoming bandwidth */,
+			0      /* assume any amount of outgoing bandwidth */);
+		server->destId = serverConfig["destId"].GetInt();
+		if (server->host == NULL) {
+			logger->error("An error occurred while trying to create an ENet server host.");
+		}
+		else {
+			server->id = idGenerator.getNewID();
+			servers.push_back(server);
+		}
+	}
+	for (auto it = servers.begin(); it != servers.end(); it++) {
+		ForwardServer* server = *it;
+		int destId = server->destId;
+		for (auto it2 = servers.begin(); it2 != servers.end(); it2++) {
+			ForwardServer* _server = *it;
+			if (_server->id == destId) {
+				server->dest = _server;
+				break;
+			}
+		}
+	}
+
+}
 
 int main(int argc, char ** argv)
 {
@@ -75,39 +91,23 @@ int main(int argc, char ** argv)
 
 	Value& serversConfig = config["servers"];
 	int serverNum = serversConfig.GetArray().Size();
-	vector<ForwardServer> servers;
-	UniqIDGenerator idGenerator;
-	for (Value& serverConfig : serversConfig.GetArray()){
-		ENetAddress address;
-		ForwardServer server;
-		enet_address_set_host(&address, "0.0.0.0");
-		//address.host = ENET_HOST_ANY;
-		address.port = serverConfig["port"].GetInt();
-		server.host = enet_host_create(&address,
-			serverConfig["peers"].GetInt(),
-			serverConfig["channels"].GetInt(),
-			0      /* assume any amount of incoming bandwidth */,
-			0      /* assume any amount of outgoing bandwidth */);
-		if (server.host == NULL) {
-			logger->error("An error occurred while trying to create an ENet server host.");
-		}
-		else {
-			server.id = idGenerator.getNewID();
-			servers.push_back(server);
-		}
-	}
+	Pool<ForwardServer> poolForwardServer;
 	Pool<ForwardClient> poolForwardClient;
+	vector<ForwardServer*> servers;
+
+	initServers(serversConfig, poolForwardServer, servers);
+
 	ENetEvent event;
 	while (!isExit) {
 		int ret;
 		for (auto& server: servers) {
-			while (ret = enet_host_service(server.host, &event, 5) > 0)
+			while (ret = enet_host_service(server->host, &event, 5) > 0)
 			{
 				logger->info("event.type = {}", event.type);
 				switch (event.type)
 				{
 				case ENET_EVENT_TYPE_CONNECT: {
-					UniqID id = server.idGenerator.getNewID();
+					UniqID id = server->idGenerator.getNewID();
 					ForwardClient* client = poolForwardClient.add();
 					client->id = id;
 					event.peer->data = client;
@@ -124,6 +124,9 @@ int main(int argc, char ** argv)
 						event.packet->dataLength, 
 						event.packet->data);
 					enet_packet_destroy(event.packet);
+
+					// forward the packet to dest host
+					enet_host_broadcast(server->dest->host, event.channelID, event.packet);
 					//ENetPacket * packet = enet_packet_create("world", strlen("world") + 1, ENET_PACKET_FLAG_RELIABLE);
 					//enet_peer_send(event.peer, 0, packet);
 					break;
@@ -140,11 +143,12 @@ int main(int argc, char ** argv)
 		}
 	}
 	while(servers.size() > 0) {
-		ForwardServer& server = servers.back();
+		ForwardServer* server = servers.back();
 		servers.pop_back();
-		enet_host_destroy(server.host);
+		enet_host_destroy(server->host);
 	}
 
+	poolForwardServer.clear();
 	poolForwardClient.clear();
 	atexit(enet_deinitialize);
 	atexit(spdlog::drop_all);

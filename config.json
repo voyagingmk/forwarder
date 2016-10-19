@@ -2,7 +2,7 @@
     "servers": [{
 		"id": 1,
 		"desc": "C2FS",
-		"desthost": 2,
+		"destId": 2,
         "safe": true,
         "port": 12000,
         "peers": 3000,
