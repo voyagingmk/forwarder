@@ -53,7 +53,7 @@ enet.createClient(function (err, client) {
 					console.log("packet 1 sent.");
 				}
 			});
-
+			/*
 			var packet2 = new enet.Packet(new Buffer("test unreliable packet\n"), enet.PACKET_FLAG.UNRELIABLE);
 			console.log("sending packet 2...");
 			peer.send(0, packet2, function (err) {
@@ -63,6 +63,7 @@ enet.createClient(function (err, client) {
 					console.log("packet 2 sent.");
 				}
 			});
+			*/
 
 			peer.disconnectLater();
 

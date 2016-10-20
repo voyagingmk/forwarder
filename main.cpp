@@ -34,6 +34,7 @@ public:
 		dest = nullptr;
 		host = nullptr;
 		clients.clear();
+		printf("dtor\n");
 	}
 public:	
 	UniqID id;
@@ -81,7 +82,6 @@ void initServers(Value& serversConfig, Pool<ForwardServer> * poolForwardServer, 
 			}
 		}
 	}
-
 }
 
 int main(int argc, char ** argv)
@@ -134,14 +134,15 @@ int main(int argc, char ** argv)
 				}
 				case ENET_EVENT_TYPE_RECEIVE: {
 					ForwardClient* client = (ForwardClient*)event.peer->data;
-					logger->info("[c:{1}][len:{2}] {3}", 
+					logger->info("[c:{0}][len:{1}] {2}", 
 						client->id, 
 						event.packet->dataLength, 
 						event.packet->data);
-					enet_packet_destroy(event.packet);
-
 					// forward the packet to dest host
 					enet_host_broadcast(server->dest->host, event.channelID, event.packet);
+					logger->info("forwarded");
+					//enet_packet_destroy(event.packet)
+
 					//ENetPacket * packet = enet_packet_create("world", strlen("world") + 1, ENET_PACKET_FLAG_RELIABLE);
 					//enet_peer_send(event.peer, 0, packet);
 					break;

@@ -25,7 +25,7 @@
 #include "macro.h"
 
 #define DEFAULT_FORCE_CLEAR true
-// #define EXPONENTIAL_POOL_ALLOCATION
+#define EXPONENTIAL_POOL_ALLOCATION
 
 #ifdef EXPONENTIAL_POOL_ALLOCATION
 #define DEFAULT_CHUNK_SIZE 1024
@@ -64,7 +64,7 @@ private:
 public:
 	Pool(size_t chunk_size = DEFAULT_CHUNK_SIZE) : data_(nullptr),
 #ifdef EXPONENTIAL_POOL_ALLOCATION
-		size_(chunk_size >> 1),
+		size_(chunk_size > 1 ? chunk_size >> 1: chunk_size),
 #else
 		size_(chunk_size),
 #endif
@@ -91,7 +91,8 @@ public:
 		{
 			forceClear = true;
 			add_chunk();
-		} El *el = free_;
+		} 
+		El *el = free_;
 		free_ = free_->next;
 		new(el)T();
 		return &(el->obj);
@@ -107,7 +108,7 @@ public:
 		if (force || forceClear)
 		{
 			El *prevChunk = nullptr;
-			El *chunk = data_;
+			El *chunk = data_; //data_ is head
 			size_t sz = size_;
 			size_t doubleSz = sz << 1;
 			while (chunk)
