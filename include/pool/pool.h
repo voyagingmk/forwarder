@@ -98,6 +98,7 @@ public:
 	}
 	FORCE_INLINE void del(T *obj)
 	{
+		obj->~T();
 		((El *)obj)->next = free_;
 		free_ = (El *)obj;
 	}

@@ -30,6 +30,11 @@ public:
 		dest(nullptr),
 		host(nullptr)
 	{}
+	~ForwardServer() {
+		dest = nullptr;
+		host = nullptr;
+		clients.clear();
+	}
 public:	
 	UniqID id;
 	int destId;
@@ -148,8 +153,12 @@ int main(int argc, char ** argv)
 					poolForwardClient.del(client);
 					event.peer->data = nullptr;
 				}
+				if (isExit)
+					break;
 			}
 			//std::this_thread::sleep_for(std::chrono::milliseconds(20));
+			if (isExit)
+				break;
 		}
 	}
 	while(servers.size() > 0) {

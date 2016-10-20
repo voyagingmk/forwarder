@@ -1,20 +1,19 @@
 #include "uniqid.h"
 
 UniqIDGenerator::UniqIDGenerator() :
-	count(0), 
-	recycled(new std::list<UniqID>)
+	count(0)
 {
 };
 
 UniqIDGenerator::~UniqIDGenerator() {
-	delete recycled;
+	recycled.clear();
 }
 	
 UniqID UniqIDGenerator::getNewID() noexcept {
 	if (count > 10000) {
-		if (recycled->size()>0 && recycled->front() > 0) {
-			UniqID id = recycled->front();
-			recycled->pop_front();
+		if (recycled.size()>0 && recycled.front() > 0) {
+			UniqID id = recycled.front();
+			recycled.pop_front();
 			return id;
 		}
 	}
@@ -22,5 +21,5 @@ UniqID UniqIDGenerator::getNewID() noexcept {
 	return count;
 }
 void UniqIDGenerator::recycleID(UniqID id) noexcept {
-	recycled->push_back(id);
+	recycled.push_back(id);
 }

@@ -12,7 +12,7 @@ public:
 	UniqID getNewID() noexcept;
 	void recycleID(UniqID id) noexcept;
 private:
-	std::list<UniqID>* recycled;
+	std::list<UniqID> recycled;
 	UniqID count;
 };
 
