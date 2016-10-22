@@ -38,3 +38,12 @@ bool setupLogger() {
 	logger->info("logger created successfully.");
 	return true;
 }
+
+void debugDocument(rapidjson::Document& d) {
+	auto logger = spdlog::get("my_logger");
+	rapidjson::StringBuffer buffer;
+	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+	d.Accept(writer);
+	const char* s = buffer.GetString();
+	logger->info(s);
+}
