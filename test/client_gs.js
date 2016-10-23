@@ -30,7 +30,7 @@ enet.createClient(function (err, client) {
 			console.log("connected to:", peer.address());
 
 			peer.on("message", function (packet, chan) {
-				console.log("got message:", typeof(packet.data()));
+				console.log("got message, len=", packet.dataLength());
 				const result = forwarder.unmakePacket({
 					data: packet.data()
 				});
