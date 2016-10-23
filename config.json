@@ -10,6 +10,7 @@
     },{
 		"id": 2,
 		"desc": "GS2FS",
+		"admin": true,
         "encrypt": false,
 		"admin": true,
         "port": 9999,

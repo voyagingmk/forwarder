@@ -10,12 +10,14 @@ public:
 		destId(0),
 		peerLimit(0),
 		desc(""),
+		admin(false),
 		dest(nullptr),
 		host(nullptr)
 	{}
 	~ForwardServer() {
 		dest = nullptr;
 		host = nullptr;
+		admin = false;
 		clients.clear();
 		printf("dtor\n");
 	}
@@ -24,6 +26,7 @@ public:
 public:
 	UniqID id;
 	int destId;
+	bool admin;
 	ForwardServer* dest;
 	ENetHost * host;
 	UniqIDGenerator idGenerator;

@@ -41,6 +41,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		address.port = serverConfig["port"].GetInt();
 		server->desc = serverConfig["desc"].GetString();
 		server->peerLimit = serverConfig["peers"].GetInt();
+		server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
 		server->host = enet_host_create(&address,
 			server->peerLimit,
 			serverConfig["channels"].GetInt(),
@@ -85,7 +86,8 @@ bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
 
 // system command
 bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
-	
+	if(!param.server->admin)
+		return FORWARDER_ERR;
 	return FORWARDER_OK;
 }
 
