@@ -9,7 +9,12 @@ ForwardCtrl::ForwardCtrl() :
 	poolForwardClient(sizeof(ForwardClient)),
 	serverNum(0),
 	isExit(false)
-{}
+{
+	handleFuncs[1] = &ForwardCtrl::handlePacket_1;
+	handleFuncs[2] = &ForwardCtrl::handlePacket_2;
+	handleFuncs[3] = &ForwardCtrl::handlePacket_3;
+	handleFuncs[4] = &ForwardCtrl::handlePacket_4;
+}
 
 
 ForwardCtrl::~ForwardCtrl() {
@@ -20,6 +25,7 @@ ForwardCtrl::~ForwardCtrl() {
 	}
 	poolForwardServer.clear();
 	poolForwardClient.clear();
+	handleFuncs.clear();
 }
 
 
@@ -48,6 +54,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		else {
 			server->id = idGenerator.getNewID();
 			servers.push_back(server);
+			serverDict[server->id] = server;
 		}
 	}
 	for (auto it = servers.begin(); it != servers.end(); it++) {
@@ -65,17 +72,97 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	}
 }
 
+
+
+bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
+	memcpy(header, packet->data, sizeof(ForwardHeader));
+	if (header->version != FORWARDER_VERSION)
+		return FORWARDER_ERR;
+	if (header->length != sizeof(ForwardHeader))
+		return FORWARDER_ERR;
+	return FORWARDER_OK;
+}
+
+// no destHostID and no destCID
+bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
+	ForwardHeader& inHeader = *param.header; 
+	ForwardHeader outHeader;
+	outHeader.protocol = 3;
+	if (inHeader.getFlag(FORWARDER_FLAG_WITH_ADDRESS)) {
+		outHeader.hostID = param.server->id;
+		outHeader.clientID = param.client->id;
+	}
+	ENetPacket * outPacket = param.packet;
+	memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
+	ForwardServer* outHost = param.server->dest; // no dest param, so use host from config
+	// broadcast the incoming packet to dest host's all peers
+	enet_host_broadcast(outHost->host, param.channelID, outPacket);
+	logger()->info("forwarded 1");
+	return FORWARDER_OK;
+}
+
+// has destHostID and has destCID
+bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
+	ForwardHeader& inHeader = *param.header;
+	ForwardHeader outHeader;
+	outHeader.protocol = 3;
+	if (inHeader.getFlag(FORWARDER_FLAG_WITH_ADDRESS)) {
+		outHeader.hostID = param.server->id;
+		outHeader.clientID = param.client->id;
+	}
+	int destHostID = inHeader.hostID;
+	int destClientID = inHeader.clientID;
+	auto it_server = serverDict.find(destHostID);
+	if (it_server == serverDict.end())
+		return FORWARDER_ERR;
+	ForwardServer* outHost = it_server->second;
+	auto it_client = outHost->clients.find(destClientID);
+	if (it_client == outHost->clients.end())
+		return FORWARDER_ERR;
+	ForwardClient* outClient = it_client->second;
+	ENetPacket * outPacket = param.packet;
+	memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
+	// broadcast the incoming packet to dest host's peers
+	enet_peer_send(outClient->peer, param.channelID, outPacket);
+	logger()->info("forwarded 2");
+	return FORWARDER_OK;
+}
+
+// for FS 
+bool ForwardCtrl::handlePacket_3(ForwardParam& param) {
+
+	return FORWARDER_OK;
+}
+bool ForwardCtrl::handlePacket_4(ForwardParam& param) {
+	return FORWARDER_OK;
+}
+
 void  ForwardCtrl::onReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
-	logger()->info("[cli:{0}][c:{1}][len:{2}] {3}",
+	logger()->info("[cli:{0}][c:{1}][len:{2}]",
 		client->id,
 		channelID,
-		inPacket->dataLength,
-		inPacket->data);
-	ENetPacket * outPacket = enet_packet_create(inPacket->data, inPacket->dataLength, ENET_PACKET_FLAG_RELIABLE);
-	enet_packet_destroy(inPacket);
-	// broadcast the incoming packet to dest host's peers
-	enet_host_broadcast(server->dest->host, channelID, outPacket);
-	logger()->info("forwarded");
+		inPacket->dataLength);
+	ForwardHeader header;
+	bool err = getHeader(&header, inPacket);
+	if (err) {
+		logger()->warn("[onReceived] getHeader err");
+		return;
+	}
+	const char * content = (const char*)(inPacket->data) + sizeof(header);
+	logger()->info("[data]{0}", content);
+	auto it = handleFuncs.find(header.protocol);
+	if (it == handleFuncs.end()) {
+		logger()->warn("[onReceived] wrong protocol:{0}", header.protocol);
+		return;
+	}
+	ForwardParam param;
+	param.header = &header;
+	param.channelID = channelID;
+	param.packet = inPacket;
+	param.client = client;
+	param.server = server;
+	handlePacketFunc handleFunc = it->second;
+	(this->*handleFunc)(param);
 }
 
 void ForwardCtrl::loop() {

@@ -5,6 +5,10 @@
 
 class ForwardClient {
 public:
+	ForwardClient() {};
+	ForwardClient(const ForwardClient& x) = delete;
+	ForwardClient& operator=(const ForwardClient& x) = delete;
+public:
 	ENetPeer * peer = nullptr;
 	UniqID id = 0;
 };

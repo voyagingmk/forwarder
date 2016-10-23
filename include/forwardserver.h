@@ -19,6 +19,8 @@ public:
 		clients.clear();
 		printf("dtor\n");
 	}
+	ForwardServer(const ForwardServer& x) = delete;
+	ForwardServer& operator=(const ForwardServer& x) = delete;
 public:
 	UniqID id;
 	int destId;

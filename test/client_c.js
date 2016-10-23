@@ -43,8 +43,32 @@ enet.createClient(function (err, client) {
 					client.destroy();
 				});
 			});
+			//small-endian
+			const arr = new Uint8Array(8);
+			/*
+			uint8_t version;
+			uint8_t length;
+			uint8_t protocol;
+			uint8_t hash;
+			uint8_t subID;
+			uint8_t hostID;
+			uint16_t clientID;
+			*/
+			arr[0] = 1; //version
+			arr[1] = 8; //length
+			arr[2] = 1; //protocol
+			arr[3] = 255; //hash
+			arr[4] = 1; //subID
+			arr[5] = 255; //hostID
+			arr[6] = 10; //clientID
+			arr[7] = 5; //clientID 
+			//client ID = 
 
-			var packet1 = new enet.Packet(new Buffer("Hello\n"), enet.PACKET_FLAG.RELIABLE);
+			// Shares memory with `arr`
+			const headerBuf = new Buffer(arr.buffer);
+			const contentBuf = new Buffer("Hello\n")
+			const buf = Buffer.concat([headerBuf, contentBuf], headerBuf.length + contentBuf.length);
+			var packet1 = new enet.Packet(buf, enet.PACKET_FLAG.RELIABLE);
 			console.log("sending packet 1...");
 			peer.send(0, packet1, function (err) {
 				if (err) {

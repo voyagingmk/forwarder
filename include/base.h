@@ -13,6 +13,8 @@
 #include <vector>
 #include <map>
 #include <array>
+#include <cstdint>
+#include <stdint.h>
 
 // third party library
 
