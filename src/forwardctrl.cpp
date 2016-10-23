@@ -88,6 +88,24 @@ bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
 bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 	if(!param.server->admin)
 		return FORWARDER_ERR;
+	ForwardHeader outHeader;
+	outHeader.protocol = 1;
+	int subID = param.header->subID;
+	if (subID == 1) {
+		//stat
+		rapidjson::Document& d = stat();
+		rapidjson::StringBuffer buffer;
+		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+		d.Accept(writer);
+		const char* s = buffer.GetString();
+		ENetPacket * outPacket = enet_packet_create(NULL, sizeof(ForwardHeader) + strlen(s), ENET_PACKET_FLAG_RELIABLE);
+		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
+		memcpy(outPacket->data + sizeof(ForwardHeader), &s, strlen(s));
+		enet_peer_send(param.client->peer, param.channelID, outPacket);
+	}
+	else if (subID == 2){
+		//force disconnect
+	}
 	return FORWARDER_OK;
 }
 
@@ -95,7 +113,7 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	ForwardHeader& inHeader = *param.header;
 	ForwardHeader outHeader;
-	outHeader.protocol = 3;
+	outHeader.protocol = 2;
 	if (inHeader.getFlag(FORWARDER_FLAG_WITH_ADDRESS)) {
 		outHeader.hostID = param.server->id;
 		outHeader.clientID = param.client->id;
@@ -127,13 +145,13 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 		ForwardClient* outClient = it_client->second;
 		ENetPacket * outPacket = param.packet;
 		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
-		// broadcast the incoming packet to dest host's peers
 		enet_peer_send(outClient->peer, param.channelID, outPacket);
 	}
 	else {
 		//broadcast
 		ENetPacket * outPacket = param.packet;
 		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
+		// broadcast the incoming packet to dest host's peers
 		enet_host_broadcast(outHost->host, param.channelID, outPacket);
 	}
 	logger()->info("forwarded 2");
@@ -161,9 +179,9 @@ void  ForwardCtrl::onReceived(ForwardServer* server, ForwardClient* client, ENet
 	}
 	const char * content = (const char*)(inPacket->data) + sizeof(header);
 	logger()->info("[data]{0}", content);
-	auto it = handleFuncs.find(header.protocol);
+	auto it = handleFuncs.find(header.getProtocol());
 	if (it == handleFuncs.end()) {
-		logger()->warn("[onReceived] wrong protocol:{0}", header.protocol);
+		logger()->warn("[onReceived] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
 	ForwardParam param;

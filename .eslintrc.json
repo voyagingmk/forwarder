@@ -1,0 +1,91 @@
+{
+    "parser": "babel-eslint",
+    "env": {
+        "browser": true,
+        "node": true
+    },
+    "extends": "airbnb",
+    "rules": {
+        "indent": [
+            "off",
+            "tab"
+        ],
+        "linebreak-style": [
+            "error",
+            "unix"
+        ],
+        "quotes": [
+            "off",
+            "double"
+        ],
+        "semi": [
+            "warn",
+            "always"
+        ],
+        "eol-last": "off",
+        "global-require": "off",
+        "import/no-unresolved": "off",
+        "no-underscore-dangle": "off",
+        "no-new-func": "off",
+        "no-param-reassign": "off",
+        "react/prefer-stateless-function": "off",
+        "react/no-multi-comp": "off",
+        "react/jsx-no-bind": "off",
+        "react/jsx-indent": "off",
+        "react/jsx-first-prop-new-line": "off",
+        "react/jsx-filename-extension": "off",
+        "no-restricted-syntax": "off",
+
+        "no-plusplus": ["error", {
+            "allowForLoopAfterthoughts": true
+        }],
+        "no-mixed-operators": [
+            "error", {
+                "groups": [
+                    ["+", "-", "*", "/", "%", "**"],
+                    ["&", "|", "^", "~", "<<", ">>", ">>>"],
+                    ["==", "!=", "===", "!==", ">", ">=", "<", "<="],
+                    ["&&", "||"],
+                    ["in", "instanceof"]
+                ],
+                "allowSamePrecedence": true
+            }
+        ],
+        "no-continue": 0,
+        "no-unused-expressions": [
+            "error", {
+                "allowShortCircuit": true
+            }
+        ],
+        "max-len": [
+            "error", 200
+        ],
+        "radix": [
+            "error", "as-needed"
+        ],
+        "no-eval": "off",
+        "no-console": "off",
+        "guard-for-in": "off",
+        "space-before-function-paren": ["error", {
+            "anonymous": "always",
+            "named": "never"
+        }],
+        "new-cap": "off",
+        "func-names": ["error", "never"],
+        "space-unary-ops": [
+            2, {
+                "words": false
+            }
+        ],
+        "camelcase": "off",
+        "strict": "off",
+        "arrow-body-style": ["error", "always"],
+        "generator-star-spacing": "off"
+    },
+    "globals": {
+        "mbgGame": false,
+        "_": false,
+        "moment": false,
+        "requireCore": false
+    }
+}
