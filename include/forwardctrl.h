@@ -25,6 +25,10 @@ public:
 
 	void loop();
 private:
+	void onReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
+
+	}
+private:
 	Pool<ForwardServer> poolForwardServer;
 	Pool<ForwardClient> poolForwardClient;
 	std::vector<ForwardServer*> servers;

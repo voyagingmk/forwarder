@@ -11,6 +11,12 @@ public:
 	~UniqIDGenerator();
 	UniqID getNewID() noexcept;
 	void recycleID(UniqID id) noexcept;
+	inline int getCount() const noexcept {
+		return count;
+	}
+	inline int getPecycledLength() const noexcept {
+		return recycled.size();
+	}
 private:
 	std::list<UniqID> recycled;
 	UniqID count;

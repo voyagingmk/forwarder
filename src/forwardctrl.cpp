@@ -65,6 +65,18 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	}
 }
 
+void  ForwardCtrl::onReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
+	logger()->info("[cli:{0}][c:{1}][len:{2}] {3}",
+		client->id,
+		channelID,
+		inPacket->dataLength,
+		inPacket->data);
+	ENetPacket * outPacket = enet_packet_create(inPacket->data, inPacket->dataLength, ENET_PACKET_FLAG_RELIABLE);
+	enet_packet_destroy(inPacket);
+	// broadcast the incoming packet to dest host's peers
+	enet_host_broadcast(server->dest->host, channelID, outPacket);
+	logger()->info("forwarded");
+}
 
 void ForwardCtrl::loop() {
 	ENetEvent event;
@@ -81,6 +93,7 @@ void ForwardCtrl::loop() {
 					ForwardClient* client = poolForwardClient.add();
 					client->id = id;
 					event.peer->data = client;
+					server->clients[id] = client;
 					logger()->info("[c:{1}] connected, from {1}:{2}.",
 						client->id,
 						event.peer->address.host,
@@ -90,23 +103,18 @@ void ForwardCtrl::loop() {
 				case ENET_EVENT_TYPE_RECEIVE: {
 					ForwardClient* client = (ForwardClient*)event.peer->data;
 					ENetPacket * inPacket = event.packet;
-					logger()->info("[c:{0}][len:{1}] {2}",
-						client->id,
-						event.packet->dataLength,
-						event.packet->data);
-					ENetPacket * outPacket = enet_packet_create(inPacket->data, inPacket->dataLength, ENET_PACKET_FLAG_RELIABLE);
-					enet_packet_destroy(inPacket);
-					// broadcast the incoming packet to dest host's peers
-					enet_host_broadcast(server->dest->host, event.channelID, outPacket);
-					logger()->info("forwarded");
+					onReceived(server, client, inPacket, event.channelID);
 					break;
 				}
 				case ENET_EVENT_TYPE_DISCONNECT:
 					ForwardClient* client = (ForwardClient*)event.peer->data;
 					logger()->info("[c:{1}] disconnected.",
 						client->id);
-					poolForwardClient.del(client);
 					event.peer->data = nullptr;
+					auto it = server->clients.find(client->id);
+					if(it != server->clients.end())
+						server->clients.erase(it);
+					poolForwardClient.del(client);
 				}
 				if (isExit)
 					break;
@@ -148,19 +156,35 @@ Document ForwardCtrl::stat() {
 	for (auto it = servers.begin(); it != servers.end(); it++) {
 		ForwardServer * server = *it;
 		Value dServer(kObjectType);	
-		auto add = [&](Value::StringRefType k, Value& v) { 
-			dServer.AddMember(k, v, d.GetAllocator()); 
-		};
-		//auto add = bind(&dServer.AddMember, dServer, placeholders::_1, placeholders::_2, d.GetAllocator());
-		add("id", Value(server->id));
-		add("destId", Value(server->destId));
-		Value desc;
-		desc.SetString(server->desc.c_str(), server->desc.size(), d.GetAllocator());
-		add("desc", desc);
-		add("port", Value(server->host->address.port));
-		add("peerLimit", Value(server->peerLimit));
-		add("peerCount", Value(server->host->peerCount));
-		add("channels", Value(server->host->channelLimit));
+		auto addToServer = [&](Value::StringRefType k, Value& v) {
+			dServer.AddMember(k, v, d.GetAllocator());
+		}; 
+		{
+			Value dConfig(kObjectType);
+			auto add = [&](Value::StringRefType k, Value& v) {
+				dConfig.AddMember(k, v, d.GetAllocator());
+			};
+			//auto add = bind(&dServer.AddMember, dServer, placeholders::_1, placeholders::_2, d.GetAllocator());
+			add("id", Value(server->id));
+			add("destId", Value(server->destId));
+			Value desc;
+			desc.SetString(server->desc.c_str(), server->desc.size(), d.GetAllocator());
+			add("desc", desc);
+			add("port", Value(server->host->address.port));
+			add("peerLimit", Value(server->peerLimit));
+			add("channels", Value(server->host->channelLimit));
+			addToServer("config", dConfig.Move());
+		}
+		{
+			Value dIdGenerator(kObjectType);
+			auto add = [&](Value::StringRefType k, Value& v) {
+				dIdGenerator.AddMember(k, v, d.GetAllocator());
+			}; 
+			add("max", Value(server->idGenerator.getCount()));
+			add("recyled", Value(server->idGenerator.getPecycledLength()));
+			addToServer("idGenerator", dIdGenerator.Move());
+		}
+		addToServer("peers", Value(server->clients.size()));
 		lstServers.PushBack(dServer.Move(), d.GetAllocator());
 	}
 	d.AddMember("servers", lstServers.Move(), d.GetAllocator());
