@@ -42,7 +42,7 @@ int main(int argc, char ** argv)
 
 	ctrl.initServers(config["servers"]);
 
-	//debugDocument(ctrl.stat());
+	debugDocument(ctrl.stat());
 
 	ctrl.loop();
 
