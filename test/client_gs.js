@@ -1,4 +1,5 @@
 var enet = require('enet');
+var forwarder = require('./forwarder');
 
 var s_addr = new enet.Address("127.0.0.1", 9999);
 
@@ -29,7 +30,12 @@ enet.createClient(function (err, client) {
 			console.log("connected to:", peer.address());
 
 			peer.on("message", function (packet, chan) {
-				console.log("got message:", packet.data().toString());
+				console.log("got message:", typeof(packet.data()));
+				const result = forwarder.unmakePacket({
+					data: packet.data()
+				});
+				console.log("content", result.content);
+
 			});
 
 			peer.on("disconnect", function () {
@@ -42,6 +48,20 @@ enet.createClient(function (err, client) {
 				setTimeout(function () {
 					client.destroy();
 				});
+			});
+
+			var packet = forwarder.makePacket({
+				protocol: 1,
+				subID: 1,
+				content: ""
+			});
+			console.log("sending packet 1...");
+			peer.send(0, packet, function (err) {
+				if (err) {
+					console.log("error sending packet 1:", err);
+				} else {
+					console.log("packet 1 sent.");
+				}
 			});
 		});
 	}

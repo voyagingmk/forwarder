@@ -46,7 +46,8 @@ enet.createClient(function (err, client) {
 			});
 			var packet = forwarder.makePacket({
 				protocol: 1,
-				content: "hello,world!"
+				subID: 1,
+				content: ""
 			});
 			console.log("sending packet 1...");
 			peer.send(0, packet, function (err) {

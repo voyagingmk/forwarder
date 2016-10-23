@@ -9,11 +9,11 @@ class ForwardHeader
 {
 public:
 	uint32_t getFlag(uint8_t pos) {
-		uint8_t flag = (0x0f & protocol) >> 4;
+		uint8_t flag = (0xf0 & protocol) >> 4;
 		return flag & pos;
 	}
 	uint8_t getProtocol() {
-		return 0xf0 & protocol;
+		return 0x0f & protocol;
 	}
 public:
 	uint8_t version = FORWARDER_VERSION;

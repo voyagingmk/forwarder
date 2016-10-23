@@ -102,6 +102,7 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
 		memcpy(outPacket->data + sizeof(ForwardHeader), &s, strlen(s));
 		enet_peer_send(param.client->peer, param.channelID, outPacket);
+		logger()->info("response 1");
 	}
 	else if (subID == 2){
 		//force disconnect
@@ -208,6 +209,7 @@ void ForwardCtrl::loop() {
 					UniqID id = server->idGenerator.getNewID();
 					ForwardClient* client = poolForwardClient.add();
 					client->id = id;
+					client->peer = event.peer;
 					event.peer->data = client;
 					server->clients[id] = client;
 					logger()->info("[c:{1}] connected, from {1}:{2}.",
