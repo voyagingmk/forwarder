@@ -83,21 +83,9 @@ bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
 	return FORWARDER_OK;
 }
 
-// no destHostID and no destCID
+// system command
 bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
-	ForwardHeader& inHeader = *param.header; 
-	ForwardHeader outHeader;
-	outHeader.protocol = 3;
-	if (inHeader.getFlag(FORWARDER_FLAG_WITH_ADDRESS)) {
-		outHeader.hostID = param.server->id;
-		outHeader.clientID = param.client->id;
-	}
-	ENetPacket * outPacket = param.packet;
-	memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
-	ForwardServer* outHost = param.server->dest; // no dest param, so use host from config
-	// broadcast the incoming packet to dest host's all peers
-	enet_host_broadcast(outHost->host, param.channelID, outPacket);
-	logger()->info("forwarded 1");
+	
 	return FORWARDER_OK;
 }
 
@@ -110,25 +98,46 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 		outHeader.hostID = param.server->id;
 		outHeader.clientID = param.client->id;
 	}
-	int destHostID = inHeader.hostID;
-	int destClientID = inHeader.clientID;
-	auto it_server = serverDict.find(destHostID);
-	if (it_server == serverDict.end())
-		return FORWARDER_ERR;
-	ForwardServer* outHost = it_server->second;
-	auto it_client = outHost->clients.find(destClientID);
-	if (it_client == outHost->clients.end())
-		return FORWARDER_ERR;
-	ForwardClient* outClient = it_client->second;
-	ENetPacket * outPacket = param.packet;
-	memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
-	// broadcast the incoming packet to dest host's peers
-	enet_peer_send(outClient->peer, param.channelID, outPacket);
+	
+	ForwardServer* outHost = nullptr;
+	if (param.server->dest) {
+		// prior
+		outHost = param.server->dest;
+	}
+	else {
+		int destHostID = inHeader.hostID;
+		if (!destHostID)
+			return FORWARDER_ERR;
+		auto it_server = serverDict.find(destHostID);
+		if (it_server == serverDict.end())
+			return FORWARDER_ERR;
+		outHost = it_server->second;
+	}
+	int destClientID = 0;
+	if (!param.server->dest) {
+		destClientID = inHeader.clientID;
+	}
+	if (destClientID) {
+		//single send
+		auto it_client = outHost->clients.find(destClientID);
+		if (it_client == outHost->clients.end())
+			return FORWARDER_ERR;
+		ForwardClient* outClient = it_client->second;
+		ENetPacket * outPacket = param.packet;
+		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
+		// broadcast the incoming packet to dest host's peers
+		enet_peer_send(outClient->peer, param.channelID, outPacket);
+	}
+	else {
+		//broadcast
+		ENetPacket * outPacket = param.packet;
+		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
+		enet_host_broadcast(outHost->host, param.channelID, outPacket);
+	}
 	logger()->info("forwarded 2");
 	return FORWARDER_OK;
 }
 
-// for FS 
 bool ForwardCtrl::handlePacket_3(ForwardParam& param) {
 
 	return FORWARDER_OK;
