@@ -98,9 +98,11 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		d.Accept(writer);
 		const char* s = buffer.GetString();
-		ENetPacket * outPacket = enet_packet_create(NULL, sizeof(ForwardHeader) + strlen(s), ENET_PACKET_FLAG_RELIABLE);
+		int totalLength = sizeof(ForwardHeader) + strlen(s) + 1;
+		ENetPacket * outPacket = enet_packet_create(NULL, totalLength, ENET_PACKET_FLAG_RELIABLE);
+		memset(outPacket->data, '\0', totalLength);
 		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
-		memcpy(outPacket->data + sizeof(ForwardHeader), &s, strlen(s));
+		memcpy(outPacket->data + sizeof(ForwardHeader), s, strlen(s));
 		enet_peer_send(param.client->peer, param.channelID, outPacket);
 		logger()->info("response 1");
 	}

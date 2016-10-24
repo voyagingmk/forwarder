@@ -2,13 +2,18 @@ var enet = require('enet');
 const FORWARDER_VERSION = 1;
 const FORWARDER_PACKET_LENGTH = 8;
 
+
 function unmakePacket(param){
 	const data = param.data;
+	let arr = new Uint8Array(FORWARDER_PACKET_LENGTH);
+	for(let i = 0; i < FORWARDER_PACKET_LENGTH; i++){
+		arr[i] = data[i];
+	}
+	console.log("arr",arr);
 	const header = Buffer.from(data,0,8);
 	console.log("header.length",header.length);
 	console.log("param.data.length",data.length);
-	const contentBuf = Buffer.from(data,8, data.length);
-	let content = data.slice(8, data.length).toString("ascii");
+	let content = data.toString("ascii", 8, data.length);
 	return {
 		content
 	};
