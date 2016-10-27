@@ -28,7 +28,6 @@ ForwardCtrl::~ForwardCtrl() {
 	handleFuncs.clear();
 }
 
-
 void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	serverNum = serversConfig.GetArray().Size();
 	auto logger = spdlog::get("my_logger");
@@ -93,7 +92,7 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 	int subID = param.header->subID;
 	if (subID == 1) {
 		//stat
-		rapidjson::Document& d = stat();
+		const rapidjson::Document& d = stat();
 		rapidjson::StringBuffer buffer;
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		d.Accept(writer);
@@ -202,39 +201,42 @@ void ForwardCtrl::loop() {
 	while (!isExit) {
 		int ret;
 		for (auto& server : servers) {
-			while (ret = enet_host_service(server->host, &event, 5) > 0)
+			ret = enet_host_service(server->host, &event, 5);
+			while (ret > 0)
 			{
 				logger()->info("event.type = {}", event.type);
-				switch (event.type)
-				{
-				case ENET_EVENT_TYPE_CONNECT: {
-					UniqID id = server->idGenerator.getNewID();
-					ForwardClient* client = poolForwardClient.add();
-					client->id = id;
-					client->peer = event.peer;
-					event.peer->data = client;
-					server->clients[id] = client;
-					logger()->info("[c:{1}] connected, from {1}:{2}.",
-						client->id,
-						event.peer->address.host,
-						event.peer->address.port);
-					break;
-				}
-				case ENET_EVENT_TYPE_RECEIVE: {
-					ForwardClient* client = (ForwardClient*)event.peer->data;
-					ENetPacket * inPacket = event.packet;
-					onReceived(server, client, inPacket, event.channelID);
-					break;
-				}
-				case ENET_EVENT_TYPE_DISCONNECT:
-					ForwardClient* client = (ForwardClient*)event.peer->data;
-					logger()->info("[c:{1}] disconnected.",
-						client->id);
-					event.peer->data = nullptr;
-					auto it = server->clients.find(client->id);
-					if(it != server->clients.end())
-						server->clients.erase(it);
-					poolForwardClient.del(client);
+				switch (event.type) {
+					case ENET_EVENT_TYPE_CONNECT: {
+						UniqID id = server->idGenerator.getNewID();
+						ForwardClient* client = poolForwardClient.add();
+						client->id = id;
+						client->peer = event.peer;
+						event.peer->data = client;
+						server->clients[id] = client;
+						logger()->info("[c:{1}] connected, from {1}:{2}.",
+							client->id,
+							event.peer->address.host,
+							event.peer->address.port);
+						break;
+					}
+					case ENET_EVENT_TYPE_RECEIVE: {
+						ForwardClient* client = (ForwardClient*)event.peer->data;
+						ENetPacket * inPacket = event.packet;
+						onReceived(server, client, inPacket, event.channelID);
+						break;
+					}
+					case ENET_EVENT_TYPE_DISCONNECT: {
+						ForwardClient* client = (ForwardClient*)event.peer->data;
+						logger()->info("[c:{1}] disconnected.",
+							client->id);
+						event.peer->data = nullptr;
+						auto it = server->clients.find(client->id);
+						if (it != server->clients.end())
+							server->clients.erase(it);
+						poolForwardClient.del(client);
+					}
+					case ENET_EVENT_TYPE_NONE:
+						break;
 				}
 				if (isExit)
 					break;
@@ -285,26 +287,34 @@ Document ForwardCtrl::stat() {
 				dConfig.AddMember(k, v, d.GetAllocator());
 			};
 			//auto add = bind(&dServer.AddMember, dServer, placeholders::_1, placeholders::_2, d.GetAllocator());
-			add("id", Value(server->id));
-			add("destId", Value(server->destId));
+			Value id(server->id);
+			add("id", id);
+			Value destId(server->destId);
+			add("destId", destId);
 			Value desc;
 			desc.SetString(server->desc.c_str(), server->desc.size(), d.GetAllocator());
 			add("desc", desc);
-			add("port", Value(server->host->address.port));
-			add("peerLimit", Value(server->peerLimit));
-			add("channels", Value(server->host->channelLimit));
-			addToServer("config", dConfig.Move());
+			Value port(server->host->address.port);
+			add("port", port);
+			Value peerLimit(server->peerLimit);
+			add("peerLimit", peerLimit);
+			Value channelLimit(server->host->channelLimit);
+			add("channels", channelLimit);
+			addToServer("config", dConfig);
 		}
 		{
 			Value dIdGenerator(kObjectType);
 			auto add = [&](Value::StringRefType k, Value& v) {
 				dIdGenerator.AddMember(k, v, d.GetAllocator());
 			}; 
-			add("max", Value(server->idGenerator.getCount()));
-			add("recyled", Value(server->idGenerator.getPecycledLength()));
-			addToServer("idGenerator", dIdGenerator.Move());
+			Value maxCount(server->idGenerator.getCount());
+			Value recyled(server->idGenerator.getPecycledLength());
+			add("max", maxCount);
+			add("recyled", recyled);
+			addToServer("idGenerator", dIdGenerator);
 		}
-		addToServer("peers", Value(server->clients.size()));
+		Value peers(server->clients.size());
+		addToServer("peers", peers);
 		lstServers.PushBack(dServer.Move(), d.GetAllocator());
 	}
 	d.AddMember("servers", lstServers.Move(), d.GetAllocator());

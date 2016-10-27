@@ -13,7 +13,7 @@ public:
 
 	~ForwardCtrl();
 
-	inline auto logger() {
+	inline std::shared_ptr<spdlog::logger> logger() {
 		return spdlog::get("my_logger");
 	}
 

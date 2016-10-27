@@ -39,7 +39,7 @@ bool setupLogger() {
 	return true;
 }
 
-void debugDocument(rapidjson::Document& d) {
+void debugDocument(const rapidjson::Document& d) {
 	auto logger = spdlog::get("my_logger");
 	rapidjson::StringBuffer buffer;
 	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);

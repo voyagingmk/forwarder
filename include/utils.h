@@ -24,9 +24,9 @@ static SignalFunc RegisterSystemSignal( int sig, SignalFunc func)
         func.swap( signalsFunc.at( sig ) );
         return func;
     }
-	throw std::exception("register signal failed.");
+	throw std::runtime_error("register signal failed.");
 }
 
-void debugDocument(rapidjson::Document& d);
+void debugDocument(const rapidjson::Document& d);
 
 #endif
