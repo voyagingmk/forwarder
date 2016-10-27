@@ -13,6 +13,11 @@ https://github.com/miloyip/rapidjson
 
 https://github.com/lsalzman/enet
 
+### websocket++ and asio
+
+http://think-async.com/Asio
+
+https://github.com/zaphoyd/websocketpp
 
 ### pool.h
 
@@ -25,4 +30,4 @@ https://www.quora.com/What-is-the-most-efficient-memory-pooling-mechanism-used-i
 
 ## Docker CMD
 
-docker run --rm -it -v D:\workplace\project\forwarder:/data myubuntu
+docker run --rm -it -v D:\workplace\github\forwarder:/data myubuntu
