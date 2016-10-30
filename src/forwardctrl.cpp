@@ -1,12 +1,15 @@
 #include "forwardctrl.h"
+#include "utils.h"
 
 namespace spd = spdlog;
 using namespace std;
 using namespace rapidjson;
 
 ForwardCtrl::ForwardCtrl() :
-	poolForwardServer(sizeof(ForwardServer)),
-	poolForwardClient(sizeof(ForwardClient)),
+	poolForwardServerENet(sizeof(ForwardServerENet)),
+	poolForwardClientENet(sizeof(ForwardClientENet)),
+	poolForwardServerWS(sizeof(ForwardServerWS)),
+	poolForwardClientWS(sizeof(ForwardClientWS)),
 	serverNum(0),
 	isExit(false)
 {
@@ -21,11 +24,32 @@ ForwardCtrl::~ForwardCtrl() {
 	while (servers.size() > 0) {
 		ForwardServer* server = servers.back();
 		servers.pop_back();
-		enet_host_destroy(server->host);
 	}
-	poolForwardServer.clear();
-	poolForwardClient.clear();
+	poolForwardServerENet.clear();
+	poolForwardClientENet.clear();
+	poolForwardServerWS.clear();
+	poolForwardClientWS.clear();
 	handleFuncs.clear();
+}
+
+ForwardServer* ForwardCtrl::createForwardServer(int protocol) {
+	if (protocol == Protocol::ENet) {
+		return static_cast<ForwardServer*>(poolForwardServerENet.add());
+	}
+	else if (protocol == Protocol::WS) {
+		return static_cast<ForwardServer*>(poolForwardServerWS.add());
+	}
+	return nullptr;
+}
+
+ForwardClient* ForwardCtrl::createForwardClient(int protocol) {
+	if (protocol == Protocol::ENet) {
+		return static_cast<ForwardClient*>(poolForwardClientENet.add());
+	}
+	else if (protocol == Protocol::WS) {
+		return static_cast<ForwardClient*>(poolForwardClientWS.add());
+	}
+	return nullptr;
 }
 
 void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
@@ -33,30 +57,28 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	auto logger = spdlog::get("my_logger");
 	UniqIDGenerator idGenerator;
 	for (rapidjson::Value& serverConfig : serversConfig.GetArray()) {
-		ENetAddress address;
-		ForwardServer* server = poolForwardServer.add();
-		enet_address_set_host(&address, "0.0.0.0");
-		//address.host = ENET_HOST_ANY;
-		address.port = serverConfig["port"].GetInt();
+		int protocol = serverConfig["protocol"].GetString() == "enet" ? Protocol::ENet : Protocol::WS;
+		ForwardServer* server = createForwardServer(protocol);
 		server->desc = serverConfig["desc"].GetString();
 		server->peerLimit = serverConfig["peers"].GetInt();
 		server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
-		server->host = enet_host_create(&address,
-			server->peerLimit,
-			serverConfig["channels"].GetInt(),
-			0      /* assume any amount of incoming bandwidth */,
-			0      /* assume any amount of outgoing bandwidth */);
 		if (serverConfig.HasMember("destId"))
 			server->destId = serverConfig["destId"].GetInt();
-		if (server->host == NULL) {
-			logger->error("An error occurred while trying to create an ENet server host.");
-		}
-		else {
-			server->id = idGenerator.getNewID();
-			servers.push_back(server);
-			serverDict[server->id] = server;
+		server->init(serverConfig);
+		server->id = idGenerator.getNewID();
+		servers.push_back(server);
+		serverDict[server->id] = server;
+
+		if (server->protocol == Protocol::WS) {
+			ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
+			auto on_message = [](websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
+				std::cout << msg->get_payload() << std::endl;
+			};
+			wsServer->setMessageHandler(on_message);
 		}
 	}
+
+	// init dest host
 	for (auto it = servers.begin(); it != servers.end(); it++) {
 		ForwardServer* server = *it;
 		int destId = server->destId;
@@ -83,6 +105,21 @@ bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
 	return FORWARDER_OK;
 }
 
+
+void ForwardCtrl::sendPacket(ForwardParam& param) {
+	if (param.server->protocol == Protocol::ENet) {
+		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(param.client);
+		enet_peer_send(client->peer, param.channelID, param.packet);
+	}
+}
+
+void ForwardCtrl::broadcastPacket(ForwardParam& param) {
+	if (param.server->protocol == Protocol::ENet) {
+		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(param.server);
+		enet_host_broadcast(server->host, param.channelID, param.packet);
+	}
+}
+
 // system command
 bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 	if(!param.server->admin)
@@ -102,7 +139,8 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 		memset(outPacket->data, '\0', totalLength);
 		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
 		memcpy(outPacket->data + sizeof(ForwardHeader), s, strlen(s));
-		enet_peer_send(param.client->peer, param.channelID, outPacket);
+		param.packet = outPacket;
+		sendPacket(param);
 		logger()->info("response 1");
 	}
 	else if (subID == 2){
@@ -121,10 +159,10 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 		outHeader.clientID = param.client->id;
 	}
 	
-	ForwardServer* outHost = nullptr;
+	ForwardServer* outServer = nullptr;
 	if (param.server->dest) {
 		// prior
-		outHost = param.server->dest;
+		outServer = param.server->dest;
 	}
 	else {
 		int destHostID = inHeader.hostID;
@@ -133,7 +171,7 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 		auto it_server = serverDict.find(destHostID);
 		if (it_server == serverDict.end())
 			return FORWARDER_ERR;
-		outHost = it_server->second;
+		outServer = it_server->second;
 	}
 	int destClientID = 0;
 	if (!param.server->dest) {
@@ -141,20 +179,22 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	}
 	if (destClientID) {
 		//single send
-		auto it_client = outHost->clients.find(destClientID);
-		if (it_client == outHost->clients.end())
+		auto it_client = outServer->clients.find(destClientID);
+		if (it_client == outServer->clients.end())
 			return FORWARDER_ERR;
 		ForwardClient* outClient = it_client->second;
 		ENetPacket * outPacket = param.packet;
 		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
-		enet_peer_send(outClient->peer, param.channelID, outPacket);
+		param.client = outClient;
+		sendPacket(param);
 	}
 	else {
 		//broadcast
 		ENetPacket * outPacket = param.packet;
 		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
 		// broadcast the incoming packet to dest host's peers
-		enet_host_broadcast(outHost->host, param.channelID, outPacket);
+		param.server = outServer;
+		broadcastPacket(param);
 	}
 	logger()->info("forwarded 2");
 	return FORWARDER_OK;
@@ -200,19 +240,21 @@ void ForwardCtrl::loop() {
 	ENetEvent event;
 	while (!isExit) {
 		int ret;
-		for (auto& server : servers) {
-			ret = enet_host_service(server->host, &event, 5);
-			while (ret > 0)
-			{
-				logger()->info("event.type = {}", event.type);
-				switch (event.type) {
+		for (ForwardServer* it_server : servers) {
+			if (it_server->protocol == Protocol::ENet) {
+				ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(it_server);
+				ret = enet_host_service(server->host, &event, 5);
+				while (ret > 0)
+				{
+					logger()->info("event.type = {}", event.type);
+					switch (event.type) {
 					case ENET_EVENT_TYPE_CONNECT: {
 						UniqID id = server->idGenerator.getNewID();
-						ForwardClient* client = poolForwardClient.add();
+						ForwardClientENet* client = poolForwardClientENet.add();
 						client->id = id;
 						client->peer = event.peer;
 						event.peer->data = client;
-						server->clients[id] = client;
+						server->clients[id] = static_cast<ForwardClient*>(client);
 						logger()->info("[c:{1}] connected, from {1}:{2}.",
 							client->id,
 							event.peer->address.host,
@@ -226,24 +268,29 @@ void ForwardCtrl::loop() {
 						break;
 					}
 					case ENET_EVENT_TYPE_DISCONNECT: {
-						ForwardClient* client = (ForwardClient*)event.peer->data;
+						ForwardClientENet* client = (ForwardClientENet*)event.peer->data;
 						logger()->info("[c:{1}] disconnected.",
 							client->id);
 						event.peer->data = nullptr;
 						auto it = server->clients.find(client->id);
 						if (it != server->clients.end())
 							server->clients.erase(it);
-						poolForwardClient.del(client);
+						poolForwardClientENet.del(client);
 					}
 					case ENET_EVENT_TYPE_NONE:
 						break;
+					}
+					if (isExit)
+						break;
 				}
+				//std::this_thread::sleep_for(std::chrono::milliseconds(20));
 				if (isExit)
 					break;
 			}
-			//std::this_thread::sleep_for(std::chrono::milliseconds(20));
-			if (isExit)
-				break;
+			else if (it_server->protocol == Protocol::WS) {
+				ForwardServerWS* server = dynamic_cast<ForwardServerWS*>(it_server);
+				server->poll();
+			}
 		}
 	}
 }
@@ -286,7 +333,6 @@ Document ForwardCtrl::stat() {
 			auto add = [&](Value::StringRefType k, Value& v) {
 				dConfig.AddMember(k, v, d.GetAllocator());
 			};
-			//auto add = bind(&dServer.AddMember, dServer, placeholders::_1, placeholders::_2, d.GetAllocator());
 			Value id(server->id);
 			add("id", id);
 			Value destId(server->destId);
@@ -294,13 +340,20 @@ Document ForwardCtrl::stat() {
 			Value desc;
 			desc.SetString(server->desc.c_str(), server->desc.size(), d.GetAllocator());
 			add("desc", desc);
-			Value port(server->host->address.port);
-			add("port", port);
 			Value peerLimit(server->peerLimit);
 			add("peerLimit", peerLimit);
-			Value channelLimit(server->host->channelLimit);
-			add("channels", channelLimit);
+			if (server->protocol == Protocol::ENet) {
+				ForwardServerENet* enetserver = dynamic_cast<ForwardServerENet*>(server);
+				Value channelLimit(enetserver->host->channelLimit);
+				add("channels", channelLimit);
+				Value port(enetserver->host->address.port);
+				add("port", port);
+			}
+			else if (server->protocol == Protocol::WS) {
+			}
+
 			addToServer("config", dConfig);
+
 		}
 		{
 			Value dIdGenerator(kObjectType);

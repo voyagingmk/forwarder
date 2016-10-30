@@ -2,6 +2,7 @@
     "servers": [{
 		"id": 1,
 		"desc": "C2FS",
+        "protocol": "ws",
 		"destId": 2,
         "encrypt": true,
         "port": 9998,
@@ -10,9 +11,9 @@
     },{
 		"id": 2,
 		"desc": "GS2FS",
+        "protocol": "enet",
 		"admin": true,
         "encrypt": false,
-		"admin": true,
         "port": 9999,
         "peers": 1,
         "channels": 1

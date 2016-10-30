@@ -2,37 +2,81 @@
 #define FORWARDSERVER_H
 
 #include "uniqid.h"
+#include "defines.h"
+#include "forwardclient.h"
+
 
 class ForwardServer {
-public:
-	ForwardServer() :
+protected:
+	ForwardServer(int protocol) :
 		id(0),
 		destId(0),
 		peerLimit(0),
 		desc(""),
 		admin(false),
-		dest(nullptr),
-		host(nullptr)
+		protocol(protocol),
+		dest(nullptr)
 	{}
 	~ForwardServer() {
 		dest = nullptr;
-		host = nullptr;
 		admin = false;
 		clients.clear();
-		printf("dtor\n");
 	}
-	ForwardServer(const ForwardServer& x) = delete;
-	ForwardServer& operator=(const ForwardServer& x) = delete;
+public:
+	virtual void release() = 0;
+	virtual void init(rapidjson::Value& serverConfig) = 0;
 public:
 	UniqID id;
 	int destId;
 	bool admin;
+	int peerLimit;
+	int protocol;
 	ForwardServer* dest;
-	ENetHost * host;
 	UniqIDGenerator idGenerator;
 	std::map<UniqID, ForwardClient*> clients;
 	std::string desc;
-	int peerLimit;
+};
+
+class ForwardServerENet: public ForwardServer {
+public:
+	ForwardServerENet() :
+		host(nullptr),
+		ForwardServer(Protocol::ENet)
+	{}
+	~ForwardServerENet() {
+		host = nullptr;
+	}
+	ForwardServerENet(const ForwardServerENet& x) = delete;
+	ForwardServerENet& operator=(const ForwardServerENet& x) = delete;
+
+	virtual void release();
+
+	virtual void init(rapidjson::Value& serverConfig);
+public:
+	ENetHost * host;
+};
+
+class ForwardServerWS : public ForwardServer {
+public:
+	typedef websocketpp::server<websocketpp::config::asio> WebsocketServer;
+public:
+	ForwardServerWS() :
+		ForwardServer(Protocol::WS)
+	{}
+	~ForwardServerWS() {
+	}
+	ForwardServerWS(const ForwardServerWS& x) = delete;
+	ForwardServerWS& operator=(const ForwardServerWS& x) = delete;
+
+	virtual void release();
+
+	virtual void init(rapidjson::Value& serverConfig);
+	
+	void setMessageHandler(WebsocketServer::message_handler h);
+
+	void poll();
+public:
+	WebsocketServer server;
 };
 
 #endif 

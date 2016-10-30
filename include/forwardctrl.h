@@ -7,15 +7,13 @@
 #include "forwardserver.h"
 #include "forwardheader.h"
 
+
+
 class ForwardCtrl {
 public:
 	ForwardCtrl();
 
 	~ForwardCtrl();
-
-	inline std::shared_ptr<spdlog::logger> logger() {
-		return spdlog::get("my_logger");
-	}
 
 	void initServers(rapidjson::Value& serversConfig);
 
@@ -41,12 +39,20 @@ private:
 	bool handlePacket_2(ForwardParam& param);
 	bool handlePacket_3(ForwardParam& param);
 	bool handlePacket_4(ForwardParam& param);
+
+	ForwardServer* createForwardServer(int protocol);
+	ForwardClient* createForwardClient(int protocol);
+	
+	void sendPacket(ForwardParam& param);
+	void broadcastPacket(ForwardParam& param);
 private:
 	typedef bool(ForwardCtrl::*handlePacketFunc)(ForwardParam& param);
-	Pool<ForwardServer> poolForwardServer;
-	Pool<ForwardClient> poolForwardClient;
+	Pool<ForwardServerENet> poolForwardServerENet;
+	Pool<ForwardClientENet> poolForwardClientENet;
+	Pool<ForwardServerWS> poolForwardServerWS;
+	Pool<ForwardClientWS> poolForwardClientWS;
 	std::vector<ForwardServer*> servers;
-	std::map<int, ForwardServer*> serverDict;
+	std::map<UniqID, ForwardServer*> serverDict;
 	std::map<int, handlePacketFunc> handleFuncs;
 	int serverNum;
 	bool isExit;
