@@ -71,10 +71,36 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 
 		if (server->protocol == Protocol::WS) {
 			ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
-			auto on_message = [](websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
+			auto on_message = [&](websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
 				std::cout << msg->get_payload() << std::endl;
+				onReceived(server);
+			};
+
+			auto on_open = [&](websocketpp::connection_hdl hdl) {
+				UniqID id = wsServer->idGenerator.getNewID();
+				ForwardClientWS* client = poolForwardClientWS.add();
+				client->id = id;
+				client->hdl = hdl;
+				wsServer->clients[id] = static_cast<ForwardClient*>(client);
+				wsServer->hdlToClientId[&hdl] = id;
+			};
+
+			auto on_close = [&](websocketpp::connection_hdl hdl) {
+				auto it = wsServer->hdlToClientId.find(&hdl);
+				if (it != wsServer->hdlToClientId.end()) {
+					UniqID id = it->second;
+					wsServer->hdlToClientId.erase(it);
+					auto it = wsServer->clients.find(id);
+					if (it != wsServer->clients.end()) {
+						ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
+						wsServer->clients.erase(it);
+						poolForwardClientWS.del(client);
+					}
+				}
 			};
 			wsServer->setMessageHandler(on_message);
+			wsServer->server.set_open_handler(on_open);
+			wsServer->server.set_close_handler(on_close);
 		}
 	}
 
@@ -118,6 +144,10 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(param.server);
 		enet_host_broadcast(server->host, param.channelID, param.packet);
 	}
+}
+
+void ForwardCtrl::onReceived(ForwardServer* server) {
+
 }
 
 // system command

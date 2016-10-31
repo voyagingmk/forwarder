@@ -77,6 +77,7 @@ public:
 	void poll();
 public:
 	WebsocketServer server;
+	std::map<websocketpp::connection_hdl*, UniqID> hdlToClientId;
 };
 
 #endif 

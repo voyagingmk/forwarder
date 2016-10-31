@@ -34,6 +34,8 @@ private:
 	} ForwardParam;
 private:
 	void onReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID);
+	void onReceived(ForwardServer* server);
+
 	bool getHeader(ForwardHeader* header, ENetPacket * packet);
 	bool handlePacket_1(ForwardParam& param);
 	bool handlePacket_2(ForwardParam& param);

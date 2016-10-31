@@ -32,7 +32,7 @@ void ForwardServerWS::init(rapidjson::Value& serverConfig) {
 }
 
 void  ForwardServerWS::release() {
-
+	hdlToClientId.clear();
 }
 
 void ForwardServerWS::setMessageHandler(WebsocketServer::message_handler h) {
