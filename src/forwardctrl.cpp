@@ -64,7 +64,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
 		if (serverConfig.HasMember("destId"))
 			server->destId = serverConfig["destId"].GetInt();
-		server->init(serverConfig);
+
 		server->id = idGenerator.getNewID();
 		servers.push_back(server);
 		serverDict[server->id] = server;
@@ -76,7 +76,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 				onReceived(server);
 			};
 
-			auto on_open = [&](websocketpp::connection_hdl hdl) {
+			auto on_open = [=](websocketpp::connection_hdl hdl) {
 				UniqID id = wsServer->idGenerator.getNewID();
 				ForwardClientWS* client = poolForwardClientWS.add();
 				client->id = id;
@@ -85,7 +85,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 				wsServer->hdlToClientId[&hdl] = id;
 			};
 
-			auto on_close = [&](websocketpp::connection_hdl hdl) {
+			auto on_close = [=](websocketpp::connection_hdl hdl) {
 				auto it = wsServer->hdlToClientId.find(&hdl);
 				if (it != wsServer->hdlToClientId.end()) {
 					UniqID id = it->second;
@@ -102,6 +102,8 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 			wsServer->server.set_open_handler(on_open);
 			wsServer->server.set_close_handler(on_close);
 		}
+
+		server->init(serverConfig);
 	}
 
 	// init dest host
