@@ -13,7 +13,7 @@ void ForwardServerENet::init(rapidjson::Value& serverConfig) {
 		0      /* assume any amount of incoming bandwidth */,
 		0      /* assume any amount of outgoing bandwidth */);
 	if (!host) {
-		logger()->error("An error occurred while trying to create an ENet server host.");
+		getLogger()->error("An error occurred while trying to create an ENet server host.");
 		exit(1);
 		return;
 	}
@@ -35,9 +35,7 @@ void  ForwardServerWS::release() {
 	hdlToClientId.clear();
 }
 
-void ForwardServerWS::setMessageHandler(WebsocketServer::message_handler h) {
-	server.set_message_handler(h);
-}
+
 
 void ForwardServerWS::poll() {
 	server.poll_one();

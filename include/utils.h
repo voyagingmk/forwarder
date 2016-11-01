@@ -30,11 +30,11 @@ static SignalFunc RegisterSystemSignal( int sig, SignalFunc func)
 void debugDocument(const rapidjson::Document& d);
 
 
-static inline std::shared_ptr<spdlog::logger> logger() {
+static inline std::shared_ptr<spdlog::logger> getLogger() {
 	return spdlog::get("my_logger");
 }
 
-static inline std::shared_ptr<spdlog::logger> logger(const char * name) {
+static inline std::shared_ptr<spdlog::logger> getLogger(const char * name) {
 	return spdlog::get(name);
 }
 #endif

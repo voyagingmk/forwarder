@@ -75,20 +75,24 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 				std::cout << msg->get_payload() << std::endl;
 				onReceived(server);
 			};
-
+			auto logger = getLogger();
 			auto on_open = [=](websocketpp::connection_hdl hdl) {
+				logger->info("on_open");
 				UniqID id = wsServer->idGenerator.getNewID();
 				ForwardClientWS* client = poolForwardClientWS.add();
 				client->id = id;
 				client->hdl = hdl;
 				wsServer->clients[id] = static_cast<ForwardClient*>(client);
-				wsServer->hdlToClientId[&hdl] = id;
+				wsServer->hdlToClientId[hdl] = id;
+				logger->info("[c:{0}] connected.", id);
 			};
 
 			auto on_close = [=](websocketpp::connection_hdl hdl) {
-				auto it = wsServer->hdlToClientId.find(&hdl);
+				logger->info("on_close");
+				auto it = wsServer->hdlToClientId.find(hdl);
 				if (it != wsServer->hdlToClientId.end()) {
 					UniqID id = it->second;
+					logger->info("[c:{0}] disconnected.", id);
 					wsServer->hdlToClientId.erase(it);
 					auto it = wsServer->clients.find(id);
 					if (it != wsServer->clients.end()) {
@@ -98,7 +102,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 					}
 				}
 			};
-			wsServer->setMessageHandler(on_message);
+			wsServer->server.set_message_handler(on_message);
 			wsServer->server.set_open_handler(on_open);
 			wsServer->server.set_close_handler(on_close);
 		}
@@ -173,7 +177,7 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 		memcpy(outPacket->data + sizeof(ForwardHeader), s, strlen(s));
 		param.packet = outPacket;
 		sendPacket(param);
-		logger()->info("response 1");
+		getLogger()->info("response 1");
 	}
 	else if (subID == 2){
 		//force disconnect
@@ -228,7 +232,7 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 		param.server = outServer;
 		broadcastPacket(param);
 	}
-	logger()->info("forwarded 2");
+	getLogger()->info("forwarded 2");
 	return FORWARDER_OK;
 }
 
@@ -241,21 +245,21 @@ bool ForwardCtrl::handlePacket_4(ForwardParam& param) {
 }
 
 void  ForwardCtrl::onReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
-	logger()->info("[cli:{0}][c:{1}][len:{2}]",
+	getLogger()->info("[cli:{0}][c:{1}][len:{2}]",
 		client->id,
 		channelID,
 		inPacket->dataLength);
 	ForwardHeader header;
 	bool err = getHeader(&header, inPacket);
 	if (err) {
-		logger()->warn("[onReceived] getHeader err");
+		getLogger()->warn("[onReceived] getHeader err");
 		return;
 	}
 	const char * content = (const char*)(inPacket->data) + sizeof(header);
-	logger()->info("[data]{0}", content);
+	getLogger()->info("[data]{0}", content);
 	auto it = handleFuncs.find(header.getProtocol());
 	if (it == handleFuncs.end()) {
-		logger()->warn("[onReceived] wrong protocol:{0}", header.getProtocol());
+		getLogger()->warn("[onReceived] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
 	ForwardParam param;
@@ -278,7 +282,7 @@ void ForwardCtrl::loop() {
 				ret = enet_host_service(server->host, &event, 5);
 				while (ret > 0)
 				{
-					logger()->info("event.type = {}", event.type);
+					getLogger()->info("event.type = {}", event.type);
 					switch (event.type) {
 					case ENET_EVENT_TYPE_CONNECT: {
 						UniqID id = server->idGenerator.getNewID();
@@ -287,7 +291,7 @@ void ForwardCtrl::loop() {
 						client->peer = event.peer;
 						event.peer->data = client;
 						server->clients[id] = static_cast<ForwardClient*>(client);
-						logger()->info("[c:{1}] connected, from {1}:{2}.",
+						getLogger()->info("[c:{0}] connected, from {1}:{2}.",
 							client->id,
 							event.peer->address.host,
 							event.peer->address.port);
@@ -301,7 +305,7 @@ void ForwardCtrl::loop() {
 					}
 					case ENET_EVENT_TYPE_DISCONNECT: {
 						ForwardClientENet* client = (ForwardClientENet*)event.peer->data;
-						logger()->info("[c:{1}] disconnected.",
+						getLogger()->info("[c:{0}] disconnected.",
 							client->id);
 						event.peer->data = nullptr;
 						auto it = server->clients.find(client->id);

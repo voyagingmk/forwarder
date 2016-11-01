@@ -71,13 +71,12 @@ public:
 	virtual void release();
 
 	virtual void init(rapidjson::Value& serverConfig);
-	
-	void setMessageHandler(WebsocketServer::message_handler h);
 
 	void poll();
 public:
 	WebsocketServer server;
-	std::map<websocketpp::connection_hdl*, UniqID> hdlToClientId;
+
+	std::map<websocketpp::connection_hdl, UniqID, std::owner_less<websocketpp::connection_hdl> > hdlToClientId;
 };
 
 #endif 
