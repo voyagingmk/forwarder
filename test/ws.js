@@ -1,5 +1,6 @@
 var WebSocketClient = require('websocket').client;
- 
+var forwarder = require('./forwarder');
+
 var client = new WebSocketClient();
  
 client.on('connectFailed', function(error) {
@@ -28,6 +29,11 @@ client.on('connect', function(connection) {
         }
     }
     sendNumber();
+    var packet = forwarder.makePacket({
+        protocol: 1,
+        subID: 1,
+        content: "jjj"
+    });
 });
  
 client.connect('ws://localhost:9998/');

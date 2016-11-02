@@ -57,7 +57,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	auto logger = spdlog::get("my_logger");
 	UniqIDGenerator idGenerator;
 	for (rapidjson::Value& serverConfig : serversConfig.GetArray()) {
-		int protocol = serverConfig["protocol"].GetString() == "enet" ? Protocol::ENet : Protocol::WS;
+		int protocol = strcmp(serverConfig["protocol"].GetString(), "enet") == 0 ? Protocol::ENet : Protocol::WS;
 		ForwardServer* server = createForwardServer(protocol);
 		server->desc = serverConfig["desc"].GetString();
 		server->peerLimit = serverConfig["peers"].GetInt();
@@ -71,10 +71,6 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 
 		if (server->protocol == Protocol::WS) {
 			ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
-			auto on_message = [&](websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
-				std::cout << msg->get_payload() << std::endl;
-				onReceived(server);
-			};
 			auto logger = getLogger();
 			auto on_open = [=](websocketpp::connection_hdl hdl) {
 				logger->info("on_open");
@@ -102,7 +98,12 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 					}
 				}
 			};
-			wsServer->server.set_message_handler(on_message);
+			wsServer->server.set_message_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSReceived, 
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1,
+				websocketpp::lib::placeholders::_2));
 			wsServer->server.set_open_handler(on_open);
 			wsServer->server.set_close_handler(on_close);
 		}
@@ -127,34 +128,44 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 }
 
 
-
-bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
-	memcpy(header, packet->data, sizeof(ForwardHeader));
-	if (header->version != FORWARDER_VERSION)
-		return FORWARDER_ERR;
-	if (header->length != sizeof(ForwardHeader))
-		return FORWARDER_ERR;
-	return FORWARDER_OK;
-}
-
-
 void ForwardCtrl::sendPacket(ForwardParam& param) {
 	if (param.server->protocol == Protocol::ENet) {
 		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(param.client);
-		enet_peer_send(client->peer, param.channelID, param.packet);
+		ENetPacket* packet = static_cast<ENetPacket*>(param.packet->getRawPtr());
+		enet_peer_send(client->peer, param.channelID, packet);
+	}
+	else if (param.server->protocol == Protocol::WS) {
+
 	}
 }
 
 void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 	if (param.server->protocol == Protocol::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(param.server);
-		enet_host_broadcast(server->host, param.channelID, param.packet);
+		ENetPacket* packet = static_cast<ENetPacket*>(param.packet->getRawPtr());
+		enet_host_broadcast(server->host, param.channelID, packet);
+	}
+	else if (param.server->protocol == Protocol::WS) {
+
 	}
 }
 
-void ForwardCtrl::onReceived(ForwardServer* server) {
-
+ForwardPacketPtr ForwardCtrl::createPacket(Protocol protocol, size_t len) {
+	if (protocol == Protocol::ENet) {
+		return std::make_shared<ForwardPacketENet>(len);
+	}else if (protocol == Protocol::WS) {
+		return std::make_shared<ForwardPacketWS>(len);
+	}
 }
+
+ForwardPacketPtr ForwardCtrl::createPacket(ENetPacket* packet) {
+	return std::make_shared<ForwardPacketENet>(packet);
+}
+
+ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
+	return std::make_shared<ForwardPacketWS>((uint8_t*)(packet));
+}
+
 
 // system command
 bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
@@ -169,13 +180,13 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 		rapidjson::StringBuffer buffer;
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		d.Accept(writer);
-		const char* s = buffer.GetString();
-		int totalLength = sizeof(ForwardHeader) + strlen(s) + 1;
-		ENetPacket * outPacket = enet_packet_create(NULL, totalLength, ENET_PACKET_FLAG_RELIABLE);
-		memset(outPacket->data, '\0', totalLength);
-		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
-		memcpy(outPacket->data + sizeof(ForwardHeader), s, strlen(s));
-		param.packet = outPacket;
+		const char* statJson = buffer.GetString();
+		int statJsonLength = strlen(statJson);
+		int totalLength = sizeof(ForwardHeader) + statJsonLength + 1;
+		ForwardPacketPtr packet = createPacket(Protocol::ENet, totalLength);
+		packet->setHeader(&outHeader);
+		packet->setData((uint8_t*)(statJson), statJsonLength);
+		param.packet = packet;
 		sendPacket(param);
 		getLogger()->info("response 1");
 	}
@@ -195,9 +206,11 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 		outHeader.clientID = param.client->id;
 	}
 	
+	ForwardPacketPtr outPacket = param.packet;
+	outPacket->setHeader(&outHeader);
+
 	ForwardServer* outServer = nullptr;
 	if (param.server->dest) {
-		// prior
 		outServer = param.server->dest;
 	}
 	else {
@@ -209,27 +222,25 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 			return FORWARDER_ERR;
 		outServer = it_server->second;
 	}
+	param.server = outServer;
+
 	int destClientID = 0;
+	ForwardClient* destClient = nullptr;
 	if (!param.server->dest) {
 		destClientID = inHeader.clientID;
-	}
-	if (destClientID) {
-		//single send
 		auto it_client = outServer->clients.find(destClientID);
 		if (it_client == outServer->clients.end())
 			return FORWARDER_ERR;
-		ForwardClient* outClient = it_client->second;
-		ENetPacket * outPacket = param.packet;
-		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
-		param.client = outClient;
+		destClient = it_client->second;
+	}
+	if (destClient) {
+		//single send
+		param.client = destClient;
 		sendPacket(param);
 	}
 	else {
-		//broadcast
-		ENetPacket * outPacket = param.packet;
-		memcpy(outPacket->data, &outHeader, sizeof(ForwardHeader));
 		// broadcast the incoming packet to dest host's peers
-		param.server = outServer;
+		param.client = nullptr;
 		broadcastPacket(param);
 	}
 	getLogger()->info("forwarded 2");
@@ -244,7 +255,49 @@ bool ForwardCtrl::handlePacket_4(ForwardParam& param) {
 	return FORWARDER_OK;
 }
 
-void  ForwardCtrl::onReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
+
+void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
+	auto logger = getLogger(); 
+	auto it1 = wsServer->hdlToClientId.find(hdl);
+	if (it1 == wsServer->hdlToClientId.end()) {
+		logger->error("[onWSReceived] no such hdl");
+		return;
+	}
+	UniqID clientID = it1->second;
+	auto it2 = wsServer->clients.find(clientID);
+	if (it2 == wsServer->clients.end()) {
+		logger->error("[onWSReceived] no such clientID:{0}",
+			clientID);
+		return;
+	}
+	ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it2->second);
+	logger->info("[cli:{0}][len:{1}]",
+		clientID,
+		msg->get_payload().size());
+	ForwardHeader header;
+	bool err = getHeader(&header, msg->get_payload());
+	if (err) {
+		getLogger()->warn("[onWSReceived] getHeader err");
+		return;
+	}
+	const char * content = msg->get_payload().c_str() + sizeof(header);
+	getLogger()->info("[data]{0}", content);
+	auto it = handleFuncs.find(header.getProtocol());
+	if (it == handleFuncs.end()) {
+		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
+		return;
+	}
+	ForwardParam param;
+	param.header = &header;
+	param.packet = createPacket(content);
+	param.client = client;
+	param.server = static_cast<ForwardServer*>(wsServer);
+	handlePacketFunc handleFunc = it->second;
+	(this->*handleFunc)(param);
+}
+
+
+void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
 	getLogger()->info("[cli:{0}][c:{1}][len:{2}]",
 		client->id,
 		channelID,
@@ -252,24 +305,44 @@ void  ForwardCtrl::onReceived(ForwardServer* server, ForwardClient* client, ENet
 	ForwardHeader header;
 	bool err = getHeader(&header, inPacket);
 	if (err) {
-		getLogger()->warn("[onReceived] getHeader err");
+		getLogger()->warn("[onENetReceived] getHeader err");
 		return;
 	}
 	const char * content = (const char*)(inPacket->data) + sizeof(header);
 	getLogger()->info("[data]{0}", content);
 	auto it = handleFuncs.find(header.getProtocol());
 	if (it == handleFuncs.end()) {
-		getLogger()->warn("[onReceived] wrong protocol:{0}", header.getProtocol());
+		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
 	ForwardParam param;
 	param.header = &header;
 	param.channelID = channelID;
-	param.packet = inPacket;
+	param.packet = createPacket(inPacket);
 	param.client = client;
 	param.server = server;
 	handlePacketFunc handleFunc = it->second;
 	(this->*handleFunc)(param);
+}
+
+bool ForwardCtrl::validHeader(ForwardHeader* header) {
+	if (header->version != FORWARDER_VERSION)
+		return FORWARDER_ERR;
+	if (header->length != sizeof(ForwardHeader))
+		return FORWARDER_ERR;
+	return FORWARDER_OK;
+}
+
+bool ForwardCtrl::getHeader(ForwardHeader* header, const std::string& packet) {
+	memcpy(header, (void*)packet.c_str(), sizeof(ForwardHeader));
+	return validHeader(header);
+}
+
+
+
+bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
+	memcpy(header, packet->data, sizeof(ForwardHeader));
+	return validHeader(header);
 }
 
 void ForwardCtrl::loop() {
@@ -300,7 +373,7 @@ void ForwardCtrl::loop() {
 					case ENET_EVENT_TYPE_RECEIVE: {
 						ForwardClient* client = (ForwardClient*)event.peer->data;
 						ENetPacket * inPacket = event.packet;
-						onReceived(server, client, inPacket, event.channelID);
+						onENetReceived(server, client, inPacket, event.channelID);
 						break;
 					}
 					case ENET_EVENT_TYPE_DISCONNECT: {

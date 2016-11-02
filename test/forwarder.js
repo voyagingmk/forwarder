@@ -46,10 +46,14 @@ function makePacket(param){
 
 	// Shares memory with `arr`
 	const headerBuf = new Buffer(arr.buffer);
-	const contentBuf = new Buffer(param.content||"");
+	const contentBuf = new Buffer(param.content || "");
 	const buf = Buffer.concat([headerBuf, contentBuf], headerBuf.length + contentBuf.length);
-	const packet = new enet.Packet(buf, enet.PACKET_FLAG.RELIABLE);
-	return packet;
+	if(param.type == "enet"){
+		const packet = new enet.Packet(buf, enet.PACKET_FLAG.RELIABLE);
+		return packet;
+	} else {
+		return buf;
+	}
 }
 
 module.exports = {

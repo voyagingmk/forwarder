@@ -9,7 +9,18 @@ cd build
 
 cmake ..
 
-done
+make 
+
+./bin/forwarder
+
+## Xcode
+
+mddir xcode_build
+
+cd xcode_build
+
+cmake .. -G Xcode
+
 
 ## DEPENDENCIES
 
