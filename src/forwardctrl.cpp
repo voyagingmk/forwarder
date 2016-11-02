@@ -380,7 +380,7 @@ Document ForwardCtrl::stat() {
 			add("peerLimit", peerLimit);
 			if (server->protocol == Protocol::ENet) {
 				ForwardServerENet* enetserver = dynamic_cast<ForwardServerENet*>(server);
-				Value channelLimit(enetserver->host->channelLimit);
+				Value channelLimit(int(enetserver->host->channelLimit));
 				add("channels", channelLimit);
 				Value port(enetserver->host->address.port);
 				add("port", port);
@@ -402,7 +402,7 @@ Document ForwardCtrl::stat() {
 			add("recyled", recyled);
 			addToServer("idGenerator", dIdGenerator);
 		}
-		Value peers(server->clients.size());
+		Value peers(int(server->clients.size()));
 		addToServer("peers", peers);
 		lstServers.PushBack(dServer.Move(), d.GetAllocator());
 	}
