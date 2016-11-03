@@ -8,13 +8,13 @@
 
 class ForwardServer {
 protected:
-	ForwardServer(int protocol) :
+	ForwardServer(NetType p_netType) :
 		id(0),
 		destId(0),
 		peerLimit(0),
 		desc(""),
 		admin(false),
-		protocol(protocol),
+		netType(p_netType),
 		dest(nullptr)
 	{}
 	~ForwardServer() {
@@ -30,7 +30,7 @@ public:
 	int destId;
 	bool admin;
 	int peerLimit;
-	int protocol;
+	NetType netType;
 	ForwardServer* dest;
 	UniqIDGenerator idGenerator;
 	std::map<UniqID, ForwardClient*> clients;
@@ -41,7 +41,7 @@ class ForwardServerENet: public ForwardServer {
 public:
 	ForwardServerENet() :
 		host(nullptr),
-		ForwardServer(Protocol::ENet)
+		ForwardServer(NetType::ENet)
 	{}
 	~ForwardServerENet() {
 		host = nullptr;
@@ -61,7 +61,7 @@ public:
 	typedef websocketpp::server<websocketpp::config::asio> WebsocketServer;
 public:
 	ForwardServerWS() :
-		ForwardServer(Protocol::WS)
+		ForwardServer(NetType::WS)
 	{}
 	~ForwardServerWS() {
 	}

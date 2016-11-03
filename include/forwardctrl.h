@@ -13,8 +13,13 @@ class ForwardPacket {
 public:
 	virtual uint8_t* getDataPtr() const = 0;
 	virtual void* getRawPtr() const = 0;
+	size_t getLength() const {
+		return length;
+	}
 	virtual void setHeader(ForwardHeader* header) = 0;
 	virtual void setData(uint8_t* data, size_t len) = 0;
+protected:
+	size_t length = 0;
 };
 
 typedef std::shared_ptr<ForwardPacket> ForwardPacketPtr;
@@ -32,6 +37,7 @@ public:
 	{
 		packet = enet_packet_create(NULL, len, ENET_PACKET_FLAG_RELIABLE);
 		memset(packet->data, '\0', len);
+		length = len;
 	}
 
 	~ForwardPacketENet() {
@@ -55,6 +61,9 @@ public:
 
 	virtual void setData(uint8_t* data, size_t len) {
 		memcpy(packet->data + sizeof(ForwardHeader), data, len);
+		if (!length) {
+			length = sizeof(ForwardHeader) + len;
+		}
 	}
 public:
 	bool owned;
@@ -76,7 +85,9 @@ public:
 	ForwardPacketWS(size_t len):
 		owned(true),
 		packetData(new uint8_t[len])
-	{}
+	{
+		length = len;
+	}
 
 
 	virtual uint8_t* getDataPtr() const {
@@ -93,6 +104,9 @@ public:
 
 	virtual void setData(uint8_t* data, size_t len) {
 		memcpy(packetData + sizeof(ForwardHeader), data, len);
+		if (!length) {
+			length = sizeof(ForwardHeader) + len;
+		}
 	}
 public:
 	bool owned;
@@ -127,7 +141,7 @@ private:
 	void onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID);
 	void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
 	
-	ForwardPacketPtr createPacket(Protocol protocol, size_t len);
+	ForwardPacketPtr createPacket(NetType netType, size_t len);
 	ForwardPacketPtr createPacket(ENetPacket* packet);
 	ForwardPacketPtr createPacket(const char* packet);
 

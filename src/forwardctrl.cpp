@@ -33,20 +33,20 @@ ForwardCtrl::~ForwardCtrl() {
 }
 
 ForwardServer* ForwardCtrl::createForwardServer(int protocol) {
-	if (protocol == Protocol::ENet) {
+	if (protocol == NetType::ENet) {
 		return static_cast<ForwardServer*>(poolForwardServerENet.add());
 	}
-	else if (protocol == Protocol::WS) {
+	else if (protocol == NetType::WS) {
 		return static_cast<ForwardServer*>(poolForwardServerWS.add());
 	}
 	return nullptr;
 }
 
 ForwardClient* ForwardCtrl::createForwardClient(int protocol) {
-	if (protocol == Protocol::ENet) {
+	if (protocol == NetType::ENet) {
 		return static_cast<ForwardClient*>(poolForwardClientENet.add());
 	}
-	else if (protocol == Protocol::WS) {
+	else if (protocol == NetType::WS) {
 		return static_cast<ForwardClient*>(poolForwardClientWS.add());
 	}
 	return nullptr;
@@ -57,7 +57,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	auto logger = spdlog::get("my_logger");
 	UniqIDGenerator idGenerator;
 	for (rapidjson::Value& serverConfig : serversConfig.GetArray()) {
-		int protocol = strcmp(serverConfig["protocol"].GetString(), "enet") == 0 ? Protocol::ENet : Protocol::WS;
+		int protocol = strcmp(serverConfig["protocol"].GetString(), "enet") == 0 ? NetType::ENet : NetType::WS;
 		ForwardServer* server = createForwardServer(protocol);
 		server->desc = serverConfig["desc"].GetString();
 		server->peerLimit = serverConfig["peers"].GetInt();
@@ -69,7 +69,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		servers.push_back(server);
 		serverDict[server->id] = server;
 
-		if (server->protocol == Protocol::WS) {
+		if (server->netType == NetType::WS) {
 			ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
 			auto logger = getLogger();
 			auto on_open = [=](websocketpp::connection_hdl hdl) {
@@ -129,31 +129,36 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 
 
 void ForwardCtrl::sendPacket(ForwardParam& param) {
-	if (param.server->protocol == Protocol::ENet) {
+	if (param.server->netType == NetType::ENet) {
 		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(param.client);
 		ENetPacket* packet = static_cast<ENetPacket*>(param.packet->getRawPtr());
 		enet_peer_send(client->peer, param.channelID, packet);
 	}
-	else if (param.server->protocol == Protocol::WS) {
-
+	else if (param.server->netType == NetType::WS) {
+		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
+		ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(param.client);
+		wsServer->server.send(client->hdl,
+			param.packet->getRawPtr(),
+			param.packet->getLength(),
+			websocketpp::frame::opcode::value::BINARY);
 	}
 }
 
 void ForwardCtrl::broadcastPacket(ForwardParam& param) {
-	if (param.server->protocol == Protocol::ENet) {
+	if (param.server->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(param.server);
 		ENetPacket* packet = static_cast<ENetPacket*>(param.packet->getRawPtr());
 		enet_host_broadcast(server->host, param.channelID, packet);
 	}
-	else if (param.server->protocol == Protocol::WS) {
+	else if (param.server->netType == NetType::WS) {
 
 	}
 }
 
-ForwardPacketPtr ForwardCtrl::createPacket(Protocol protocol, size_t len) {
-	if (protocol == Protocol::ENet) {
+ForwardPacketPtr ForwardCtrl::createPacket(NetType netType, size_t len) {
+	if (netType == NetType::ENet) {
 		return std::make_shared<ForwardPacketENet>(len);
-	}else if (protocol == Protocol::WS) {
+	}else if (netType == NetType::WS) {
 		return std::make_shared<ForwardPacketWS>(len);
 	}
 }
@@ -183,7 +188,7 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 		const char* statJson = buffer.GetString();
 		int statJsonLength = strlen(statJson);
 		int totalLength = sizeof(ForwardHeader) + statJsonLength + 1;
-		ForwardPacketPtr packet = createPacket(Protocol::ENet, totalLength);
+		ForwardPacketPtr packet = createPacket(param.server->netType, totalLength);
 		packet->setHeader(&outHeader);
 		packet->setData((uint8_t*)(statJson), statJsonLength);
 		param.packet = packet;
@@ -350,7 +355,7 @@ void ForwardCtrl::loop() {
 	while (!isExit) {
 		int ret;
 		for (ForwardServer* it_server : servers) {
-			if (it_server->protocol == Protocol::ENet) {
+			if (it_server->netType == NetType::ENet) {
 				ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(it_server);
 				ret = enet_host_service(server->host, &event, 5);
 				while (ret > 0)
@@ -396,7 +401,7 @@ void ForwardCtrl::loop() {
 				if (isExit)
 					break;
 			}
-			else if (it_server->protocol == Protocol::WS) {
+			else if (it_server->netType == NetType::WS) {
 				ForwardServerWS* server = dynamic_cast<ForwardServerWS*>(it_server);
 				server->poll();
 			}
@@ -451,14 +456,14 @@ Document ForwardCtrl::stat() {
 			add("desc", desc);
 			Value peerLimit(server->peerLimit);
 			add("peerLimit", peerLimit);
-			if (server->protocol == Protocol::ENet) {
+			if (server->netType == NetType::ENet) {
 				ForwardServerENet* enetserver = dynamic_cast<ForwardServerENet*>(server);
 				Value channelLimit(int(enetserver->host->channelLimit));
 				add("channels", channelLimit);
 				Value port(enetserver->host->address.port);
 				add("port", port);
 			}
-			else if (server->protocol == Protocol::WS) {
+			else if (server->netType == NetType::WS) {
 			}
 
 			addToServer("config", dConfig);

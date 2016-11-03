@@ -11,7 +11,7 @@ constexpr int FORWARDER_FLAG_WITH_ADDRESS = 1;
 
 constexpr int FORWARDER_PROTOCOL_UNKNOWN = 0;
 
-enum Protocol {
+enum NetType {
 	ENet = 1,
 	WS = 2
 };
