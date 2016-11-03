@@ -151,7 +151,14 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 		enet_host_broadcast(server->host, param.channelID, packet);
 	}
 	else if (param.server->netType == NetType::WS) {
-
+		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
+		for (auto it : wsServer->clients) {
+			ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it.second);
+			wsServer->server.send(client->hdl,
+				param.packet->getRawPtr(),
+				param.packet->getLength(),
+				websocketpp::frame::opcode::value::BINARY);
+		}
 	}
 }
 

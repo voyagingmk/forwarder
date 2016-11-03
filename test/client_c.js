@@ -45,7 +45,7 @@ enet.createClient(function (err, client) {
 				});
 			});
 			var packet = forwarder.makePacket({
-				protocol: 1,
+				protocol: 2,
 				subID: 1,
 				content: ""
 			});

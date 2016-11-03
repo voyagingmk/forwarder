@@ -17,10 +17,12 @@ client.on('connect', function(connection) {
     });
     connection.on('message', function(message) {
         if (message.type === 'utf8') {
-            console.log("Received: '" + message.utf8Data + "'");
+            console.log("Received utf8:", message.utf8Data);
+        }else{
+            console.log("Received binary: ", message.binaryData);
         }
     });
-    
+    /*
     function sendNumber() {
         if (connection.connected) {
             var number = Math.round(Math.random() * 0xFFFFFF);
@@ -33,7 +35,7 @@ client.on('connect', function(connection) {
         protocol: 1,
         subID: 1,
         content: "jjj"
-    });
+    });*/
 });
  
 client.connect('ws://localhost:9998/');
