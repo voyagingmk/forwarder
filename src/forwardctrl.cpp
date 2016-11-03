@@ -146,9 +146,10 @@ void ForwardCtrl::sendPacket(ForwardParam& param) {
 
 void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
-		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(param.server);
+		ForwardServerENet* enetServer = dynamic_cast<ForwardServerENet*>(param.server);
 		ENetPacket* packet = static_cast<ENetPacket*>(param.packet->getRawPtr());
-		enet_host_broadcast(server->host, param.channelID, packet);
+		enet_host_broadcast(enetServer->host, param.channelID || enetServer->broadcastChannelID, packet);
+		getLogger()->info("broadcast");
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
@@ -293,7 +294,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 		return;
 	}
 	const char * content = msg->get_payload().c_str() + sizeof(header);
-	getLogger()->info("[data]{0}", content);
+	//getLogger()->info("[data]{0}", content);
 	auto it = handleFuncs.find(header.getProtocol());
 	if (it == handleFuncs.end()) {
 		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
@@ -301,7 +302,8 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	}
 	ForwardParam param;
 	param.header = &header;
-	param.packet = createPacket(content);
+	param.packet = createPacket(NetType::WS, msg->get_payload().size());
+	param.packet->setData((uint8_t*)content, msg->get_payload().size() - sizeof(header));
 	param.client = client;
 	param.server = static_cast<ForwardServer*>(wsServer);
 	handlePacketFunc handleFunc = it->second;

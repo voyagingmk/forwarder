@@ -16,7 +16,8 @@
         "encrypt": true,
         "port": 9999,
         "peers": 3000,
-        "channels": 1
+        "channels": 1,
+		"broadcastChannelID": 1
     },{
 		"id": 3,
 		"desc": "GS2FS",

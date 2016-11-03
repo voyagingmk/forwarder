@@ -18,6 +18,12 @@ public:
 	}
 	virtual void setHeader(ForwardHeader* header) = 0;
 	virtual void setData(uint8_t* data, size_t len) = 0;
+	ForwardPacket() {
+		printf("ctor, len=%i\n", length);
+	}
+	~ForwardPacket() {
+		printf("dtor, len=%i\n", length);
+	}
 protected:
 	size_t length = 0;
 };
@@ -41,7 +47,7 @@ public:
 	}
 
 	~ForwardPacketENet() {
-		if (owned) {
+		if (owned && packet) {
 			enet_packet_destroy(packet);
 			packet = nullptr;
 		}
@@ -83,12 +89,18 @@ public:
 	{}
 
 	ForwardPacketWS(size_t len):
-		owned(true),
-		packetData(new uint8_t[len])
+		owned(true)
 	{
 		length = len;
+		packetData = new uint8_t[len]{ 0 };
 	}
 
+	~ForwardPacketWS() {
+		if (owned && packetData) {
+			delete packetData;
+			packetData = nullptr;
+		}
+	}
 
 	virtual uint8_t* getDataPtr() const {
 		return packetData;
@@ -109,7 +121,7 @@ public:
 		}
 	}
 public:
-	bool owned;
+	bool owned = false;
 	uint8_t* packetData = nullptr;
 };
 

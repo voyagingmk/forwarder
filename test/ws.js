@@ -22,20 +22,20 @@ client.on('connect', function(connection) {
             console.log("Received binary: ", message.binaryData);
         }
     });
-    /*
-    function sendNumber() {
+
+    function sendTest() {
         if (connection.connected) {
-            var number = Math.round(Math.random() * 0xFFFFFF);
-            connection.sendUTF(number.toString());
-            setTimeout(sendNumber, 1000);
+            var packet = forwarder.makePacket({
+                protocol: 2,
+                subID: 1,
+                content: "jjj"
+            });
+            connection.sendBytes(packet);
+            setTimeout(sendTest, 3000);
         }
     }
-    sendNumber();
-    var packet = forwarder.makePacket({
-        protocol: 1,
-        subID: 1,
-        content: "jjj"
-    });*/
+    sendTest();
+    
 });
  
 client.connect('ws://localhost:9998/');

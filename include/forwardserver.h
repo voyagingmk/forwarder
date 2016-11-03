@@ -53,7 +53,8 @@ public:
 
 	virtual void init(rapidjson::Value& serverConfig);
 public:
-	ENetHost * host;
+	ENetHost * host = nullptr;
+	uint8_t broadcastChannelID = 0;
 };
 
 class ForwardServerWS : public ForwardServer {
