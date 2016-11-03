@@ -1,7 +1,7 @@
 var enet = require('enet');
 var forwarder = require('./forwarder');
 
-var s_addr = new enet.Address("127.0.0.1", 9998);
+var s_addr = new enet.Address("127.0.0.1", 9999);
 
 enet.createClient(function (err, client) {
 	if (err) {

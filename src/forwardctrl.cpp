@@ -357,46 +357,52 @@ void ForwardCtrl::loop() {
 		for (ForwardServer* it_server : servers) {
 			if (it_server->netType == NetType::ENet) {
 				ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(it_server);
-				ret = enet_host_service(server->host, &event, 5);
-				while (ret > 0)
-				{
-					getLogger()->info("event.type = {}", event.type);
-					switch (event.type) {
-					case ENET_EVENT_TYPE_CONNECT: {
-						UniqID id = server->idGenerator.getNewID();
-						ForwardClientENet* client = poolForwardClientENet.add();
-						client->id = id;
-						client->peer = event.peer;
-						event.peer->data = client;
-						server->clients[id] = static_cast<ForwardClient*>(client);
-						getLogger()->info("[c:{0}] connected, from {1}:{2}.",
-							client->id,
-							event.peer->address.host,
-							event.peer->address.port);
+				do {
+					ret = enet_host_service(server->host, &event, 5);
+					if (ret > 0) {
+						getLogger()->info("event.type = {}", event.type);
+						switch (event.type) {
+						case ENET_EVENT_TYPE_CONNECT: {
+							UniqID id = server->idGenerator.getNewID();
+							ForwardClientENet* client = poolForwardClientENet.add();
+							client->id = id;
+							client->peer = event.peer;
+							event.peer->data = client;
+							server->clients[id] = static_cast<ForwardClient*>(client);
+							char str[INET_ADDRSTRLEN];
+							inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
+							getLogger()->info("[c:{0}] connected, from {1}:{2}.",
+								client->id,
+								str,
+								event.peer->address.port);
+							break;
+						}
+						case ENET_EVENT_TYPE_RECEIVE: {
+							ForwardClient* client = (ForwardClient*)event.peer->data;
+							ENetPacket * inPacket = event.packet;
+							onENetReceived(server, client, inPacket, event.channelID);
+							break;
+						}
+						case ENET_EVENT_TYPE_DISCONNECT: {
+							ForwardClientENet* client = (ForwardClientENet*)event.peer->data;
+							getLogger()->info("[c:{0}] disconnected.",
+								client->id);
+							event.peer->data = nullptr;
+							auto it = server->clients.find(client->id);
+							if (it != server->clients.end())
+								server->clients.erase(it);
+							poolForwardClientENet.del(client);
+						}
+						case ENET_EVENT_TYPE_NONE:
+							break;
+						}
+						if (isExit)
+							break;
+					}
+					else {
 						break;
 					}
-					case ENET_EVENT_TYPE_RECEIVE: {
-						ForwardClient* client = (ForwardClient*)event.peer->data;
-						ENetPacket * inPacket = event.packet;
-						onENetReceived(server, client, inPacket, event.channelID);
-						break;
-					}
-					case ENET_EVENT_TYPE_DISCONNECT: {
-						ForwardClientENet* client = (ForwardClientENet*)event.peer->data;
-						getLogger()->info("[c:{0}] disconnected.",
-							client->id);
-						event.peer->data = nullptr;
-						auto it = server->clients.find(client->id);
-						if (it != server->clients.end())
-							server->clients.erase(it);
-						poolForwardClientENet.del(client);
-					}
-					case ENET_EVENT_TYPE_NONE:
-						break;
-					}
-					if (isExit)
-						break;
-				}
+				} while (true);
 				//std::this_thread::sleep_for(std::chrono::milliseconds(20));
 				if (isExit)
 					break;

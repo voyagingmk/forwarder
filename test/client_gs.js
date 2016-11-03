@@ -23,7 +23,7 @@ enet.createClient(function (err, client) {
 				console.log(err);
 				if (err.message === "host-destroyed") process.exit();
 				console.log("retrying...");
-				setTimeout(connect, 1000);
+				// setTimeout(connect, 1000);
 				return;
 			}
 
