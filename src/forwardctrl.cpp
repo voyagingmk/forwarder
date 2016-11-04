@@ -149,9 +149,12 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
 		ForwardServerENet* enetServer = dynamic_cast<ForwardServerENet*>(param.server);
 		ForwardPacketPtr outPacket = param.packet;
-		ENetPacket* packet = static_cast<ENetPacket*>(outPacket->getRawPtr());
-		enet_host_broadcast(enetServer->host, param.channelID || enetServer->broadcastChannelID, packet);
-		getLogger()->info("broadcast, len:{0}", packet->dataLength);
+		ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
+		for (auto it : enetServer->clients) {
+			ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it.second);
+			enet_peer_send(client->peer, param.channelID, enetPacket);
+		}
+		getLogger()->info("broadcast, len:{0}", enetPacket->dataLength);
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
