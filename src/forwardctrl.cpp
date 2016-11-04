@@ -131,7 +131,8 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 void ForwardCtrl::sendPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
 		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(param.client);
-		ENetPacket* packet = static_cast<ENetPacket*>(param.packet->getRawPtr());
+		ForwardPacketPtr outPacket = param.packet;
+		ENetPacket* packet = static_cast<ENetPacket*>(outPacket->getRawPtr());
 		enet_peer_send(client->peer, param.channelID, packet);
 	}
 	else if (param.server->netType == NetType::WS) {
@@ -147,9 +148,10 @@ void ForwardCtrl::sendPacket(ForwardParam& param) {
 void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
 		ForwardServerENet* enetServer = dynamic_cast<ForwardServerENet*>(param.server);
-		ENetPacket* packet = static_cast<ENetPacket*>(param.packet->getRawPtr());
+		ForwardPacketPtr outPacket = param.packet;
+		ENetPacket* packet = static_cast<ENetPacket*>(outPacket->getRawPtr());
 		enet_host_broadcast(enetServer->host, param.channelID || enetServer->broadcastChannelID, packet);
-		getLogger()->info("broadcast");
+		getLogger()->info("broadcast, len:{0}", packet->dataLength);
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
@@ -179,6 +181,12 @@ ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
 	return std::make_shared<ForwardPacketWS>((uint8_t*)(packet));
 }
 
+
+ForwardPacketPtr ForwardCtrl::transPacket(ForwardPacketPtr packet, NetType netType) {
+	ForwardPacketPtr newPacket = createPacket(netType, packet->getLength());
+	newPacket->setData((uint8_t*)packet->getDataPtr(), packet->getLength() - sizeof(ForwardHeader));
+	return newPacket;
+}
 
 // system command
 bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
@@ -211,49 +219,47 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 
 // has destHostID and has destCID
 bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
-	ForwardHeader& inHeader = *param.header;
+	ForwardServer* inServer = param.server;
+	ForwardClient* inClient = param.client;
+	ForwardPacketPtr inPacket = param.packet;
+	ForwardHeader* inHeader = param.header;
+
+
+	ForwardServer* outServer = getOutServer(inHeader, inServer);
+	if (!outServer)
+		return FORWARDER_ERR;
+
+	ForwardClient* outClient = getOutClient(inHeader, inServer, outServer);
+
+	ForwardPacketPtr outPacket;
+	// if src and dst is different NetType, then build a new packet
+	if (inServer->netType != outServer->netType) {
+		outPacket = transPacket(param.packet, outServer->netType);
+	}
+	else {
+		outPacket = param.packet;
+	}
 	ForwardHeader outHeader;
 	outHeader.protocol = 2;
-	if (inHeader.getFlag(FORWARDER_FLAG_WITH_ADDRESS)) {
+
+	if (inHeader->getFlag(FORWARDER_FLAG_WITH_ADDRESS)) {
+		// add src address to out packet
 		outHeader.hostID = param.server->id;
 		outHeader.clientID = param.client->id;
 	}
-	
-	ForwardPacketPtr outPacket = param.packet;
 	outPacket->setHeader(&outHeader);
 
-	ForwardServer* outServer = nullptr;
-	if (param.server->dest) {
-		outServer = param.server->dest;
-	}
-	else {
-		int destHostID = inHeader.hostID;
-		if (!destHostID)
-			return FORWARDER_ERR;
-		auto it_server = serverDict.find(destHostID);
-		if (it_server == serverDict.end())
-			return FORWARDER_ERR;
-		outServer = it_server->second;
-	}
+	param.header = nullptr;
+	param.packet = outPacket;
+	param.client = outClient;
 	param.server = outServer;
 
-	int destClientID = 0;
-	ForwardClient* destClient = nullptr;
-	if (!param.server->dest) {
-		destClientID = inHeader.clientID;
-		auto it_client = outServer->clients.find(destClientID);
-		if (it_client == outServer->clients.end())
-			return FORWARDER_ERR;
-		destClient = it_client->second;
-	}
-	if (destClient) {
+	if (outClient) {
 		//single send
-		param.client = destClient;
 		sendPacket(param);
 	}
 	else {
 		// broadcast the incoming packet to dest host's peers
-		param.client = nullptr;
 		broadcastPacket(param);
 	}
 	getLogger()->info("forwarded 2");

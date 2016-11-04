@@ -19,10 +19,8 @@ public:
 	virtual void setHeader(ForwardHeader* header) = 0;
 	virtual void setData(uint8_t* data, size_t len) = 0;
 	ForwardPacket() {
-		printf("ctor, len=%i\n", length);
 	}
 	~ForwardPacket() {
-		printf("dtor, len=%i\n", length);
 	}
 protected:
 	size_t length = 0;
@@ -126,6 +124,15 @@ public:
 };
 
 
+class ForwardParam {
+public:
+	ForwardHeader* header = nullptr;
+	ForwardServer* server = nullptr;
+	ForwardClient* client = nullptr;
+	ForwardPacketPtr packet = nullptr;
+	int channelID = 0;
+} ;
+
 class ForwardCtrl {
 public:
 	ForwardCtrl();
@@ -141,14 +148,39 @@ public:
 	rapidjson::Document stat();
 
 	void loop();
-private:
-	typedef struct {
-		ForwardHeader* header = nullptr;
-		ForwardServer* server = nullptr;
-		ForwardClient* client = nullptr;
-		ForwardPacketPtr packet = nullptr;
-		int channelID = 0;
-	} ForwardParam;
+
+	ForwardClient* getOutClient(ForwardHeader* inHeader, ForwardServer* inServer, ForwardServer* outServer) const {
+		ForwardClient* outClient = nullptr;
+		if (!inServer->dest) {
+			// only use inHeader->clientID when inServer has no destServer
+			int clientID = inHeader->clientID;
+			auto it_client = outServer->clients.find(clientID);
+			if (it_client == outServer->clients.end())
+				return nullptr;
+			outClient = it_client->second;
+		}
+		return outClient;
+	}
+
+	ForwardServer* getOutServer(ForwardHeader* inHeader, ForwardServer* inServer) const {
+		ForwardServer* outServer = nullptr;
+		if (inServer->dest) {
+			outServer = inServer->dest;
+		}
+		else {
+			int destHostID = inHeader->hostID;
+			if (!destHostID)
+				return nullptr;
+			outServer = getServerByHostID(destHostID);
+		}
+		return outServer;
+	}
+	ForwardServer* getServerByHostID(int hostID) const {
+		auto it_server = serverDict.find(hostID);
+		if (it_server == serverDict.end())
+			return nullptr;
+		return it_server->second;
+	}
 private:
 	void onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID);
 	void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
@@ -160,6 +192,7 @@ private:
 	bool validHeader(ForwardHeader * header);
 	bool getHeader(ForwardHeader * header, const std::string& packet);
 	bool getHeader(ForwardHeader* header, ENetPacket * packet);
+	ForwardPacketPtr transPacket(ForwardPacketPtr packet, NetType netType);
 
 	bool handlePacket_1(ForwardParam& param);
 	bool handlePacket_2(ForwardParam& param);
