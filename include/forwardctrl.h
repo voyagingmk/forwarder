@@ -45,10 +45,7 @@ public:
 	}
 
 	~ForwardPacketENet() {
-		if (owned && packet) {
-			enet_packet_destroy(packet);
-			packet = nullptr;
-		}
+		packet = nullptr;
 	}
 
 	virtual uint8_t* getDataPtr() const {
@@ -64,6 +61,10 @@ public:
 	}
 
 	virtual void setData(uint8_t* data, size_t len) {
+		if ((len + sizeof(ForwardHeader)) > packet->dataLength) {
+			printf("err");
+			return;
+		}
 		memcpy(packet->data + sizeof(ForwardHeader), data, len);
 		if (!length) {
 			length = sizeof(ForwardHeader) + len;

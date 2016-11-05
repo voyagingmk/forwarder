@@ -1,41 +1,40 @@
-var WebSocketClient = require('websocket').client;
-var forwarder = require('./forwarder');
+const WebSocketClient = require('websocket').client;
+const forwarder = require('./forwarder');
 
-var client = new WebSocketClient();
- 
-client.on('connectFailed', function(error) {
-    console.log('Connect Error: ' + error.toString());
+const client = new WebSocketClient();
+
+client.on('connectFailed', (error) => {
+    console.log(`Connect Error: ${error.toString()}`);
 });
- 
-client.on('connect', function(connection) {
+
+client.on('connect', (connection) => {
     console.log('WebSocket Client Connected');
-    connection.on('error', function(error) {
-        console.log("Connection Error: " + error.toString());
+    connection.on('error', (error) => {
+        console.log(`Connection Error: ${error.toString()}`);
     });
-    connection.on('close', function() {
+    connection.on('close', () => {
         console.log('echo-protocol Connection Closed');
     });
-    connection.on('message', function(message) {
+    connection.on('message', (message) => {
         if (message.type === 'utf8') {
             console.log("Received utf8:", message.utf8Data);
-        }else{
+        } else {
             console.log("Received binary: ", message.binaryData);
         }
     });
 
     function sendTest() {
         if (connection.connected) {
-            var packet = forwarder.makePacket({
+            const packet = forwarder.makePacket({
                 protocol: 2,
                 subID: 1,
-                content: "jjj"
+                content: "jjj",
             });
             connection.sendBytes(packet);
             setTimeout(sendTest, 3000);
         }
     }
     sendTest();
-    
 });
- 
+
 client.connect('ws://localhost:9998/');

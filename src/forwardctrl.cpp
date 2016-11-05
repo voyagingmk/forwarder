@@ -73,22 +73,20 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 			ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
 			auto logger = getLogger();
 			auto on_open = [=](websocketpp::connection_hdl hdl) {
-				logger->info("on_open");
 				UniqID id = wsServer->idGenerator.getNewID();
 				ForwardClientWS* client = poolForwardClientWS.add();
 				client->id = id;
 				client->hdl = hdl;
 				wsServer->clients[id] = static_cast<ForwardClient*>(client);
 				wsServer->hdlToClientId[hdl] = id;
-				logger->info("[c:{0}] connected.", id);
+				logger->info("[WS,c:{0}] connected.", id);
 			};
 
 			auto on_close = [=](websocketpp::connection_hdl hdl) {
-				logger->info("on_close");
 				auto it = wsServer->hdlToClientId.find(hdl);
 				if (it != wsServer->hdlToClientId.end()) {
 					UniqID id = it->second;
-					logger->info("[c:{0}] disconnected.", id);
+					logger->info("[WS,c:{0}] disconnected.", id);
 					wsServer->hdlToClientId.erase(it);
 					auto it = wsServer->clients.find(id);
 					if (it != wsServer->clients.end()) {
@@ -187,7 +185,8 @@ ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
 
 ForwardPacketPtr ForwardCtrl::transPacket(ForwardPacketPtr packet, NetType netType) {
 	ForwardPacketPtr newPacket = createPacket(netType, packet->getLength());
-	newPacket->setData((uint8_t*)packet->getDataPtr(), packet->getLength() - sizeof(ForwardHeader));
+	uint8_t * data = (uint8_t*)packet->getDataPtr();
+	newPacket->setData(data + sizeof(ForwardHeader), packet->getLength() - sizeof(ForwardHeader));
 	return newPacket;
 }
 
@@ -237,7 +236,7 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	ForwardPacketPtr outPacket;
 	// if src and dst is different NetType, then build a new packet
 	if (inServer->netType != outServer->netType) {
-		outPacket = transPacket(param.packet, outServer->netType);
+		outPacket = transPacket(inPacket, outServer->netType);
 	}
 	else {
 		outPacket = param.packet;
@@ -293,16 +292,16 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 		return;
 	}
 	ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it2->second);
-	logger->info("[cli:{0}][len:{1}]",
+	logger->info("[WS,cli:{0}][len:{1}]",
 		clientID,
 		msg->get_payload().size());
 	ForwardHeader header;
-	bool err = getHeader(&header, msg->get_payload());
+	std::string const & payload = msg->get_payload();
+	bool err = getHeader(&header, payload);
 	if (err) {
 		getLogger()->warn("[onWSReceived] getHeader err");
 		return;
 	}
-	const char * content = msg->get_payload().c_str() + sizeof(header);
 	//getLogger()->info("[data]{0}", content);
 	auto it = handleFuncs.find(header.getProtocol());
 	if (it == handleFuncs.end()) {
@@ -312,7 +311,8 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	ForwardParam param;
 	param.header = &header;
 	param.packet = createPacket(NetType::WS, msg->get_payload().size());
-	param.packet->setData((uint8_t*)content, msg->get_payload().size() - sizeof(header));
+	const char * content = payload.data() + sizeof(ForwardHeader);
+	param.packet->setData((uint8_t*)content, msg->get_payload().size() - sizeof(ForwardHeader));
 	param.client = client;
 	param.server = static_cast<ForwardServer*>(wsServer);
 	handlePacketFunc handleFunc = it->second;
@@ -389,7 +389,7 @@ void ForwardCtrl::loop() {
 							server->clients[id] = static_cast<ForwardClient*>(client);
 							char str[INET_ADDRSTRLEN];
 							inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
-							getLogger()->info("[c:{0}] connected, from {1}:{2}.",
+							getLogger()->info("[ENet,c:{0}] connected, from {1}:{2}.",
 								client->id,
 								str,
 								event.peer->address.port);
@@ -403,13 +403,14 @@ void ForwardCtrl::loop() {
 						}
 						case ENET_EVENT_TYPE_DISCONNECT: {
 							ForwardClientENet* client = (ForwardClientENet*)event.peer->data;
-							getLogger()->info("[c:{0}] disconnected.",
+							getLogger()->info("[ENet,c:{0}] disconnected.",
 								client->id);
 							event.peer->data = nullptr;
 							auto it = server->clients.find(client->id);
 							if (it != server->clients.end())
 								server->clients.erase(it);
 							poolForwardClientENet.del(client);
+							break;
 						}
 						case ENET_EVENT_TYPE_NONE:
 							break;
@@ -417,7 +418,13 @@ void ForwardCtrl::loop() {
 						if (isExit)
 							break;
 					}
-					else {
+					else if(ret == 0) {
+						break;
+					}
+					else if (ret < 0) {
+#ifdef _MSC_VER
+						printf("WSAGetLastError(): %d\n", WSAGetLastError());
+#endif
 						break;
 					}
 				} while (true);
