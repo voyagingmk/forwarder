@@ -32,6 +32,22 @@ const peer = client.connect(server_addr,
         // peer.ping();
     });
 
+function sendTest() {
+    const packet = forwarder.makePacket({
+        type: "enet",
+        protocol: 2,
+        subID: 1,
+        content: "hhh",
+    });
+    peer.send(0, packet, (err) => {
+        if (err) {
+            console.log("error sending packet 1:", err);
+        } else {
+            console.log("packet 1 sent.");
+        }
+    });
+    setTimeout(sendTest, 3000);
+}
 // succesful connect event can also be handled with an event handler
 peer.on("connect", (err) => {
     if (err) {
@@ -39,6 +55,8 @@ peer.on("connect", (err) => {
         return;
     }
     console.log("connected");
+
+    sendTest();
     /*
     const packet = forwarder.makePacket({
         protocol: 2,

@@ -184,7 +184,8 @@ ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
 
 
 ForwardPacketPtr ForwardCtrl::transPacket(ForwardPacketPtr packet, NetType netType) {
-	ForwardPacketPtr newPacket = createPacket(netType, packet->getLength());
+	int length = packet->getLength();
+	ForwardPacketPtr newPacket = createPacket(netType, length);
 	uint8_t * data = (uint8_t*)packet->getDataPtr();
 	newPacket->setData(data + sizeof(ForwardHeader), packet->getLength() - sizeof(ForwardHeader));
 	return newPacket;

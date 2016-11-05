@@ -34,7 +34,9 @@ public:
 	ForwardPacketENet(ENetPacket* p_packet):
 		owned(false),
 		packet(p_packet)
-	{}
+	{
+		length = p_packet->dataLength;
+	}
 
 	ForwardPacketENet(size_t len):
 		owned(true)

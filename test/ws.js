@@ -20,12 +20,17 @@ client.on('connect', (connection) => {
             console.log("Received utf8:", message.utf8Data);
         } else {
             console.log("Received binary: ", message.binaryData);
+            const result = forwarder.unmakePacket({
+                data: message.binaryData,
+            });
+            console.log("result", result);
         }
     });
 
     function sendTest() {
         if (connection.connected) {
             const packet = forwarder.makePacket({
+                type: "ws",
                 protocol: 2,
                 subID: 1,
                 content: "jjj",
