@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "uniqid.h"
 #include "forwardctrl.h"
+#include "base64.h"
 
 namespace spd = spdlog;
 using namespace std;
