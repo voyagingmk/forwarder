@@ -10,7 +10,7 @@ namespace forwarder {
 		address.port = serverConfig["port"].GetInt();
 		host = enet_host_create(&address,
 			peerLimit,
-			serverConfig["channels"].GetInt(),
+			1,
 			0      /* assume any amount of incoming bandwidth */,
 			0      /* assume any amount of outgoing bandwidth */);
 		if (!host) {

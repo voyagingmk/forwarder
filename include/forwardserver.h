@@ -15,6 +15,7 @@ namespace forwarder {
 			peerLimit(0),
 			desc(""),
 			admin(false),
+			encrypt(false),
 			netType(p_netType),
 			dest(nullptr)
 		{}
@@ -30,6 +31,7 @@ namespace forwarder {
 		UniqID id;
 		int destId;
 		bool admin;
+		bool encrypt;
 		int peerLimit;
 		NetType netType;
 		ForwardServer* dest;

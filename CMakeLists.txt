@@ -18,7 +18,7 @@ add_subdirectory (enet)
 set (EXTRA_LIBS ${EXTRA_LIBS} enet)
 
 
-FILE(GLOB_RECURSE MY_SOURCERS ${PROJECT_SOURCE_DIR}/src/*.cpp)
+FILE(GLOB_RECURSE MY_SOURCERS ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.c)
 
 add_executable(forwarder ${MY_SOURCERS})
 target_link_libraries (forwarder ${EXTRA_LIBS})

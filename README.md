@@ -48,6 +48,9 @@ https://github.com/mdashti/HPDS/blob/master/src/utils/pool.h
 
 https://www.quora.com/What-is-the-most-efficient-memory-pooling-mechanism-used-in-C-or-C%2B%2B-with-an-explanation-about-how-it-works/answer/Mohammad-Dashti?srid=2JGa
 
+### aes.h
+
+https://github.com/B-Con/crypto-algorithms
 
 # TEST
 

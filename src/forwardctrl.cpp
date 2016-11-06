@@ -63,6 +63,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		server->desc = serverConfig["desc"].GetString();
 		server->peerLimit = serverConfig["peers"].GetInt();
 		server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
+		server->encrypt = (serverConfig.HasMember("encrypt") ? serverConfig["encrypt"].GetBool() : false);
 		if (serverConfig.HasMember("destId"))
 			server->destId = serverConfig["destId"].GetInt();
 
@@ -452,8 +453,9 @@ void ForwardCtrl::loop() {
 				port: int,
 				peerLimit: int,
 				peerCount: int,
-				channels: int,
 				desc: str,
+				admin: bool,
+				encrypt: bool,
 				encrypt: bool
 			},
 			peers: int,		
@@ -489,10 +491,12 @@ Document ForwardCtrl::stat() {
 			add("desc", desc);
 			Value peerLimit(server->peerLimit);
 			add("peerLimit", peerLimit);
+			Value isAdmin(server->admin);
+			add("admin", isAdmin);
+			Value isEncrypt(server->encrypt);
+			add("encrypt", isEncrypt);
 			if (server->netType == NetType::ENet) {
 				ForwardServerENet* enetserver = dynamic_cast<ForwardServerENet*>(server);
-				Value channelLimit(int(enetserver->host->channelLimit));
-				add("channels", channelLimit);
 				Value port(enetserver->host->address.port);
 				add("port", port);
 			}
