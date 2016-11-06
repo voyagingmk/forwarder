@@ -11,10 +11,10 @@ function unmakePacket(param) {
     }
     console.log("arr", arr);
     const header = Buffer.from(data, 0, 8);
-    console.log("header.length", header.length);
-    console.log("param.data.length", data.length);
+    console.log("data.length", data.length);
     const content = data.toString("ascii", 8, data.length);
     return {
+        header,
         content,
     };
 }

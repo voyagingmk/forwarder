@@ -6,10 +6,14 @@ namespace forwarder {
 
 	class ForwardPacket {
 	public:
+		virtual uint8_t* getHeaderPtr() const = 0;
 		virtual uint8_t* getDataPtr() const = 0;
 		virtual void* getRawPtr() const = 0;
-		size_t getLength() const {
+		size_t getTotalLength() const {
 			return length;
+		}
+		size_t getDataLength() const {
+			return length - sizeof(ForwardHeader);
 		}
 		virtual void setHeader(ForwardHeader* header) = 0;
 		virtual void setData(uint8_t* data, size_t len) = 0;
@@ -18,7 +22,7 @@ namespace forwarder {
 		~ForwardPacket() {
 		}
 	protected:
-		size_t length = 0;
+		size_t length = 0; // the packet's total length
 	};
 
 	typedef std::shared_ptr<ForwardPacket> ForwardPacketPtr;
@@ -45,8 +49,12 @@ namespace forwarder {
 			packet = nullptr;
 		}
 
-		virtual uint8_t* getDataPtr() const {
+		virtual uint8_t* getHeaderPtr() const {
 			return static_cast<uint8_t*>(packet->data);
+		}		
+
+		virtual uint8_t* getDataPtr() const {
+			return static_cast<uint8_t*>(packet->data + sizeof(ForwardHeader));
 		}
 
 		virtual void* getRawPtr() const {
@@ -98,8 +106,12 @@ namespace forwarder {
 			}
 		}
 
-		virtual uint8_t* getDataPtr() const {
+		virtual uint8_t* getHeaderPtr() const {
 			return packetData;
+		}
+
+		virtual uint8_t* getDataPtr() const {
+			return packetData + sizeof(ForwardHeader);
 		}
 
 		virtual void* getRawPtr() const {

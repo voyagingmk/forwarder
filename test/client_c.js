@@ -1,7 +1,7 @@
 const enet = require('enet');
 const forwarder = require('./forwarder');
 
-const server_addr = new enet.Address("127.0.0.1", 9999);
+const server_addr = new enet.Address("127.0.0.1", 10000);
 
 
 const client = enet.createClient({
@@ -56,7 +56,7 @@ peer.on("connect", (err) => {
     }
     console.log("connected");
 
-    sendTest();
+    //sendTest();
     /*
     const packet = forwarder.makePacket({
         protocol: 2,

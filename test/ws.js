@@ -1,5 +1,6 @@
 const WebSocketClient = require('websocket').client;
 const forwarder = require('./forwarder');
+const base64 = require('./base64');
 
 const client = new WebSocketClient();
 
@@ -29,11 +30,14 @@ client.on('connect', (connection) => {
 
     function sendTest() {
         if (connection.connected) {
+            const buf = new Buffer("hello");
+            const b64 = base64.fromByteArray(buf);
+            console.log("b64", b64, "len", b64.length);
             const packet = forwarder.makePacket({
                 type: "ws",
                 protocol: 2,
                 subID: 1,
-                content: "jjj",
+                content: b64,
             });
             connection.sendBytes(packet);
             setTimeout(sendTest, 3000);

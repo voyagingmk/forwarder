@@ -15,6 +15,7 @@ namespace forwarder {
 			peerLimit(0),
 			desc(""),
 			admin(false),
+			base64(false),
 			encrypt(false),
 			netType(p_netType),
 			dest(nullptr)
@@ -32,6 +33,7 @@ namespace forwarder {
 		int destId;
 		bool admin;
 		bool encrypt;
+		bool base64;
 		int peerLimit;
 		NetType netType;
 		ForwardServer* dest;

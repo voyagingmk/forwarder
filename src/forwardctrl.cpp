@@ -1,5 +1,6 @@
 #include "forwardctrl.h"
 #include "utils.h"
+#include "base64.h"
 
 namespace spd = spdlog;
 using namespace std;
@@ -64,6 +65,8 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		server->peerLimit = serverConfig["peers"].GetInt();
 		server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
 		server->encrypt = (serverConfig.HasMember("encrypt") ? serverConfig["encrypt"].GetBool() : false);
+		server->base64 = (serverConfig.HasMember("base64") ? serverConfig["base64"].GetBool() : false);
+
 		if (serverConfig.HasMember("destId"))
 			server->destId = serverConfig["destId"].GetInt();
 
@@ -140,7 +143,7 @@ void ForwardCtrl::sendPacket(ForwardParam& param) {
 		ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(param.client);
 		wsServer->server.send(client->hdl,
 			param.packet->getRawPtr(),
-			param.packet->getLength(),
+			param.packet->getTotalLength(),
 			websocketpp::frame::opcode::value::BINARY);
 	}
 }
@@ -162,7 +165,7 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 			ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it.second);
 			wsServer->server.send(client->hdl,
 				param.packet->getRawPtr(),
-				param.packet->getLength(),
+				param.packet->getTotalLength(),
 				websocketpp::frame::opcode::value::BINARY);
 		}
 	}
@@ -185,11 +188,38 @@ ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
 }
 
 
-ForwardPacketPtr ForwardCtrl::transPacket(ForwardPacketPtr packet, NetType netType) {
-	int length = packet->getLength();
-	ForwardPacketPtr newPacket = createPacket(netType, length);
-	uint8_t * data = (uint8_t*)packet->getDataPtr();
-	newPacket->setData(data + sizeof(ForwardHeader), packet->getLength() - sizeof(ForwardHeader));
+ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, Convert convertNetType, Convert convertBase64, Convert convertCrypt) {
+	getLogger()->info("convertPacket {0},{1},{2}", convertNetType, convertBase64, convertCrypt);
+	if (convertNetType == Convert::None && convertBase64 == Convert::None && convertCrypt == Convert::None) {
+		return packet;
+	}
+	NetType newNetType = convertNetType == Convert::ENet_to_WS ? NetType::WS : NetType::ENet;
+	ForwardPacketPtr newPacket;
+	size_t originLength = packet->getTotalLength();
+	if (convertBase64 == Convert::None && convertCrypt == Convert::None) {
+		newPacket = createPacket(newNetType, originLength);
+		uint8_t* data = (uint8_t*)packet->getDataPtr();
+		newPacket->setData(data, packet->getDataLength());
+	}
+	else {
+		if (convertBase64 != Convert::None) {
+			Base64Codec& base64 = Base64Codec::get();
+
+			if (convertBase64 == Convert::Base64_to_Raw) {
+				uint8_t* newData;
+				size_t newDataLength;
+				base64.toByteArray((const char*)packet->getDataPtr(), packet->getDataLength(), newData, &newDataLength);
+
+				newPacket = createPacket(newNetType, newDataLength + sizeof(ForwardHeader));
+				newPacket->setData(newData, newDataLength);
+			} else {
+				std::string& b64 = base64.fromByteArray(packet->getDataPtr(), packet->getDataLength());
+				size_t newDataLength = b64.size();
+				newPacket = createPacket(newNetType, newDataLength + sizeof(ForwardHeader));
+				newPacket->setData((uint8_t*)b64.c_str(), newDataLength);
+			}
+		}
+	}
 	return newPacket;
 }
 
@@ -237,13 +267,26 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	ForwardClient* outClient = getOutClient(inHeader, inServer, outServer);
 
 	ForwardPacketPtr outPacket;
-	// if src and dst is different NetType, then build a new packet
+
+	// converting the packet to outServer's scheme
+	Convert convertNetType = Convert::None;
+	Convert convertBase64 = Convert::None;
+	Convert convertCrypt = Convert::None;
+	// 1. NetType
 	if (inServer->netType != outServer->netType) {
-		outPacket = transPacket(inPacket, outServer->netType);
+		convertNetType = outServer->netType == NetType::WS ? Convert::ENet_to_WS : Convert::WS_to_ENet;
 	}
-	else {
-		outPacket = param.packet;
+	// 2. base64
+	if (inServer->base64 != outServer->base64) {
+		convertBase64 = outServer->base64 ? Convert::Raw_to_Base64 : Convert::Base64_to_Raw;
 	}
+	// 3. encrypt
+	if (inServer->encrypt != outServer->encrypt) {
+		convertCrypt = outServer->encrypt ? Convert::Encrypt : Convert::Decrypt;
+	}
+	outPacket = convertPacket(inPacket, convertNetType, convertBase64, convertCrypt);
+
+
 	ForwardHeader outHeader;
 	outHeader.protocol = 2;
 
@@ -300,8 +343,8 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 		msg->get_payload().size());
 	ForwardHeader header;
 	std::string const & payload = msg->get_payload();
-	bool err = getHeader(&header, payload);
-	if (err) {
+	ReturnCode code = getHeader(&header, payload);
+	if (code == ReturnCode::Err) {
 		getLogger()->warn("[onWSReceived] getHeader err");
 		return;
 	}
@@ -351,22 +394,26 @@ void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, 
 	(this->*handleFunc)(param);
 }
 
-bool ForwardCtrl::validHeader(ForwardHeader* header) {
-	if (header->version != Version)
+ReturnCode ForwardCtrl::validHeader(ForwardHeader* header) {
+	if (header->version != Version) {
+		getLogger()->warn("[validHeader] wrong version {0} != {1}", header->version, Version);
 		return ReturnCode::Err;
-	if (header->length != sizeof(ForwardHeader))
+	}
+	if (header->length != sizeof(ForwardHeader)) {
+		getLogger()->warn("[validHeader] wrong length {0} != {1}", header->length, sizeof(ForwardHeader));
 		return ReturnCode::Err;
+	}
 	return ReturnCode::Ok;
 }
 
-bool ForwardCtrl::getHeader(ForwardHeader* header, const std::string& packet) {
+ReturnCode ForwardCtrl::getHeader(ForwardHeader* header, const std::string& packet) {
 	memcpy(header, (void*)packet.c_str(), sizeof(ForwardHeader));
 	return validHeader(header);
 }
 
 
 
-bool ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
+ReturnCode ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
 	memcpy(header, packet->data, sizeof(ForwardHeader));
 	return validHeader(header);
 }

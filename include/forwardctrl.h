@@ -76,10 +76,10 @@ namespace forwarder {
 		ForwardPacketPtr createPacket(ENetPacket* packet);
 		ForwardPacketPtr createPacket(const char* packet);
 
-		bool validHeader(ForwardHeader * header);
-		bool getHeader(ForwardHeader * header, const std::string& packet);
-		bool getHeader(ForwardHeader* header, ENetPacket * packet);
-		ForwardPacketPtr transPacket(ForwardPacketPtr packet, NetType netType);
+		ReturnCode validHeader(ForwardHeader * header);
+		ReturnCode getHeader(ForwardHeader * header, const std::string& packet);
+		ReturnCode getHeader(ForwardHeader* header, ENetPacket * packet);
+		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, Convert convertNetType, Convert convertBase64, Convert convertCrypt);
 
 		bool handlePacket_1(ForwardParam& param);
 		bool handlePacket_2(ForwardParam& param);
