@@ -4,6 +4,7 @@
 namespace spd = spdlog;
 using namespace std;
 using namespace rapidjson;
+using namespace forwarder;
 
 ForwardCtrl::ForwardCtrl() :
 	poolForwardServerENet(sizeof(ForwardServerENet)),
@@ -194,7 +195,7 @@ ForwardPacketPtr ForwardCtrl::transPacket(ForwardPacketPtr packet, NetType netTy
 // system command
 bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 	if(!param.server->admin)
-		return FORWARDER_ERR;
+		return ReturnCode::Err;
 	ForwardHeader outHeader;
 	outHeader.protocol = 1;
 	int subID = param.header->subID;
@@ -217,7 +218,7 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 	else if (subID == 2){
 		//force disconnect
 	}
-	return FORWARDER_OK;
+	return ReturnCode::Ok;
 }
 
 // has destHostID and has destCID
@@ -230,7 +231,7 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 
 	ForwardServer* outServer = getOutServer(inHeader, inServer);
 	if (!outServer)
-		return FORWARDER_ERR;
+		return ReturnCode::Err;
 
 	ForwardClient* outClient = getOutClient(inHeader, inServer, outServer);
 
@@ -245,7 +246,7 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	ForwardHeader outHeader;
 	outHeader.protocol = 2;
 
-	if (inHeader->getFlag(FORWARDER_FLAG_WITH_ADDRESS)) {
+	if (inHeader->getProtocolFlag(ProtocolFlag::WithAddress)) {
 		// add src address to out packet
 		outHeader.hostID = param.server->id;
 		outHeader.clientID = param.client->id;
@@ -266,15 +267,15 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 		broadcastPacket(param);
 	}
 	getLogger()->info("forwarded 2");
-	return FORWARDER_OK;
+	return ReturnCode::Ok;
 }
 
 bool ForwardCtrl::handlePacket_3(ForwardParam& param) {
 
-	return FORWARDER_OK;
+	return ReturnCode::Ok;
 }
 bool ForwardCtrl::handlePacket_4(ForwardParam& param) {
-	return FORWARDER_OK;
+	return ReturnCode::Ok;
 }
 
 
@@ -304,9 +305,9 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 		return;
 	}
 	//getLogger()->info("[data]{0}", content);
-	auto it = handleFuncs.find(header.getProtocol());
+	auto it = handleFuncs.find(header.getProtocolType());
 	if (it == handleFuncs.end()) {
-		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
+		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocolType());
 		return;
 	}
 	ForwardParam param;
@@ -334,9 +335,9 @@ void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, 
 	}
 	const char * content = (const char*)(inPacket->data) + sizeof(header);
 	getLogger()->info("[data]{0}", content);
-	auto it = handleFuncs.find(header.getProtocol());
+	auto it = handleFuncs.find(header.getProtocolType());
 	if (it == handleFuncs.end()) {
-		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
+		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocolType());
 		return;
 	}
 	ForwardParam param;
@@ -350,11 +351,11 @@ void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, 
 }
 
 bool ForwardCtrl::validHeader(ForwardHeader* header) {
-	if (header->version != FORWARDER_VERSION)
-		return FORWARDER_ERR;
+	if (header->version != Version)
+		return ReturnCode::Err;
 	if (header->length != sizeof(ForwardHeader))
-		return FORWARDER_ERR;
-	return FORWARDER_OK;
+		return ReturnCode::Err;
+	return ReturnCode::Ok;
 }
 
 bool ForwardCtrl::getHeader(ForwardHeader* header, const std::string& packet) {

@@ -1,21 +1,27 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-constexpr int FORWARDER_VERSION = 1;
+namespace forwarder {
 
-constexpr int FORWARDER_OK = 0;
-constexpr int FORWARDER_ERR = 1;
+	constexpr int Version = 1;
 
-constexpr int FORWARDER_FLAG_WITH_ADDRESS = 1;
+	enum ReturnCode {
+		Ok = 1,
+		Err = 2
+	};
 
+	enum ProtocolFlag {
+		WithAddress = 1
+	};
 
-constexpr int FORWARDER_PROTOCOL_UNKNOWN = 0;
+	enum ProtocolType {
+		Unknown = 0
+	};
 
-enum NetType {
-	ENet = 1,
-	WS = 2
-};
-constexpr int FORWARDER_PROTOCOL_ENET = 1;
-constexpr int FORWARDER_PROTOCOL_WS = 2;
+	enum NetType {
+		ENet = 1,
+		WS = 2
+	};
+}
 
 #endif

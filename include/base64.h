@@ -6,6 +6,84 @@
 
 class Base64Codec {
 public:
+	static Base64Codec& get() {
+		static Base64Codec instance;
+		return instance;
+	}
+
+	void toByteArray(const char * b64, size_t len, uint8_t* &data, size_t * dataLength) {
+		if (!len)
+			len = strlen(b64);
+		uint32_t i, j, l, tmp;
+		//tmp, placeHolders, data
+		size_t placeHolders = placeHoldersCount(b64);
+
+		*dataLength = len * 3 / 4 - placeHolders;
+		data = new uint8_t[*dataLength];
+
+		// if there are placeholders, only get up to the last complete 4 chars
+		l = placeHolders > 0 ? len - 4 : len;
+
+		uint32_t L = 0;
+
+		for (i = 0, j = 0; i < l; i += 4, j += 3) {
+			tmp = (revLookup[charCodeAt(b64, i)] << 18) |
+				(revLookup[charCodeAt(b64, i + 1)] << 12) |
+				(revLookup[charCodeAt(b64, i + 2)] << 6) |
+				revLookup[charCodeAt(b64, i + 3)];
+			data[L++] = (tmp >> 16) & 0xFF;
+			data[L++] = (tmp >> 8) & 0xFF;
+			data[L++] = tmp & 0xFF;
+		}
+
+		if (placeHolders == 2) {
+			tmp = (revLookup[charCodeAt(b64, i)] << 2) | (revLookup[charCodeAt(b64, i + 1)] >> 4);
+			data[L++] = tmp & 0xFF;
+		}
+		else if (placeHolders == 1) {
+			tmp = (revLookup[charCodeAt(b64, i)] << 10) |
+				(revLookup[charCodeAt(b64, i + 1)] << 4) |
+				(revLookup[charCodeAt(b64, i + 2)] >> 2);
+			data[L++] = (tmp >> 8) & 0xFF;
+			data[L++] = tmp & 0xFF;
+		};
+	}
+
+	std::string fromByteArray(uint8_t* data, size_t len) {
+		uint32_t tmp;
+		uint8_t extraBytes = len % 3; // if we have 1 byte left, pad 2 bytes
+		std::string output("");
+		std::string parts("");
+		size_t maxChunkLength = 16383; // must be multiple of 3
+									   // go through the array every three bytes, we'll deal with trailing stuff later
+		for (uint8_t i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
+			std::string tmp;
+			encodeChunk(data,
+				i,
+				(i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength),
+				tmp);
+			parts += tmp;
+		}
+
+		// pad the end with zeros, but make sure to not forget the extra bytes
+		if (extraBytes == 1) {
+			tmp = data[len - 1];
+			output += std::string(1, code[tmp >> 2]);
+			output += std::string(1, code[(tmp << 4) & 0x3F]);
+			output += std::string(2, '==');
+		}
+		else if (extraBytes == 2) {
+			tmp = (data[len - 2] << 8) + (data[len - 1]);
+			output += std::string(1, code[tmp >> 10]);
+			output += std::string(1, code[(tmp >> 4) & 0x3F]);
+			output += std::string(1, code[(tmp << 2) & 0x3F]);
+			output += std::string(1, '=');
+		}
+		parts += output;
+		return parts;
+	}
+
+private:
 	Base64Codec() {
 		for (int i = 0; i < sizeof(code); ++i) {
 			revLookup[charCodeAt(code, i)] = i;
@@ -38,79 +116,6 @@ public:
 			len = strlen(b64);
 		// base64 is 4/3 + up to two characters of the original data
 		return len * 3 / 4 - placeHoldersCount(b64);
-	}
-
-
-	void toByteArray(const char * b64, size_t len, uint8_t* &data, size_t * dataLength) {
-		if (!len)
-			len = strlen(b64);
-		uint32_t i, j, l, tmp;
-		//tmp, placeHolders, data
-		size_t placeHolders = placeHoldersCount(b64);
-
-		*dataLength = len * 3 / 4 - placeHolders;
-		data = new uint8_t[*dataLength];
-
-		// if there are placeholders, only get up to the last complete 4 chars
-		l = placeHolders > 0 ? len - 4 : len;
-
-		uint32_t L = 0;
-
-		for (i = 0, j = 0; i < l; i += 4, j += 3) {
-			tmp = (revLookup[charCodeAt(b64, i)] << 18) |
-				(revLookup[charCodeAt(b64, i + 1)] << 12) | 
-				(revLookup[charCodeAt(b64, i + 2)] << 6) |
-				revLookup[charCodeAt(b64, i + 3)];
-			data[L++] = (tmp >> 16) & 0xFF;
-			data[L++] = (tmp >> 8) & 0xFF;
-			data[L++] = tmp & 0xFF;
-		}
-
-		if (placeHolders == 2) {
-			tmp = (revLookup[charCodeAt(b64, i)] << 2) | (revLookup[charCodeAt(b64, i + 1)] >> 4);
-			data[L++] = tmp & 0xFF;
-		}
-		else if (placeHolders == 1) {
-			tmp = (revLookup[charCodeAt(b64, i)] << 10) |
-				(revLookup[charCodeAt(b64, i + 1)] << 4) |
-				(revLookup[charCodeAt(b64, i + 2)] >> 2);
-			data[L++] = (tmp >> 8) & 0xFF;
-			data[L++] = tmp & 0xFF;
-		};
-	}
-
-	std::string fromByteArray(uint8_t* data, size_t len) {
-		uint32_t tmp;
-		uint8_t extraBytes = len % 3; // if we have 1 byte left, pad 2 bytes
-		std::string output("");
-		std::string parts("");
-		size_t maxChunkLength = 16383; // must be multiple of 3
-		// go through the array every three bytes, we'll deal with trailing stuff later
-		for (uint8_t i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
-			std::string tmp;
-			encodeChunk(data,
-				i,
-				(i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength), 
-				tmp);
-			parts += tmp;
-		}
-
-		// pad the end with zeros, but make sure to not forget the extra bytes
-		if (extraBytes == 1) {
-			tmp = data[len - 1];
-			output += std::string(1, code[tmp >> 2]);
-			output += std::string(1, code[(tmp << 4) & 0x3F]);
-			output += std::string(2, '==');
-		}
-		else if (extraBytes == 2) {
-			tmp = (data[len - 2] << 8) + (data[len - 1]);
-			output += std::string(1, code[tmp >> 10]);
-			output += std::string(1, code[(tmp >> 4) & 0x3F]);
-			output += std::string(1, code[(tmp << 2) & 0x3F]);
-			output += std::string(1, '=');
-		}
-		parts += output;
-		return parts;
 	}
 
 	std::string tripletToBase64(uint32_t num) {

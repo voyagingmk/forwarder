@@ -7,6 +7,7 @@
 namespace spd = spdlog;
 using namespace std;
 using namespace rapidjson;
+using namespace forwarder;
 
 void onSIGINT(int n)
 {
