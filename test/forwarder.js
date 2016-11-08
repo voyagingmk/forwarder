@@ -28,6 +28,10 @@ function unmakePacket(param) {
         content = Buffer.concat(plainChunks);
         console.log("content", Buffer(content), 'len', Buffer(content).length);
         content = content.toString();
+    } else if (param.base64) {
+        const contentBase64 = base64.toByteArray(data);
+        const contentBuf = Buffer(contentBase64);
+        content = contentBuf.toString();
     } else {
         content = data.toString();
     }
