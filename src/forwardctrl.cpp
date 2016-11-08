@@ -1,6 +1,8 @@
 #include "forwardctrl.h"
 #include "utils.h"
 #include "base64.h"
+#include "aes_ctr.h"
+#include "aes.h"
 
 namespace spd = spdlog;
 using namespace std;
@@ -66,6 +68,16 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
 		server->encrypt = (serverConfig.HasMember("encrypt") ? serverConfig["encrypt"].GetBool() : false);
 		server->base64 = (serverConfig.HasMember("base64") ? serverConfig["base64"].GetBool() : false);
+
+		if (server->encrypt) {
+			if (serverConfig.HasMember("encryptkey")) {
+				server->initCipherKey(serverConfig["encryptkey"].GetString());
+			}
+			else {
+				logger->error("no encryptkey");
+				exit(-1);
+			}
+		}
 
 		if (serverConfig.HasMember("destId"))
 			server->destId = serverConfig["destId"].GetInt();
@@ -177,6 +189,7 @@ ForwardPacketPtr ForwardCtrl::createPacket(NetType netType, size_t len) {
 	}else if (netType == NetType::WS) {
 		return std::make_shared<ForwardPacketWS>(len);
 	}
+	return nullptr;
 }
 
 ForwardPacketPtr ForwardCtrl::createPacket(ENetPacket* packet) {
@@ -188,7 +201,7 @@ ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
 }
 
 
-ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, Convert convertNetType, Convert convertBase64, Convert convertCrypt) {
+ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, Convert convertNetType, Convert convertBase64, Convert convertCrypt) {
 	getLogger()->info("convertPacket {0},{1},{2}", convertNetType, convertBase64, convertCrypt);
 	if (convertNetType == Convert::None && convertBase64 == Convert::None && convertCrypt == Convert::None) {
 		return packet;
@@ -202,7 +215,47 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, Convert con
 		newPacket->setData(data, packet->getDataLength());
 	}
 	else {
-		if (convertBase64 != Convert::None) {
+		if (convertCrypt != Convert::None) {
+			//TODO inServer and OutServer has different key
+			if (convertCrypt == Convert::Decrypt) {
+				size_t ivSize = 16;
+				size_t dataLength = packet->getDataLength() - ivSize;
+				uint8_t* data = (uint8_t*)packet->getDataPtr();
+				uint8_t* encrypted = data + ivSize;
+				//debugBytes("encrypted", encrypted, dataLength);
+				newPacket = createPacket(newNetType, dataLength + sizeof(ForwardHeader));
+				uint8_t* origin = (uint8_t*)newPacket->getDataPtr();
+				uint8_t* iv = data;
+				unsigned char ecount_buf[AES_BLOCK_SIZE];
+				unsigned int num = 0;
+				//it's decrypt
+				AES_ctr128_encrypt(encrypted, origin, dataLength, &inServer->encryptkey, iv, ecount_buf, &num);
+				//debugBytes("origin", origin, dataLength);
+			}
+			else if( convertCrypt == Convert::Encrypt){
+				constexpr size_t ivSize = 16;
+				static std::random_device rd;
+				static std::mt19937 gen(rd());
+				static std::uniform_int_distribution<> dis(0, std::pow(2, 8) - 1);
+				size_t dataLength = packet->getDataLength();
+				uint8_t* origin = (uint8_t*)packet->getDataPtr();
+				//debugBytes("origin", origin, dataLength);
+				newPacket = createPacket(newNetType, dataLength + ivSize + sizeof(ForwardHeader));
+				uint8_t* iv = (uint8_t*)newPacket->getDataPtr();
+				uint8_t ivTmp[ivSize];
+				for (int i = 0; i < ivSize; i++) {
+					ivTmp[i] = dis(gen);
+				}
+				memcpy(iv, ivTmp, ivSize);
+				uint8_t* encrypted = iv + ivSize;
+				unsigned char ecount_buf[AES_BLOCK_SIZE];
+				unsigned int num = 0;
+				//debugBytes("iv", iv, ivSize);
+				AES_ctr128_encrypt(origin, encrypted, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
+				//debugBytes("encrypted", encrypted, dataLength);
+			}
+		} // TODO support both crypt and base64
+		else if (convertBase64 != Convert::None) {
 			Base64Codec& base64 = Base64Codec::get();
 
 			if (convertBase64 == Convert::Base64_to_Raw) {
@@ -224,7 +277,7 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, Convert con
 }
 
 // system command
-bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
+ReturnCode ForwardCtrl::handlePacket_1(ForwardParam& param) {
 	if(!param.server->admin)
 		return ReturnCode::Err;
 	ForwardHeader outHeader;
@@ -253,7 +306,7 @@ bool ForwardCtrl::handlePacket_1(ForwardParam& param) {
 }
 
 // has destHostID and has destCID
-bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
+ReturnCode ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
@@ -284,8 +337,9 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	if (inServer->encrypt != outServer->encrypt) {
 		convertCrypt = outServer->encrypt ? Convert::Encrypt : Convert::Decrypt;
 	}
-	outPacket = convertPacket(inPacket, convertNetType, convertBase64, convertCrypt);
-
+	outPacket = convertPacket(inPacket, inServer, outServer, convertNetType, convertBase64, convertCrypt);
+	if (!outPacket)
+		return ReturnCode::Err;
 
 	ForwardHeader outHeader;
 	outHeader.protocol = 2;
@@ -314,11 +368,10 @@ bool ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	return ReturnCode::Ok;
 }
 
-bool ForwardCtrl::handlePacket_3(ForwardParam& param) {
-
+ReturnCode ForwardCtrl::handlePacket_3(ForwardParam& param) {
 	return ReturnCode::Ok;
 }
-bool ForwardCtrl::handlePacket_4(ForwardParam& param) {
+ReturnCode ForwardCtrl::handlePacket_4(ForwardParam& param) {
 	return ReturnCode::Ok;
 }
 
@@ -372,8 +425,8 @@ void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, 
 		channelID,
 		inPacket->dataLength);
 	ForwardHeader header;
-	bool err = getHeader(&header, inPacket);
-	if (err) {
+	ReturnCode err = getHeader(&header, inPacket);
+	if (err == ReturnCode::Err) {
 		getLogger()->warn("[onENetReceived] getHeader err");
 		return;
 	}

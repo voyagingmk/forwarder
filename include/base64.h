@@ -57,7 +57,7 @@ namespace forwarder {
 			std::string parts("");
 			size_t maxChunkLength = 16383; // must be multiple of 3
 										   // go through the array every three bytes, we'll deal with trailing stuff later
-			for (uint8_t i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
+			for (size_t i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
 				std::string tmp;
 				encodeChunk(data,
 					i,
@@ -71,14 +71,14 @@ namespace forwarder {
 				tmp = data[len - 1];
 				output += std::string(1, code[tmp >> 2]);
 				output += std::string(1, code[(tmp << 4) & 0x3F]);
-				output += std::string(2, '==');
+				output += std::string("==");
 			}
 			else if (extraBytes == 2) {
 				tmp = (data[len - 2] << 8) + (data[len - 1]);
 				output += std::string(1, code[tmp >> 10]);
 				output += std::string(1, code[(tmp >> 4) & 0x3F]);
 				output += std::string(1, code[(tmp << 2) & 0x3F]);
-				output += std::string(1, '=');
+				output += std::string("=");
 			}
 			parts += output;
 			return parts;
@@ -87,7 +87,7 @@ namespace forwarder {
 	private:
 		Base64Codec() {
 			code = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-			for (int i = 0; i < strlen(code); ++i) {
+			for (size_t i = 0; i < strlen(code); ++i) {
 				revLookup[charCodeAt(code, i)] = i;
 			}
 			revLookup[charCodeAt("-", 0)] = 62;

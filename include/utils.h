@@ -37,4 +37,7 @@ static std::shared_ptr<spdlog::logger> getLogger() {
 static std::shared_ptr<spdlog::logger> getLogger(const char * name) {
 	return spdlog::get(name);
 }
+
+void debugBytes(const char * msg, uint8_t* data, size_t len);
+
 #endif

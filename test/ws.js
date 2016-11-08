@@ -22,6 +22,8 @@ client.on('connect', (connection) => {
         } else {
             console.log("Received binary: ", message.binaryData);
             const result = forwarder.unmakePacket({
+                encrypt: true,
+                encryptkey: "1234567812345678",
                 data: message.binaryData,
             });
             console.log("result", result);
@@ -30,20 +32,20 @@ client.on('connect', (connection) => {
 
     function sendTest() {
         if (connection.connected) {
-            const buf = new Buffer("hello");
-            const b64 = base64.fromByteArray(buf);
-            console.log("b64", b64, "len", b64.length);
             const packet = forwarder.makePacket({
                 type: "ws",
                 protocol: 2,
                 subID: 1,
-                content: b64,
+                base64: false,
+                encrypt: true,
+                encryptkey: "1234567812345678",
+                content: "hello",
             });
             connection.sendBytes(packet);
             setTimeout(sendTest, 3000);
         }
     }
-    sendTest();
+    // sendTest();
 });
 
 client.connect('ws://localhost:9998/');

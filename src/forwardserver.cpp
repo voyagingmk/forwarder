@@ -1,8 +1,13 @@
 #include "forwardserver.h"
 #include "utils.h"
 
-
 namespace forwarder {
+
+	void ForwardServer::initCipherKey(const char* key){
+		AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
+	}
+
+
 	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
 		ENetAddress address;
 		enet_address_set_host(&address, "0.0.0.0");

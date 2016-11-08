@@ -40,7 +40,7 @@ namespace forwarder {
 			return hostID;
 		}
 
-		inline uint8_t getClientID() {
+		inline uint16_t getClientID() {
 			return clientID;
 		}
 

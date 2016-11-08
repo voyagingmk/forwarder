@@ -37,7 +37,9 @@ function sendTest() {
         type: "enet",
         protocol: 2,
         subID: 1,
-        content: "hhh",
+        //encrypt: true,
+        //encryptkey: "1234567812345678",
+        content: "world",
     });
     peer.send(0, packet, (err) => {
         if (err) {
@@ -46,7 +48,7 @@ function sendTest() {
             console.log("packet 1 sent.");
         }
     });
-    setTimeout(sendTest, 3000);
+    //setTimeout(sendTest, 3000);
 }
 // succesful connect event can also be handled with an event handler
 peer.on("connect", (err) => {
@@ -56,7 +58,7 @@ peer.on("connect", (err) => {
     }
     console.log("connected");
 
-    //sendTest();
+    sendTest();
     /*
     const packet = forwarder.makePacket({
         protocol: 2,

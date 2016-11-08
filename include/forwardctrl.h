@@ -79,12 +79,12 @@ namespace forwarder {
 		ReturnCode validHeader(ForwardHeader * header);
 		ReturnCode getHeader(ForwardHeader * header, const std::string& packet);
 		ReturnCode getHeader(ForwardHeader* header, ENetPacket * packet);
-		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, Convert convertNetType, Convert convertBase64, Convert convertCrypt);
+		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, Convert convertNetType, Convert convertBase64, Convert convertCrypt);
 
-		bool handlePacket_1(ForwardParam& param);
-		bool handlePacket_2(ForwardParam& param);
-		bool handlePacket_3(ForwardParam& param);
-		bool handlePacket_4(ForwardParam& param);
+		ReturnCode handlePacket_1(ForwardParam& param);
+		ReturnCode handlePacket_2(ForwardParam& param);
+		ReturnCode handlePacket_3(ForwardParam& param);
+		ReturnCode handlePacket_4(ForwardParam& param);
 
 		ForwardServer* createForwardServer(int protocol);
 		ForwardClient* createForwardClient(int protocol);
@@ -92,7 +92,7 @@ namespace forwarder {
 		void sendPacket(ForwardParam& param);
 		void broadcastPacket(ForwardParam& param);
 	private:
-		typedef bool(ForwardCtrl::*handlePacketFunc)(ForwardParam& param);
+		typedef ReturnCode(ForwardCtrl::*handlePacketFunc)(ForwardParam& param);
 		Pool<ForwardServerENet> poolForwardServerENet;
 		Pool<ForwardClientENet> poolForwardClientENet;
 		Pool<ForwardServerWS> poolForwardServerWS;

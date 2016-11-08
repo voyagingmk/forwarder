@@ -4,6 +4,8 @@
 #include "uniqid.h"
 #include "defines.h"
 #include "forwardclient.h"
+#include "aes_ctr.h"
+#include "aes.h"
 
 namespace forwarder {
 
@@ -28,6 +30,7 @@ namespace forwarder {
 	public:
 		virtual void release() = 0;
 		virtual void init(rapidjson::Value& serverConfig) = 0;
+		void initCipherKey(const char* key);
 	public:
 		UniqID id;
 		int destId;
@@ -35,6 +38,7 @@ namespace forwarder {
 		bool encrypt;
 		bool base64;
 		int peerLimit;
+		AES_KEY encryptkey;
 		NetType netType;
 		ForwardServer* dest;
 		UniqIDGenerator idGenerator;
