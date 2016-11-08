@@ -79,7 +79,7 @@ namespace forwarder {
 		ReturnCode validHeader(ForwardHeader * header);
 		ReturnCode getHeader(ForwardHeader * header, const std::string& packet);
 		ReturnCode getHeader(ForwardHeader* header, ENetPacket * packet);
-		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, Convert convertNetType, Convert convertBase64, Convert convertCrypt);
+		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer);
 
 		ReturnCode handlePacket_1(ForwardParam& param);
 		ReturnCode handlePacket_2(ForwardParam& param);

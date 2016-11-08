@@ -31,6 +31,7 @@ namespace forwarder {
 		virtual void release() = 0;
 		virtual void init(rapidjson::Value& serverConfig) = 0;
 		void initCipherKey(const char* key);
+		bool hasConsistConfig(ForwardServer*);
 	public:
 		UniqID id;
 		int destId;

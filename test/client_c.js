@@ -48,7 +48,7 @@ function sendTest() {
             console.log("packet 1 sent.");
         }
     });
-    //setTimeout(sendTest, 3000);
+    setTimeout(sendTest, 3000);
 }
 // succesful connect event can also be handled with an event handler
 peer.on("connect", (err) => {

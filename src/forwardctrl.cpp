@@ -201,78 +201,83 @@ ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
 }
 
 
-ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, Convert convertNetType, Convert convertBase64, Convert convertCrypt) {
-	getLogger()->info("convertPacket {0},{1},{2}", convertNetType, convertBase64, convertCrypt);
-	if (convertNetType == Convert::None && convertBase64 == Convert::None && convertCrypt == Convert::None) {
+ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer) {
+	if (inServer->hasConsistConfig(outServer)) {
 		return packet;
+	}	
+	constexpr size_t ivSize = 16;
+	Base64Codec& base64 = Base64Codec::get();
+	uint8_t * data = packet->getDataPtr();
+	size_t dataLength = packet->getDataLength();
+
+	//1. convert to raw
+	//1.1 Base64
+	if (inServer->base64) {
+		size_t newDataLength = 0;
+		uint8_t* newData = nullptr;
+		base64.toByteArray((const char*)newData, dataLength, newData, &newDataLength);
+		data = newData;
+		dataLength = newDataLength;
 	}
-	NetType newNetType = convertNetType == Convert::ENet_to_WS ? NetType::WS : NetType::ENet;
-	ForwardPacketPtr newPacket;
-	size_t originLength = packet->getTotalLength();
-	if (convertBase64 == Convert::None && convertCrypt == Convert::None) {
-		newPacket = createPacket(newNetType, originLength);
-		uint8_t* data = (uint8_t*)packet->getDataPtr();
-		newPacket->setData(data, packet->getDataLength());
+
+	//1.2 now data is raw or encrypted
+	if (inServer->encrypt) { // DO decrypt
+		size_t newDataLength = dataLength - ivSize;
+		uint8_t* encryptedData = data + ivSize;
+		uint8_t* newData = new uint8_t[newDataLength];
+		uint8_t* iv = data;
+		unsigned char ecount_buf[AES_BLOCK_SIZE];
+		unsigned int num = 0;
+		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
+		if (data != packet->getDataPtr()) {
+			delete data;
+		}
+		data = newData;
+		dataLength = newDataLength;
+	}
+	// now it's raw
+
+	//2. convert raw to target
+	//2.1 
+	if (outServer->encrypt) { // DO encrypt
+		static std::random_device rd;
+		static std::mt19937 gen(rd());
+		static std::uniform_int_distribution<> dis(0, std::pow(2, 8) - 1);
+		uint8_t* newData = new uint8_t[dataLength + ivSize];
+		uint8_t* iv = newData;
+		uint8_t ivTmp[ivSize];
+		for (int i = 0; i < ivSize; i++) {
+			iv[i] = dis(gen);
+		}
+		memcpy(ivTmp, iv, ivSize);
+		uint8_t* encryptedData = newData + ivSize;
+		unsigned char ecount_buf[AES_BLOCK_SIZE];
+		unsigned int num = 0;
+
+		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
+		if (data != packet->getDataPtr()) {
+			delete data;
+		}
+		data = newData;
+		dataLength = dataLength + ivSize;
+	}
+
+	//2.2 
+	std::string b64("");
+	if (outServer->base64) {
+		b64 = base64.fromByteArray(data, dataLength);
+		dataLength = b64.size();
+	}
+
+	//3. make packet
+	ForwardPacketPtr newPacket = createPacket(outServer->netType, dataLength + sizeof(ForwardHeader));
+	if (b64.size() > 0) {
+		newPacket->setData((uint8_t*)b64.c_str(), dataLength);
 	}
 	else {
-		if (convertCrypt != Convert::None) {
-			//TODO inServer and OutServer has different key
-			if (convertCrypt == Convert::Decrypt) {
-				size_t ivSize = 16;
-				size_t dataLength = packet->getDataLength() - ivSize;
-				uint8_t* data = (uint8_t*)packet->getDataPtr();
-				uint8_t* encrypted = data + ivSize;
-				//debugBytes("encrypted", encrypted, dataLength);
-				newPacket = createPacket(newNetType, dataLength + sizeof(ForwardHeader));
-				uint8_t* origin = (uint8_t*)newPacket->getDataPtr();
-				uint8_t* iv = data;
-				unsigned char ecount_buf[AES_BLOCK_SIZE];
-				unsigned int num = 0;
-				//it's decrypt
-				AES_ctr128_encrypt(encrypted, origin, dataLength, &inServer->encryptkey, iv, ecount_buf, &num);
-				//debugBytes("origin", origin, dataLength);
-			}
-			else if( convertCrypt == Convert::Encrypt){
-				constexpr size_t ivSize = 16;
-				static std::random_device rd;
-				static std::mt19937 gen(rd());
-				static std::uniform_int_distribution<> dis(0, std::pow(2, 8) - 1);
-				size_t dataLength = packet->getDataLength();
-				uint8_t* origin = (uint8_t*)packet->getDataPtr();
-				//debugBytes("origin", origin, dataLength);
-				newPacket = createPacket(newNetType, dataLength + ivSize + sizeof(ForwardHeader));
-				uint8_t* iv = (uint8_t*)newPacket->getDataPtr();
-				uint8_t ivTmp[ivSize];
-				for (int i = 0; i < ivSize; i++) {
-					ivTmp[i] = dis(gen);
-				}
-				memcpy(iv, ivTmp, ivSize);
-				uint8_t* encrypted = iv + ivSize;
-				unsigned char ecount_buf[AES_BLOCK_SIZE];
-				unsigned int num = 0;
-				//debugBytes("iv", iv, ivSize);
-				AES_ctr128_encrypt(origin, encrypted, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
-				//debugBytes("encrypted", encrypted, dataLength);
-			}
-		} // TODO support both crypt and base64
-		else if (convertBase64 != Convert::None) {
-			Base64Codec& base64 = Base64Codec::get();
-
-			if (convertBase64 == Convert::Base64_to_Raw) {
-				uint8_t* newData;
-				size_t newDataLength;
-				base64.toByteArray((const char*)packet->getDataPtr(), packet->getDataLength(), newData, &newDataLength);
-
-				newPacket = createPacket(newNetType, newDataLength + sizeof(ForwardHeader));
-				newPacket->setData(newData, newDataLength);
-			} else {
-				std::string& b64 = base64.fromByteArray(packet->getDataPtr(), packet->getDataLength());
-				size_t newDataLength = b64.size();
-				newPacket = createPacket(newNetType, newDataLength + sizeof(ForwardHeader));
-				newPacket->setData((uint8_t*)b64.c_str(), newDataLength);
-			}
-		}
+		newPacket->setData(data, dataLength);
 	}
+
 	return newPacket;
 }
 
@@ -321,23 +326,8 @@ ReturnCode ForwardCtrl::handlePacket_2(ForwardParam& param) {
 
 	ForwardPacketPtr outPacket;
 
-	// converting the packet to outServer's scheme
-	Convert convertNetType = Convert::None;
-	Convert convertBase64 = Convert::None;
-	Convert convertCrypt = Convert::None;
-	// 1. NetType
-	if (inServer->netType != outServer->netType) {
-		convertNetType = outServer->netType == NetType::WS ? Convert::ENet_to_WS : Convert::WS_to_ENet;
-	}
-	// 2. base64
-	if (inServer->base64 != outServer->base64) {
-		convertBase64 = outServer->base64 ? Convert::Raw_to_Base64 : Convert::Base64_to_Raw;
-	}
-	// 3. encrypt
-	if (inServer->encrypt != outServer->encrypt) {
-		convertCrypt = outServer->encrypt ? Convert::Encrypt : Convert::Decrypt;
-	}
-	outPacket = convertPacket(inPacket, inServer, outServer, convertNetType, convertBase64, convertCrypt);
+	outPacket = convertPacket(inPacket, inServer, outServer);
+
 	if (!outPacket)
 		return ReturnCode::Err;
 

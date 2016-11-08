@@ -11,16 +11,19 @@ namespace forwarder {
 			static Base64Codec instance;
 			return instance;
 		}
+		size_t calculateDataLength(const char * b64, size_t len) {
+			size_t placeHolders = placeHoldersCount(b64, len);
+			return len * 3 / 4 - placeHolders;
+		}
 
 		void toByteArray(const char * b64, size_t len, uint8_t* &data, size_t * dataLength) {
-			if (!len)
-				len = strlen(b64);
 			uint32_t i, j, l, tmp;
 			//tmp, placeHolders, data
 			size_t placeHolders = placeHoldersCount(b64, len);
 
 			*dataLength = len * 3 / 4 - placeHolders;
-			data = new uint8_t[*dataLength];
+			if(data == nullptr)
+				data = new uint8_t[*dataLength];
 
 			// if there are placeholders, only get up to the last complete 4 chars
 			l = placeHolders > 0 ? len - 4 : len;

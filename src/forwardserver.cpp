@@ -3,6 +3,27 @@
 
 namespace forwarder {
 
+	bool ForwardServer::hasConsistConfig(ForwardServer* server) {
+		if (netType != server->netType) {
+			return false;
+		}
+		if (base64 != server->base64) {
+			return false;
+		}
+		if (encrypt != server->encrypt) {
+			return false;
+		}
+		if (encrypt) {
+			size_t len = sizeof(AES_KEY);
+			for (uint32_t i = 0; i < len; i++) {
+				if (((uint8_t*)(&encryptkey))[i] != ((uint8_t*)(&server->encryptkey))[i]) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	void ForwardServer::initCipherKey(const char* key){
 		AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
 	}
