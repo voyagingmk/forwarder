@@ -58,72 +58,8 @@ ForwardClient* ForwardCtrl::createForwardClient(int protocol) {
 
 void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	serverNum = serversConfig.GetArray().Size();
-	auto logger = spdlog::get("my_logger");
-	UniqIDGenerator idGenerator;
 	for (rapidjson::Value& serverConfig : serversConfig.GetArray()) {
-		int protocol = strcmp(serverConfig["protocol"].GetString(), "enet") == 0 ? NetType::ENet : NetType::WS;
-		ForwardServer* server = createForwardServer(protocol);
-		server->desc = serverConfig["desc"].GetString();
-		server->peerLimit = serverConfig["peers"].GetInt();
-		server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
-		server->encrypt = (serverConfig.HasMember("encrypt") ? serverConfig["encrypt"].GetBool() : false);
-		server->base64 = (serverConfig.HasMember("base64") ? serverConfig["base64"].GetBool() : false);
-
-		if (server->encrypt) {
-			if (serverConfig.HasMember("encryptkey")) {
-				server->initCipherKey(serverConfig["encryptkey"].GetString());
-			}
-			else {
-				logger->error("no encryptkey");
-				exit(-1);
-			}
-		}
-
-		if (serverConfig.HasMember("destId"))
-			server->destId = serverConfig["destId"].GetInt();
-
-		server->id = idGenerator.getNewID();
-		servers.push_back(server);
-		serverDict[server->id] = server;
-
-		if (server->netType == NetType::WS) {
-			ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
-			auto logger = getLogger();
-			auto on_open = [=](websocketpp::connection_hdl hdl) {
-				UniqID id = wsServer->idGenerator.getNewID();
-				ForwardClientWS* client = poolForwardClientWS.add();
-				client->id = id;
-				client->hdl = hdl;
-				wsServer->clients[id] = static_cast<ForwardClient*>(client);
-				wsServer->hdlToClientId[hdl] = id;
-				logger->info("[WS,c:{0}] connected.", id);
-			};
-
-			auto on_close = [=](websocketpp::connection_hdl hdl) {
-				auto it = wsServer->hdlToClientId.find(hdl);
-				if (it != wsServer->hdlToClientId.end()) {
-					UniqID id = it->second;
-					logger->info("[WS,c:{0}] disconnected.", id);
-					wsServer->hdlToClientId.erase(it);
-					auto it = wsServer->clients.find(id);
-					if (it != wsServer->clients.end()) {
-						ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
-						wsServer->clients.erase(it);
-						poolForwardClientWS.del(client);
-					}
-				}
-			};
-			wsServer->server.set_message_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSReceived, 
-				this,
-				wsServer,
-				websocketpp::lib::placeholders::_1,
-				websocketpp::lib::placeholders::_2));
-			wsServer->server.set_open_handler(on_open);
-			wsServer->server.set_close_handler(on_close);
-		}
-
-		server->init(serverConfig);
+		createServer(serverConfig);
 	}
 
 	// init dest host
@@ -142,6 +78,95 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	}
 }
 
+
+uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
+	auto logger = spdlog::get("my_logger");
+	int protocol = strcmp(serverConfig["protocol"].GetString(), "enet") == 0 ? NetType::ENet : NetType::WS;
+	ForwardServer* server = createForwardServer(protocol);
+	server->desc = serverConfig["desc"].GetString();
+	server->peerLimit = serverConfig["peers"].GetInt();
+	server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
+	server->encrypt = (serverConfig.HasMember("encrypt") ? serverConfig["encrypt"].GetBool() : false);
+	server->base64 = (serverConfig.HasMember("base64") ? serverConfig["base64"].GetBool() : false);
+
+	if (server->encrypt) {
+		if (serverConfig.HasMember("encryptkey")) {
+			server->initCipherKey(serverConfig["encryptkey"].GetString());
+		}
+		else {
+			logger->error("no encryptkey");
+			return -1;
+		}
+	}
+
+	if (serverConfig.HasMember("destId"))
+		server->destId = serverConfig["destId"].GetInt();
+
+	server->id = idGenerator.getNewID();
+	servers.push_back(server);
+	serverDict[server->id] = server;
+
+	if (server->netType == NetType::WS) {
+		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
+		auto logger = getLogger();
+		auto on_open = [=](websocketpp::connection_hdl hdl) {
+			UniqID id = wsServer->idGenerator.getNewID();
+			ForwardClientWS* client = poolForwardClientWS.add();
+			client->id = id;
+			client->hdl = hdl;
+			wsServer->clients[id] = static_cast<ForwardClient*>(client);
+			wsServer->hdlToClientId[hdl] = id;
+			logger->info("[WS,c:{0}] connected.", id);
+		};
+
+		auto on_close = [=](websocketpp::connection_hdl hdl) {
+			auto it = wsServer->hdlToClientId.find(hdl);
+			if (it != wsServer->hdlToClientId.end()) {
+				UniqID id = it->second;
+				logger->info("[WS,c:{0}] disconnected.", id);
+				wsServer->hdlToClientId.erase(it);
+				auto it = wsServer->clients.find(id);
+				if (it != wsServer->clients.end()) {
+					ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
+					wsServer->clients.erase(it);
+					poolForwardClientWS.del(client);
+				}
+			}
+		};
+		wsServer->server.set_message_handler(websocketpp::lib::bind(
+			&ForwardCtrl::onWSReceived,
+			this,
+			wsServer,
+			websocketpp::lib::placeholders::_1,
+			websocketpp::lib::placeholders::_2));
+		wsServer->server.set_open_handler(on_open);
+		wsServer->server.set_close_handler(on_close);
+	}
+	server->init(serverConfig);
+
+	for (auto it = servers.begin(); it != servers.end(); it++) {
+		ForwardServer* _server = *it;
+		if (_server->id == server->destId) {
+			server->dest = _server;
+			break;
+		}
+	}
+	return server->id;
+}
+
+void ForwardCtrl::removeServer(int id) {
+	auto it_server = serverDict.find(id);
+	if (it_server == serverDict.end()) {
+		return;
+	}
+	for (auto it = servers.begin(); it != servers.end(); it++) {
+		ForwardServer* server = *it;
+		if (server->destId == id) {
+			server->dest = nullptr;
+		}
+	}
+	serverDict.erase(it_server);
+}
 
 void ForwardCtrl::sendPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {

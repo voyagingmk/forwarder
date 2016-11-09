@@ -28,6 +28,9 @@ namespace forwarder {
 
 		void initServers(rapidjson::Value& serversConfig);
 
+		uint32_t createServer(rapidjson::Value& serverConfig);
+		void removeServer(int id);
+
 		void exist() {
 			isExit = true;
 		}
@@ -58,12 +61,12 @@ namespace forwarder {
 				int destHostID = inHeader->hostID;
 				if (!destHostID)
 					return nullptr;
-				outServer = getServerByHostID(destHostID);
+				outServer = getServerByID(destHostID);
 			}
 			return outServer;
 		}
-		ForwardServer* getServerByHostID(int hostID) const {
-			auto it_server = serverDict.find(hostID);
+		ForwardServer* getServerByID(int id) const {
+			auto it_server = serverDict.find(id);
 			if (it_server == serverDict.end())
 				return nullptr;
 			return it_server->second;
@@ -100,6 +103,7 @@ namespace forwarder {
 		std::vector<ForwardServer*> servers;
 		std::map<UniqID, ForwardServer*> serverDict;
 		std::map<int, handlePacketFunc> handleFuncs;
+		UniqIDGenerator idGenerator;
 		int serverNum;
 		bool isExit;
 	};
