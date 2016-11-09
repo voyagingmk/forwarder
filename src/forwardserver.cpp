@@ -28,21 +28,33 @@ namespace forwarder {
 		AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
 	}
 
-
 	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
 		ENetAddress address;
-		enet_address_set_host(&address, "0.0.0.0");
+		bool isClient = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
+		if (!isClient) {
+			enet_address_set_host(&address, "0.0.0.0");
+			address.port = serverConfig["port"].GetInt();
+		}
+		else {
+			enet_address_set_host(&address, serverConfig["address"].GetString());
+			address.port = serverConfig["port"].GetInt();
+		}
+		size_t channelLimit = 1;
 		//address.host = ENET_HOST_ANY;
-		address.port = serverConfig["port"].GetInt();
-		host = enet_host_create(&address,
+		host = enet_host_create(isClient? nullptr: &address,
 			peerLimit,
-			1,
+			channelLimit,
 			0      /* assume any amount of incoming bandwidth */,
 			0      /* assume any amount of outgoing bandwidth */);
 		if (!host) {
 			getLogger()->error("An error occurred while trying to create an ENet server host.");
 			exit(1);
 			return;
+		}
+		if (isClient) {
+			reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
+			enet_host_connect(host, &address, channelLimit, 0);
+
 		}
 	}
 

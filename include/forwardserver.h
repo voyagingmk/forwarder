@@ -20,7 +20,8 @@ namespace forwarder {
 			base64(false),
 			encrypt(false),
 			netType(p_netType),
-			dest(nullptr)
+			dest(nullptr),
+			reconnect(false)
 		{}
 		~ForwardServer() {
 			dest = nullptr;
@@ -45,6 +46,8 @@ namespace forwarder {
 		UniqIDGenerator idGenerator;
 		std::map<UniqID, ForwardClient*> clients;
 		std::string desc;
+		// used for client mode
+		bool reconnect; // auto reconncet to target host when disconnected
 	};
 
 	class ForwardServerENet : public ForwardServer {

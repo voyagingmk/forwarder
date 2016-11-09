@@ -85,9 +85,9 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	ForwardServer* server = createForwardServer(protocol);
 	server->desc = serverConfig["desc"].GetString();
 	server->peerLimit = serverConfig["peers"].GetInt();
-	server->admin = (serverConfig.HasMember("admin") ? serverConfig["admin"].GetBool() : false);
-	server->encrypt = (serverConfig.HasMember("encrypt") ? serverConfig["encrypt"].GetBool() : false);
-	server->base64 = (serverConfig.HasMember("base64") ? serverConfig["base64"].GetBool() : false);
+	server->admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
+	server->encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
+	server->base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
 
 	if (server->encrypt) {
 		if (serverConfig.HasMember("encryptkey")) {
@@ -154,10 +154,10 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	return server->id;
 }
 
-void ForwardCtrl::removeServer(int id) {
+uint32_t ForwardCtrl::removeServer(int id) {
 	auto it_server = serverDict.find(id);
 	if (it_server == serverDict.end()) {
-		return;
+		return -1;
 	}
 	for (auto it = servers.begin(); it != servers.end(); it++) {
 		ForwardServer* server = *it;
@@ -166,6 +166,7 @@ void ForwardCtrl::removeServer(int id) {
 		}
 	}
 	serverDict.erase(it_server);
+	return 0;
 }
 
 void ForwardCtrl::sendPacket(ForwardParam& param) {

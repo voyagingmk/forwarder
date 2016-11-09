@@ -18,7 +18,10 @@
         "encryptkey": "1234567812345678",
         "base64": true,
         "port": 9999,
-        "peers": 3000
+        "peers": 3000,
+        "address": "localhost",
+        "isClient": true,
+        "reconnect": true
     }, {
         "id": 3,
         "desc": "GS2FS",

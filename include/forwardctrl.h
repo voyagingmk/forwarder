@@ -29,7 +29,8 @@ namespace forwarder {
 		void initServers(rapidjson::Value& serversConfig);
 
 		uint32_t createServer(rapidjson::Value& serverConfig);
-		void removeServer(int id);
+
+		uint32_t removeServer(int id);
 
 		void exist() {
 			isExit = true;
