@@ -36,7 +36,7 @@ ForwardCtrl::~ForwardCtrl() {
 	handleFuncs.clear();
 }
 
-ForwardServer* ForwardCtrl::createForwardServer(int protocol) {
+ForwardServer* ForwardCtrl::createServerByNetType(int protocol) {
 	if (protocol == NetType::ENet) {
 		return static_cast<ForwardServer*>(poolForwardServerENet.add());
 	}
@@ -81,27 +81,12 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 
 uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	auto logger = spdlog::get("my_logger");
-	int protocol = strcmp(serverConfig["protocol"].GetString(), "enet") == 0 ? NetType::ENet : NetType::WS;
-	ForwardServer* server = createForwardServer(protocol);
-	server->desc = serverConfig["desc"].GetString();
-	server->peerLimit = serverConfig["peers"].GetInt();
-	server->admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
-	server->encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
-	server->base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
-
-	if (server->encrypt) {
-		if (serverConfig.HasMember("encryptkey")) {
-			server->initCipherKey(serverConfig["encryptkey"].GetString());
-		}
-		else {
-			logger->error("no encryptkey");
-			return -1;
-		}
+	NetType netType = strcmp(serverConfig["netType"].GetString(), "enet") == 0 ? NetType::ENet : NetType::WS;
+	ForwardServer* server = createServerByNetType(netType);
+	ReturnCode code = server->initCommon(serverConfig);
+	if (code == ReturnCode::Err) {
+		return code;
 	}
-
-	if (serverConfig.HasMember("destId"))
-		server->destId = serverConfig["destId"].GetInt();
-
 	server->id = idGenerator.getNewID();
 	servers.push_back(server);
 	serverDict[server->id] = server;
@@ -154,10 +139,10 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	return server->id;
 }
 
-uint32_t ForwardCtrl::removeServer(int id) {
+ReturnCode ForwardCtrl::removeServerByID(int id) {
 	auto it_server = serverDict.find(id);
 	if (it_server == serverDict.end()) {
-		return -1;
+		return ReturnCode::Err;
 	}
 	for (auto it = servers.begin(); it != servers.end(); it++) {
 		ForwardServer* server = *it;
@@ -166,7 +151,7 @@ uint32_t ForwardCtrl::removeServer(int id) {
 		}
 	}
 	serverDict.erase(it_server);
-	return 0;
+	return ReturnCode::Ok;
 }
 
 void ForwardCtrl::sendPacket(ForwardParam& param) {

@@ -30,6 +30,7 @@ namespace forwarder {
 		}
 	public:
 		virtual void release() = 0;
+		virtual ReturnCode initCommon(rapidjson::Value& serverConfig) final;
 		virtual void init(rapidjson::Value& serverConfig) = 0;
 		void initCipherKey(const char* key);
 		bool hasConsistConfig(ForwardServer*);

@@ -19,7 +19,6 @@ int main(int argc, char ** argv)
 {
 	printf("forwarder started.\n");
 
-	//printf("test:%d", aes_ctr_test());
 	setupLogger();
 
 	auto logger = spdlog::get("my_logger");

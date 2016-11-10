@@ -30,7 +30,14 @@ namespace forwarder {
 
 		uint32_t createServer(rapidjson::Value& serverConfig);
 
-		uint32_t removeServer(int id);
+		ReturnCode removeServerByID(int id);
+
+		ForwardServer* getServerByID(int id) const {
+			auto it_server = serverDict.find(id);
+			if (it_server == serverDict.end())
+				return nullptr;
+			return it_server->second;
+		}
 
 		void exist() {
 			isExit = true;
@@ -66,12 +73,7 @@ namespace forwarder {
 			}
 			return outServer;
 		}
-		ForwardServer* getServerByID(int id) const {
-			auto it_server = serverDict.find(id);
-			if (it_server == serverDict.end())
-				return nullptr;
-			return it_server->second;
-		}
+
 	private:
 		void onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID);
 		void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
@@ -90,7 +92,7 @@ namespace forwarder {
 		ReturnCode handlePacket_3(ForwardParam& param);
 		ReturnCode handlePacket_4(ForwardParam& param);
 
-		ForwardServer* createForwardServer(int protocol);
+		ForwardServer* createServerByNetType(int protocol);
 		ForwardClient* createForwardClient(int protocol);
 
 		void sendPacket(ForwardParam& param);

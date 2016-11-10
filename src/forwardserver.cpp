@@ -3,6 +3,28 @@
 
 namespace forwarder {
 
+	ReturnCode ForwardServer::initCommon(rapidjson::Value& serverConfig) {
+		auto logger = getLogger();
+		desc = serverConfig["desc"].GetString();
+		peerLimit = serverConfig["peers"].GetInt();
+		admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
+		encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
+		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
+		if (encrypt) {
+			if (serverConfig.HasMember("encryptkey")) {
+				initCipherKey(serverConfig["encryptkey"].GetString());
+			}
+			else {
+				logger->error("no encryptkey");
+				return ReturnCode::Err;
+			}
+		}
+		if (serverConfig.HasMember("destId"))
+			destId = serverConfig["destId"].GetInt();
+
+		return ReturnCode::Ok;
+	}
+
 	bool ForwardServer::hasConsistConfig(ForwardServer* server) {
 		if (netType != server->netType) {
 			return false;
