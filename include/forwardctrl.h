@@ -92,8 +92,8 @@ namespace forwarder {
 		ReturnCode handlePacket_3(ForwardParam& param);
 		ReturnCode handlePacket_4(ForwardParam& param);
 
-		ForwardServer* createServerByNetType(int protocol);
-		ForwardClient* createForwardClient(int protocol);
+		ForwardServer* createServerByNetType(NetType netType);
+		ForwardClient* createForwardClient(NetType netType);
 
 		void sendPacket(ForwardParam& param);
 		void broadcastPacket(ForwardParam& param);

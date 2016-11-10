@@ -36,21 +36,21 @@ ForwardCtrl::~ForwardCtrl() {
 	handleFuncs.clear();
 }
 
-ForwardServer* ForwardCtrl::createServerByNetType(int protocol) {
-	if (protocol == NetType::ENet) {
+ForwardServer* ForwardCtrl::createServerByNetType(NetType netType) {
+	if (netType == NetType::ENet) {
 		return static_cast<ForwardServer*>(poolForwardServerENet.add());
 	}
-	else if (protocol == NetType::WS) {
+	else if (netType == NetType::WS) {
 		return static_cast<ForwardServer*>(poolForwardServerWS.add());
 	}
 	return nullptr;
 }
 
-ForwardClient* ForwardCtrl::createForwardClient(int protocol) {
-	if (protocol == NetType::ENet) {
+ForwardClient* ForwardCtrl::createForwardClient(NetType netType) {
+	if (netType == NetType::ENet) {
 		return static_cast<ForwardClient*>(poolForwardClientENet.add());
 	}
-	else if (protocol == NetType::WS) {
+	else if (netType == NetType::WS) {
 		return static_cast<ForwardClient*>(poolForwardClientWS.add());
 	}
 	return nullptr;
