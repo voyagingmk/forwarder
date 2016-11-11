@@ -98,8 +98,6 @@ namespace forwarder {
 		hdlToClientId.clear();
 	}
 
-
-
 	void ForwardServerWS::poll() {
 		server.poll_one();
 	}

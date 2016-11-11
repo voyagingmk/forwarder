@@ -27,6 +27,8 @@ namespace forwarder {
 
 		~ForwardCtrl();
 
+		ReturnCode initProtocolMap(rapidjson::Value& protocolConfig);
+
 		void initServers(rapidjson::Value& serversConfig);
 
 		uint32_t createServer(rapidjson::Value& serverConfig);
@@ -70,14 +72,14 @@ namespace forwarder {
 
 		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer);
 
+		/* ----  protocol   ----- */
 		// System Cmd
-		ReturnCode handlePacket_1(ForwardParam& param);
-		// Auto Forward
-		ReturnCode handlePacket_2(ForwardParam& param);
-		// Client Mode
-		ReturnCode handlePacket_3(ForwardParam& param);
+		ReturnCode handlePacket_SysCmd(ForwardParam& param);
+		// Auto Forward to next server
+		ReturnCode handlePacket_Forward(ForwardParam& param);
+		// process the packet locally
+		ReturnCode handlePacket_Process(ForwardParam& param);
 
-		ReturnCode handlePacket_4(ForwardParam& param);
 
 		ForwardServer* createServerByNetType(NetType netType);
 

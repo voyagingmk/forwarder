@@ -40,7 +40,10 @@ int main(int argc, char ** argv)
 	ForwardCtrl ctrl;
 
 	RegisterSystemSignal(SIGINT, [&](int nSig)->void { ctrl.exist(); });
-
+	
+	if(config.HasMember("protocol")){
+		ctrl.initProtocolMap(config["protocol"]);
+	}
 	ctrl.initServers(config["servers"]);
 
 	debugDocument(ctrl.stat());

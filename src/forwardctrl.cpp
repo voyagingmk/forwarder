@@ -17,11 +17,10 @@ ForwardCtrl::ForwardCtrl() :
 	buffer(nullptr),
 	base64Codec(Base64Codec::get()),
 	isExit(false)
-{
-	handleFuncs[1] = &ForwardCtrl::handlePacket_1;
-	handleFuncs[2] = &ForwardCtrl::handlePacket_2;
-	handleFuncs[3] = &ForwardCtrl::handlePacket_3;
-	handleFuncs[4] = &ForwardCtrl::handlePacket_4;
+{	//default
+	handleFuncs[0] = &ForwardCtrl::handlePacket_SysCmd;
+	handleFuncs[1] = &ForwardCtrl::handlePacket_Forward;
+	handleFuncs[2] = &ForwardCtrl::handlePacket_Process;
 }
 
 
@@ -35,6 +34,25 @@ ForwardCtrl::~ForwardCtrl() {
 	poolForwardServerWS.clear();
 	poolForwardClientWS.clear();
 	handleFuncs.clear();
+}
+
+ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
+	if (protocolConfig.IsNull()) {
+		return ReturnCode::Err;
+	}
+	for (Value::ConstMemberIterator it = protocolConfig.MemberBegin(); it != protocolConfig.MemberEnd(); ++it){
+		std::string protocolID = it->name.GetString();
+		int protocol = std::stoi(protocolID);
+		std::string name = it->value.GetString();
+		if (name == "SysCmd") {
+			handleFuncs[protocol] = &ForwardCtrl::handlePacket_SysCmd;
+		} else if (name == "Forward") {
+			handleFuncs[protocol] = &ForwardCtrl::handlePacket_Forward;
+		} else if (name == "Process") {
+			handleFuncs[protocol] = &ForwardCtrl::handlePacket_Process;
+		}
+	}
+	return ReturnCode::Ok;
 }
 
 ReturnCode ForwardCtrl::sendBinary(UniqID serverId, uint8_t* data, size_t dataLength) {
@@ -358,7 +376,7 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 }
 
 // system command
-ReturnCode ForwardCtrl::handlePacket_1(ForwardParam& param) {
+ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 	if(!param.server->admin)
 		return ReturnCode::Err;
 	ForwardHeader outHeader;
@@ -387,7 +405,7 @@ ReturnCode ForwardCtrl::handlePacket_1(ForwardParam& param) {
 }
 
 // has destHostID and has destCID
-ReturnCode ForwardCtrl::handlePacket_2(ForwardParam& param) {
+ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
@@ -434,13 +452,9 @@ ReturnCode ForwardCtrl::handlePacket_2(ForwardParam& param) {
 	return ReturnCode::Ok;
 }
 
-ReturnCode ForwardCtrl::handlePacket_3(ForwardParam& param) {
+ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
 	return ReturnCode::Ok;
 }
-ReturnCode ForwardCtrl::handlePacket_4(ForwardParam& param) {
-	return ReturnCode::Ok;
-}
-
 
 void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
 	auto logger = getLogger(); 
@@ -530,8 +544,6 @@ ReturnCode ForwardCtrl::getHeader(ForwardHeader* header, const std::string& pack
 	return validHeader(header);
 }
 
-
-
 ReturnCode ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
 	memcpy(header, packet->data, sizeof(ForwardHeader));
 	return validHeader(header);
@@ -588,6 +600,7 @@ void ForwardCtrl::pollOnce() {
 							client->id,
 							str,
 							event.peer->address.port);
+						//sendText(server->id, "hello");
 						break;
 					}
 					case ENET_EVENT_TYPE_RECEIVE: {
