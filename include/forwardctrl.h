@@ -7,6 +7,7 @@
 #include "forwardserver.h"
 #include "forwardheader.h"
 #include "forwardpacket.h"
+#include "base64.h"
 
 
 
@@ -30,20 +31,19 @@ namespace forwarder {
 
 		uint32_t createServer(rapidjson::Value& serverConfig);
 
-		ReturnCode removeServerByID(int id);
+		ReturnCode removeServerByID(UniqID serverId);
 
-		ForwardServer* getServerByID(int id) const {
-			auto it_server = serverDict.find(id);
-			if (it_server == serverDict.end())
-				return nullptr;
-			return it_server->second;
-		}
+		ForwardServer* getServerByID(UniqID serverId) const;
+
+		ReturnCode sendBinary(UniqID serverId, uint8_t* data, size_t dataLength);
+
+		ReturnCode sendText(UniqID serverId, std::string data);
 
 		void exist() {
 			isExit = true;
 		}
 
-		rapidjson::Document stat();
+		rapidjson::Document stat() const;
 
 		void pollOnce();
 
@@ -58,7 +58,9 @@ namespace forwarder {
 
 		ForwardPacketPtr createPacket(ENetPacket* packet);
 
-		ForwardPacketPtr createPacket(const char* packet);
+		ForwardPacketPtr encodeData(ForwardServer* outServer, uint8_t* data, size_t dataLength);
+
+		ForwardPacketPtr decodeData(ForwardServer* outServer, uint8_t* data, size_t dataLength);
 
 		ReturnCode validHeader(ForwardHeader * header);
 
@@ -90,6 +92,10 @@ namespace forwarder {
 
 		void broadcastPacket(ForwardParam& param);
 
+		uint8_t* getBuffer() const {
+			return buffer;
+		}
+
 	private:
 		typedef ReturnCode(ForwardCtrl::*handlePacketFunc)(ForwardParam& param);
 		Pool<ForwardServerENet> poolForwardServerENet;
@@ -100,8 +106,11 @@ namespace forwarder {
 		std::map<UniqID, ForwardServer*> serverDict;
 		std::map<int, handlePacketFunc> handleFuncs;
 		UniqIDGenerator idGenerator;
+		uint8_t* buffer;
 		int serverNum;
 		bool isExit;
+		Base64Codec& base64Codec;
+		static const size_t ivSize = 16;
 	};
 
 }

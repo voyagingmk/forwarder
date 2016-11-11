@@ -1,6 +1,5 @@
 #include "forwardctrl.h"
 #include "utils.h"
-#include "base64.h"
 #include "aes_ctr.h"
 #include "aes.h"
 
@@ -15,6 +14,8 @@ ForwardCtrl::ForwardCtrl() :
 	poolForwardServerWS(sizeof(ForwardServerWS)),
 	poolForwardClientWS(sizeof(ForwardClientWS)),
 	serverNum(0),
+	buffer(nullptr),
+	base64Codec(Base64Codec::get()),
 	isExit(false)
 {
 	handleFuncs[1] = &ForwardCtrl::handlePacket_1;
@@ -35,6 +36,48 @@ ForwardCtrl::~ForwardCtrl() {
 	poolForwardClientWS.clear();
 	handleFuncs.clear();
 }
+
+ReturnCode ForwardCtrl::sendBinary(UniqID serverId, uint8_t* data, size_t dataLength) {
+	ForwardServer * server = getServerByID(serverId);
+	if (!server) {
+		return ReturnCode::Err;
+	}
+	ForwardPacketPtr packet = encodeData(server, data, dataLength);
+	if (!packet)
+		return ReturnCode::Err;
+	ForwardHeader outHeader;
+	outHeader.protocol = 2;
+	packet->setHeader(&outHeader);
+	ForwardParam param;
+	param.header = nullptr;
+	param.packet = packet;
+	param.client = nullptr;
+	param.server = server;
+
+	broadcastPacket(param);
+	return ReturnCode::Ok;
+}
+
+ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
+	ForwardServer * server = getServerByID(serverId);
+	if (!server) {
+		return ReturnCode::Err;
+	}ForwardPacketPtr packet = encodeData(server, (uint8_t*)data.c_str(), data.size());
+	if (!packet)
+		return ReturnCode::Err;
+	ForwardHeader outHeader;
+	outHeader.protocol = 2;
+	packet->setHeader(&outHeader);
+	ForwardParam param;
+	param.header = nullptr;
+	param.packet = packet;
+	param.client = nullptr;
+	param.server = server;
+
+	broadcastPacket(param);
+	return ReturnCode::Ok;
+}
+
 
 ForwardServer* ForwardCtrl::createServerByNetType(NetType netType) {
 	if (netType == NetType::ENet) {
@@ -139,20 +182,28 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	return server->id;
 }
 
-ReturnCode ForwardCtrl::removeServerByID(int id) {
-	auto it_server = serverDict.find(id);
+ReturnCode ForwardCtrl::removeServerByID(UniqID serverId) {
+	auto it_server = serverDict.find(serverId);
 	if (it_server == serverDict.end()) {
 		return ReturnCode::Err;
 	}
 	for (auto it = servers.begin(); it != servers.end(); it++) {
 		ForwardServer* server = *it;
-		if (server->destId == id) {
+		if (server->destId == serverId) {
 			server->dest = nullptr;
 		}
 	}
 	serverDict.erase(it_server);
 	return ReturnCode::Ok;
 }
+
+ForwardServer* ForwardCtrl::getServerByID(UniqID serverId) const {
+	auto it_server = serverDict.find(serverId);
+	if (it_server == serverDict.end())
+		return nullptr;
+	return it_server->second;
+}
+
 
 void ForwardCtrl::sendPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
@@ -207,54 +258,14 @@ ForwardPacketPtr ForwardCtrl::createPacket(ENetPacket* packet) {
 	return std::make_shared<ForwardPacketENet>(packet);
 }
 
-ForwardPacketPtr ForwardCtrl::createPacket(const char* packet) {
-	return std::make_shared<ForwardPacketWS>((uint8_t*)(packet));
-}
-
-
-ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer) {
-	if (inServer->hasConsistConfig(outServer)) {
-		return packet;
-	}	
-	constexpr size_t ivSize = 16;
-	Base64Codec& base64 = Base64Codec::get();
-	uint8_t * data = packet->getDataPtr();
-	size_t dataLength = packet->getDataLength();
-
-	//1. convert to raw
-	//1.1 Base64
-	if (inServer->base64) {
-		size_t newDataLength = 0;
-		uint8_t* newData = nullptr;
-		base64.toByteArray((const char*)newData, dataLength, newData, &newDataLength);
-		data = newData;
-		dataLength = newDataLength;
-	}
-
-	//1.2 now data is raw or encrypted
-	if (inServer->encrypt) { // DO decrypt
-		size_t newDataLength = dataLength - ivSize;
-		uint8_t* encryptedData = data + ivSize;
-		uint8_t* newData = new uint8_t[newDataLength];
-		uint8_t* iv = data;
-		unsigned char ecount_buf[AES_BLOCK_SIZE];
-		unsigned int num = 0;
-		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
-		if (data != packet->getDataPtr()) {
-			delete data;
-		}
-		data = newData;
-		dataLength = newDataLength;
-	}
-	// now it's raw
-
-	//2. convert raw to target
-	//2.1 
-	if (outServer->encrypt) { // DO encrypt
+ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, uint8_t* data, size_t dataLength) {
+	uint8_t* allocData = nullptr;
+	if (outServer->encrypt) {
 		static std::random_device rd;
 		static std::mt19937 gen(rd());
 		static std::uniform_int_distribution<> dis(0, std::pow(2, 8) - 1);
-		uint8_t* newData = new uint8_t[dataLength + ivSize];
+		allocData = new uint8_t[dataLength + ivSize];
+		uint8_t* newData = allocData;
 		uint8_t* iv = newData;
 		uint8_t ivTmp[ivSize];
 		for (int i = 0; i < ivSize; i++) {
@@ -266,30 +277,84 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 		unsigned int num = 0;
 
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
-		if (data != packet->getDataPtr()) {
-			delete data;
-		}
 		data = newData;
 		dataLength = dataLength + ivSize;
 	}
 
-	//2.2 
 	std::string b64("");
 	if (outServer->base64) {
-		b64 = base64.fromByteArray(data, dataLength);
+		b64 = base64Codec.fromByteArray(data, dataLength);
+		data = (uint8_t*)b64.c_str();
 		dataLength = b64.size();
+
 	}
 
 	//3. make packet
 	ForwardPacketPtr newPacket = createPacket(outServer->netType, dataLength + sizeof(ForwardHeader));
-	if (b64.size() > 0) {
-		newPacket->setData((uint8_t*)b64.c_str(), dataLength);
+	// copy
+	newPacket->setData(data, dataLength);
+
+	if (allocData) {
+		delete allocData;
 	}
-	else {
-		newPacket->setData(data, dataLength);
+	return newPacket;
+}
+
+ForwardPacketPtr ForwardCtrl::decodeData(ForwardServer* inServer, uint8_t* data, size_t dataLength) {
+	uint8_t* allocData1 = nullptr;
+	uint8_t* allocData2 = nullptr;
+
+	//1. convert to raw
+	//1.1 Base64
+	if (inServer->base64) {
+		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
+		uint8_t* allocData1 = new uint8_t[newDataLength];
+		uint8_t* newData = allocData1;
+		base64Codec.toByteArray((const char*)data, dataLength, newData, &newDataLength);
+		data = newData;
+		dataLength = newDataLength;
 	}
 
+	//1.2 now data is raw or encrypted
+	if (inServer->encrypt) { // DO decrypt
+		size_t newDataLength = dataLength - ivSize;
+		uint8_t* encryptedData = data + ivSize;
+		allocData2 = new uint8_t[newDataLength];
+		uint8_t* newData = allocData2;
+		uint8_t* iv = data;
+		unsigned char ecount_buf[AES_BLOCK_SIZE];
+		unsigned int num = 0;
+		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
+		data = newData;
+		dataLength = newDataLength;
+	}
+
+	//3. make packet
+	ForwardPacketPtr newPacket = createPacket(inServer->netType, dataLength + sizeof(ForwardHeader));
+	// copy
+	newPacket->setData(data, dataLength);
+
+	if (allocData1) {
+		delete allocData1;
+		allocData1 = nullptr;
+	}
+	if (allocData2) {
+		delete allocData2;
+		allocData1 = nullptr;
+	}
 	return newPacket;
+	// now data pointer is raw
+}
+
+ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer) {
+	if (inServer->hasConsistConfig(outServer)) {
+		return packet;
+	}
+	uint8_t * data = packet->getDataPtr();
+	size_t dataLength = packet->getDataLength();
+	ForwardPacketPtr rawPacket = decodeData(inServer, data, dataLength);
+	ForwardPacketPtr outPacket = encodeData(outServer, rawPacket->getDataPtr(), rawPacket->getDataLength());
+	return outPacket;
 }
 
 // system command
@@ -599,7 +664,7 @@ void ForwardCtrl::loop() {
 }
 */
 
-Document ForwardCtrl::stat() {
+Document ForwardCtrl::stat() const {
 	Document d(kObjectType);
 	Value lstServers(kArrayType);
 	for (auto it = servers.begin(); it != servers.end(); it++) {
