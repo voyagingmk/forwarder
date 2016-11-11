@@ -18,12 +18,13 @@ void onSIGINT(int n)
 int main(int argc, char ** argv)
 {
 	printf("forwarder started.\n");
-
-	setupLogger();
+	const char * logfilename = argv[1];
+	setupLogger(logfilename);
 
 	auto logger = spdlog::get("my_logger");
-
-	const char * configPath = "./../config.json";
+	
+	char * configPath = argv[2];
+	logger->info("config path:{0}", configPath);
 	if(!isFileExist(configPath)){	
 		logger->error("config.json not found!");
 		return EXIT_FAILURE;
@@ -38,6 +39,7 @@ int main(int argc, char ** argv)
 	}
 
 	ForwardCtrl ctrl;
+	ctrl.setDebug(true);
 
 	RegisterSystemSignal(SIGINT, [&](int nSig)->void { ctrl.exist(); });
 	

@@ -15,6 +15,7 @@ ForwardCtrl::ForwardCtrl() :
 	poolForwardClientWS(sizeof(ForwardClientWS)),
 	serverNum(0),
 	buffer(nullptr),
+	debug(false),
 	base64Codec(Base64Codec::get()),
 	isExit(false)
 {	//default
@@ -34,6 +35,10 @@ ForwardCtrl::~ForwardCtrl() {
 	poolForwardServerWS.clear();
 	poolForwardClientWS.clear();
 	handleFuncs.clear();
+}
+
+void ForwardCtrl::setDebug(bool enabled) {
+	debug = enabled;
 }
 
 ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
@@ -282,6 +287,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, uint8_t* data
 		static std::random_device rd;
 		static std::mt19937 gen(rd());
 		static std::uniform_int_distribution<> dis(0, std::pow(2, 8) - 1);
+		if (debug) debugBytes("encodeData, originData", data, dataLength);
 		allocData = new uint8_t[dataLength + ivSize];
 		uint8_t* newData = allocData;
 		uint8_t* iv = newData;
@@ -290,11 +296,12 @@ ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, uint8_t* data
 			iv[i] = dis(gen);
 		}
 		memcpy(ivTmp, iv, ivSize);
+		if (debug) debugBytes("encodeData, iv", iv, ivSize);
 		uint8_t* encryptedData = newData + ivSize;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;
-
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
+		if (debug) debugBytes("encodeData, encryptedData", encryptedData, dataLength);
 		data = newData;
 		dataLength = dataLength + ivSize;
 	}
@@ -304,7 +311,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, uint8_t* data
 		b64 = base64Codec.fromByteArray(data, dataLength);
 		data = (uint8_t*)b64.c_str();
 		dataLength = b64.size();
-
+		if (debug) debugBytes("encodeData, b64", data, dataLength);
 	}
 
 	//3. make packet
@@ -600,7 +607,7 @@ void ForwardCtrl::pollOnce() {
 							client->id,
 							str,
 							event.peer->address.port);
-						//sendText(server->id, "hello");
+						sendText(server->id, "hello");
 						break;
 					}
 					case ENET_EVENT_TYPE_RECEIVE: {

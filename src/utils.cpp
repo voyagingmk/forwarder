@@ -21,9 +21,9 @@ bool isFileExist(const char *fileName)
     return infile.good();
 }
 
-bool setupLogger() {
+bool setupLogger(const char* filename) {
 	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>("daily", "txt", 0, 0));
+	sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>(filename, "txt", 0, 0));
 #ifdef _MSC_VER
 	sinks.push_back(make_shared<spdlog::sinks::wincolor_stdout_sink_st>());
 #else

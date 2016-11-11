@@ -1,7 +1,7 @@
 const enet = require('enet');
 const forwarder = require('./forwarder');
 
-const server_addr = new enet.Address("127.0.0.1", 10000);
+const server_addr = new enet.Address("127.0.0.1", 9999);
 
 
 const client = enet.createClient({
@@ -58,7 +58,7 @@ peer.on("connect", (err) => {
     }
     console.log("connected");
 
-    sendTest();
+    //sendTest();
     /*
     const packet = forwarder.makePacket({
         protocol: 2,
@@ -89,6 +89,12 @@ peer.on("message", (packet, channelID) => {
     console.log(packet.data());
     console.log(packet.data().toString());
     const result = forwarder.unmakePacket({
+        type: "enet",
+        protocol: 2,
+        subID: 1,
+        base64: true,
+        encrypt: true,
+        encryptkey: "1234567812345678",
         data: packet.data(),
     });
     console.log("result", result);

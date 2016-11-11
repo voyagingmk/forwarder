@@ -27,6 +27,8 @@ namespace forwarder {
 
 		~ForwardCtrl();
 
+		void setDebug(bool enabled);
+
 		ReturnCode initProtocolMap(rapidjson::Value& protocolConfig);
 
 		void initServers(rapidjson::Value& serversConfig);
@@ -110,6 +112,7 @@ namespace forwarder {
 		UniqIDGenerator idGenerator;
 		uint8_t* buffer;
 		int serverNum;
+		bool debug;
 		bool isExit;
 		Base64Codec& base64Codec;
 		static const size_t ivSize = 16;

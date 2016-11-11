@@ -9,32 +9,31 @@ const originEncoding = 'utf8';
 const ivSize = 16;
 
 function unmakePacket(param) {
-    const data = param.data;
+    const packetData = param.data;
     // console.log("data", data);
     // console.log("data.length", data.length);
-    const header = data.slice(0, HEADER_LENGTH);
+    const header = packetData.slice(0, HEADER_LENGTH);
+    let data = packetData.slice(HEADER_LENGTH);
     // console.log("header", header, 'len', header.length);
-    let content;
+
+    if (param.base64) {
+        const contentBase64 = base64.toByteArray(data.toString());
+        data = Buffer(contentBase64);
+    }
     if (param.encrypt) {
-        const ivBuf = data.slice(HEADER_LENGTH, HEADER_LENGTH + ivSize);
+        const ivBuf = data.slice(0, ivSize);
         console.log("ivBuf", ivBuf, 'len', ivBuf.length);
         const key = param.encryptkey;
         const decipher = crypto.createDecipheriv(algorithm, Buffer(key), ivBuf);
         const plainChunks = [];
-        const encryptedContent = data.slice(HEADER_LENGTH + ivSize);
+        const encryptedContent = data.slice(ivSize);
         console.log("encryptedContent", encryptedContent, 'len', encryptedContent.length);
         plainChunks.push(decipher.update(encryptedContent));
         plainChunks.push(decipher.final());
-        content = Buffer.concat(plainChunks);
-        console.log("content", Buffer(content), 'len', Buffer(content).length);
-        content = content.toString();
-    } else if (param.base64) {
-        const contentBase64 = base64.toByteArray(data);
-        const contentBuf = Buffer(contentBase64);
-        content = contentBuf.toString();
-    } else {
-        content = data.toString();
+        data = Buffer.concat(plainChunks);
+        console.log("origin", data, 'len', data.length);
     }
+    const content = data.toString();
     return {
         header,
         content,
