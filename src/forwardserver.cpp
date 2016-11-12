@@ -97,7 +97,6 @@ namespace forwarder {
 		host = nullptr;
 	}
 
-
 	void ForwardServerWS::init(rapidjson::Value& serverConfig) {
 		server.set_error_channels(websocketpp::log::elevel::all);
 		server.set_access_channels(websocketpp::log::alevel::none);

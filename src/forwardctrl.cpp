@@ -20,8 +20,8 @@ ForwardCtrl::ForwardCtrl() :
 	isExit(false)
 {	//default
 	handleFuncs[0] = &ForwardCtrl::handlePacket_SysCmd;
-	handleFuncs[1] = &ForwardCtrl::handlePacket_Forward;
-	handleFuncs[2] = &ForwardCtrl::handlePacket_Process;
+	handleFuncs[2] = &ForwardCtrl::handlePacket_Forward;
+	handleFuncs[3] = &ForwardCtrl::handlePacket_Process;
 }
 
 
@@ -332,12 +332,14 @@ ForwardPacketPtr ForwardCtrl::decodeData(ForwardServer* inServer, uint8_t* data,
 	//1. convert to raw
 	//1.1 Base64
 	if (inServer->base64) {
+		if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
 		uint8_t* allocData1 = new uint8_t[newDataLength];
 		uint8_t* newData = allocData1;
 		base64Codec.toByteArray((const char*)data, dataLength, newData, &newDataLength);
 		data = newData;
 		dataLength = newDataLength;
+		if (debug) debugBytes("decodeData, base64decoded Data", data, dataLength);
 	}
 
 	//1.2 now data is raw or encrypted
@@ -352,6 +354,7 @@ ForwardPacketPtr ForwardCtrl::decodeData(ForwardServer* inServer, uint8_t* data,
 		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
 		data = newData;
 		dataLength = newDataLength;
+		if (debug) debugBytes("decodeData, decrypt Data", data, dataLength);
 	}
 
 	//3. make packet
@@ -518,8 +521,9 @@ void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, 
 		return;
 	}
 	const char * content = (const char*)(inPacket->data) + sizeof(header);
-	getLogger()->info("[data]{0}", content);
+	getLogger()->info("[onENetReceived] data:{0}", content);
 	auto it = handleFuncs.find(header.getProtocolType());
+	getLogger()->info("[onENetReceived] protocol:{0}", header.getProtocolType());
 	if (it == handleFuncs.end()) {
 		getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocolType());
 		return;
