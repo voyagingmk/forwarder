@@ -82,11 +82,9 @@ namespace forwarder {
 		// process the packet locally
 		ReturnCode handlePacket_Process(ForwardParam& param);
 
-
 		ForwardServer* createServerByNetType(NetType netType);
 
 		ForwardClient* createClientByNetType(NetType netType);
-
 
 		ForwardClient* getOutClient(ForwardHeader* inHeader, ForwardServer* inServer, ForwardServer* outServer) const;
 
