@@ -23,7 +23,8 @@ bool isFileExist(const char *fileName)
 
 bool setupLogger(const char* filename) {
 	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>(filename, "txt", 0, 0));
+	sinks.push_back(make_shared<spdlog::sinks::rotating_file_sink_st>(filename, "txt", 1048576 * 5, 3));
+	//sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>(filename, "txt", 0, 0));
 #ifdef _MSC_VER
 	sinks.push_back(make_shared<spdlog::sinks::wincolor_stdout_sink_st>());
 #else
