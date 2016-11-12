@@ -21,6 +21,7 @@ namespace forwarder {
 			encrypt(false),
 			netType(p_netType),
 			dest(nullptr),
+			isClient(false),
 			reconnect(false)
 		{}
 		~ForwardServer() {
@@ -34,6 +35,7 @@ namespace forwarder {
 		virtual void init(rapidjson::Value& serverConfig) = 0;
 		void initCipherKey(const char* key);
 		bool hasConsistConfig(ForwardServer*);
+		virtual void doReconect() {};
 	public:
 		UniqID id;
 		int destId;
@@ -47,7 +49,11 @@ namespace forwarder {
 		UniqIDGenerator idGenerator;
 		std::map<UniqID, ForwardClient*> clients;
 		std::string desc;
+		uint16_t port;
+
 		// used for client mode
+		bool isClient;
+		std::string address;
 		bool reconnect; // auto reconncet to target host when disconnected
 	};
 
@@ -66,6 +72,8 @@ namespace forwarder {
 		virtual void release();
 
 		virtual void init(rapidjson::Value& serverConfig);
+
+		virtual void doReconect();
 	public:
 		ENetHost * host = nullptr;
 		uint8_t broadcastChannelID = 0;

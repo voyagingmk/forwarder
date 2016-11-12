@@ -625,6 +625,9 @@ void ForwardCtrl::pollOnce() {
 						if (it != server->clients.end())
 							server->clients.erase(it);
 						poolForwardClientENet.del(client);
+						if (server->isClient) {
+							server->doReconect();
+						}
 						break;
 					}
 					case ENET_EVENT_TYPE_NONE:

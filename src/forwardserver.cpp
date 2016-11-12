@@ -10,6 +10,7 @@ namespace forwarder {
 		admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
 		encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
 		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
+		isClient = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
 		if (encrypt) {
 			if (serverConfig.HasMember("encryptkey")) {
 				initCipherKey(serverConfig["encryptkey"].GetString());
@@ -51,19 +52,22 @@ namespace forwarder {
 	}
 
 	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
-		ENetAddress address;
-		bool isClient = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
+		ENetAddress enetAddress;
+		port = serverConfig["port"].GetInt();
+		if (serverConfig.HasMember("address")) {
+			address = serverConfig["address"].GetString();
+		}
 		if (!isClient) {
-			enet_address_set_host(&address, "0.0.0.0");
-			address.port = serverConfig["port"].GetInt();
+			enet_address_set_host(&enetAddress, "0.0.0.0");
+			enetAddress.port = port;
 		}
 		else {
-			enet_address_set_host(&address, serverConfig["address"].GetString());
-			address.port = serverConfig["port"].GetInt();
+			enet_address_set_host(&enetAddress, address.c_str());
+			enetAddress.port = port;
 		}
 		size_t channelLimit = 1;
 		//address.host = ENET_HOST_ANY;
-		host = enet_host_create(isClient? nullptr: &address,
+		host = enet_host_create(isClient? nullptr: &enetAddress,
 			peerLimit,
 			channelLimit,
 			0      /* assume any amount of incoming bandwidth */,
@@ -75,10 +79,18 @@ namespace forwarder {
 		}
 		if (isClient) {
 			reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
-			enet_host_connect(host, &address, channelLimit, 0);
+			enet_host_connect(host, &enetAddress, channelLimit, 0);
 
 		}
 	}
+
+	void ForwardServerENet::doReconect() {
+		ENetAddress enetAddress; 
+		enet_address_set_host(&enetAddress, address.c_str());
+		enetAddress.port = port;
+		size_t channelLimit = 1;
+		enet_host_connect(host, &enetAddress, channelLimit, 0);
+	};
 
 	void  ForwardServerENet::release() {
 		enet_host_destroy(host);
