@@ -463,6 +463,11 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 }
 
 ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
+	ForwardServer* inServer = param.server;
+	ForwardPacketPtr inPacket = param.packet;
+	uint8_t * data = inPacket->getDataPtr();
+	size_t dataLength = inPacket->getDataLength();
+	ForwardPacketPtr rawPacket = decodeData(inServer, data, dataLength);
 	return ReturnCode::Ok;
 }
 
@@ -621,14 +626,16 @@ void ForwardCtrl::pollOnce() {
 						break;
 					}
 					case ENET_EVENT_TYPE_DISCONNECT: {
-						ForwardClientENet* client = (ForwardClientENet*)event.peer->data;
-						getLogger()->info("[ENet,c:{0}] disconnected.",
-							client->id);
-						event.peer->data = nullptr;
-						auto it = server->clients.find(client->id);
-						if (it != server->clients.end())
-							server->clients.erase(it);
-						poolForwardClientENet.del(client);
+						ForwardClientENet* client = event.peer->data?(ForwardClientENet*)event.peer->data: nullptr;
+						if (client) {
+							getLogger()->info("[ENet,c:{0}] disconnected.",
+								client->id);
+							event.peer->data = nullptr;
+							auto it = server->clients.find(client->id);
+							if (it != server->clients.end())
+								server->clients.erase(it);
+							poolForwardClientENet.del(client);
+						}
 						if (server->isClient) {
 							server->doReconect();
 						}

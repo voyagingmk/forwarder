@@ -2,30 +2,27 @@
     "servers": [{
         "id": 1,
         "desc": "C2FS_ws",
-        "protocol": "ws",
+        "netType": "ws",
         "destId": 3,
-        "encrypt": true,
+        "encrypt": false,
         "encryptkey": "1234567812345678",
         "base64": false,
         "port": 9998,
         "peers": 3000
     }, {
         "id": 2,
-        "desc": "C2FS_ws",
-        "protocol": "enet",
+        "desc": "C2FS_enet",
+        "netType": "enet",
         "destId": 3,
         "encrypt": true,
         "encryptkey": "1234567812345678",
         "base64": true,
         "port": 9999,
-        "peers": 3000,
-        "address": "localhost",
-        "isClient": true,
-        "reconnect": true
+        "peers": 3000
     }, {
         "id": 3,
         "desc": "GS2FS",
-        "protocol": "enet",
+        "netType": "enet",
         "destId": 1,
         "admin": true,
         "encrypt": false,
