@@ -37,15 +37,15 @@ client.on('connect', (connection) => {
                 protocol: 2,
                 subID: 1,
                 base64: false,
-                encrypt: true,
+                encrypt: false,
                 encryptkey: "1234567812345678",
                 content: "hello",
             });
             connection.sendBytes(packet);
-            setTimeout(sendTest, 3000);
+            //setTimeout(sendTest, 3000);
         }
     }
-    // sendTest();
+    sendTest();
 });
 
 client.connect('ws://localhost:9998/');

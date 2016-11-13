@@ -5,11 +5,14 @@
 #include "defines.h"
 
 /*
-|  1 byte		|  1 byte			|  1 / 2 byte		|  1 / 2 byte		|  1 byte
-|  Version		|  Length of Header	|  Protocol.Type	|  Protocol.Flag	|  hash
+|  1 byte		|  1 byte			|  1 / 2 byte		|  1 / 2 byte		|  1 byte	| 
+|  Version		|  Length of Header	|  Protocol.Type	|  Protocol.Flag	|  hash		| 
 
-|  1 byte		|  1 byte			|  						2 bytes
-|  SubID		|  Host ID			|  						Client ID
+|  1 byte		|  1 byte			|  						2 bytes						| 
+|  SubID		|  Host ID			|  						Client ID					| 
+
+|										4 bytes											|
+|									    data / ip										|
 
 
 */
@@ -55,7 +58,10 @@ namespace forwarder {
 		uint8_t subID = 0;
 		uint8_t hostID = 0;
 		uint16_t clientID = 0;
-		uint32_t ip;
+		union{
+			uint32_t ip;
+			uint8_t data[4];
+		};
 	};
 
 }
