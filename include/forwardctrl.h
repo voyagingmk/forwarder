@@ -52,8 +52,17 @@ namespace forwarder {
 			isExit = true;
 		}
 
-		rapidjson::Document stat() const;
+		inline ForwardServer* getCurProcessServer() const {
+			return curProcessServer;
+		}
+	
+		inline ForwardClient* getCurProcessClient() const {
+			return curProcessClient;
+		}
 
+		inline ForwardPacketPtr getCurProcessPacket() const {
+			return curProcessPacket;
+		}
 
 		void pollOnceByServerID(UniqID serverId);
 		
@@ -62,6 +71,8 @@ namespace forwarder {
 		void pollAllOnce();
 
 		void loop();
+
+		rapidjson::Document stat() const;
 
 	private:
 		void onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID);
@@ -123,6 +134,9 @@ namespace forwarder {
 		bool debug;
 		bool isExit;
 		Base64Codec& base64Codec;
+		ForwardServer* curProcessServer;
+		ForwardClient* curProcessClient;
+		ForwardPacketPtr curProcessPacket;
 		static const size_t ivSize = 16;
 	};
 
