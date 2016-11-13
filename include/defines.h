@@ -23,6 +23,11 @@ namespace forwarder {
 		WS = 2
 	};
 
+	enum Event {
+		Connected = 1,
+		Disconnected = 2
+	};
+
 	enum Convert {
 		None = 0,
 		ENet_to_WS = 1,

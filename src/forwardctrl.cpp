@@ -101,7 +101,6 @@ ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
 	return ReturnCode::Ok;
 }
 
-
 ForwardServer* ForwardCtrl::createServerByNetType(NetType netType) {
 	if (netType == NetType::ENet) {
 		return static_cast<ForwardServer*>(poolForwardServerENet.add());
@@ -143,7 +142,6 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		}
 	}
 }
-
 
 uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	auto logger = getLogger();
@@ -212,6 +210,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	return server->id;
 }
 
+
 ReturnCode ForwardCtrl::removeServerByID(UniqID serverId) {
 	auto it_server = serverDict.find(serverId);
 	if (it_server == serverDict.end()) {
@@ -234,6 +233,10 @@ ForwardServer* ForwardCtrl::getServerByID(UniqID serverId) const {
 	return it_server->second;
 }
 
+
+void ForwardCtrl::registerCallback(Event evt, eventCallback callback) {
+
+}
 
 void ForwardCtrl::sendPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
@@ -599,85 +602,98 @@ ForwardServer* ForwardCtrl::getOutServer(ForwardHeader* inHeader, ForwardServer*
 	return outServer;
 }
 
-void ForwardCtrl::pollOnce() {
+void ForwardCtrl::pollOnceByServerID(UniqID serverId) {
+	ForwardServer* pServer = getServerByID(serverId);
+	if (!pServer) {
+		return;
+	}
+	pollOnce(pServer);
+}
+
+void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 	ENetEvent event;
 	auto logger = getLogger();
-	for (ForwardServer* it_server : servers) {
-		if (it_server->netType == NetType::ENet) {
-			ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(it_server);
-			do {
-				int ret = enet_host_service(server->host, &event, 5);
-				if (ret > 0) {
-					if (debug) logger->info("event.type = {}", event.type);
-					switch (event.type) {
-					case ENET_EVENT_TYPE_CONNECT: {
-						UniqID id = server->idGenerator.getNewID();
-						ForwardClientENet* client = poolForwardClientENet.add();
-						client->id = id;
-						client->peer = event.peer;
-						client->ip = event.peer->address.host;
-						event.peer->data = client;
-						server->clients[id] = static_cast<ForwardClient*>(client);
-						char str[INET_ADDRSTRLEN];
-						inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
-						if (debug) logger->info("[ENet,c:{0}] connected, from {1}:{2}.",
-														client->id,
-														str,
-														event.peer->address.port);
-						if (debug) logger->info("ip = {0}", client->ip);
-						sendText(server->id, "hello");
-						break;
-					}
-					case ENET_EVENT_TYPE_RECEIVE: {
-						ForwardClient* client = (ForwardClient*)event.peer->data;
-						ENetPacket * inPacket = event.packet;
-						onENetReceived(server, client, inPacket, event.channelID);
-						break;
-					}
-					case ENET_EVENT_TYPE_DISCONNECT: {
-						ForwardClientENet* client = event.peer->data?(ForwardClientENet*)event.peer->data: nullptr;
-						if (client) {
-							if(debug) getLogger()->info("[ENet,c:{0}] disconnected.", client->id);
-							event.peer->data = nullptr;
-							auto it = server->clients.find(client->id);
-							if (it != server->clients.end())
-								server->clients.erase(it);
-							poolForwardClientENet.del(client);
-						}
-						if (server->isClient) {
-							server->doReconect();
-						}
-						break;
-					}
-					case ENET_EVENT_TYPE_NONE:
-						break;
-					}
-					if (isExit)
-						break;
-				}
-				else if (ret == 0) {
+	if (pServer->netType == NetType::ENet) {
+		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
+		do {
+			int ret = enet_host_service(server->host, &event, 5);
+			if (ret > 0) {
+				if (debug) logger->info("event.type = {}", event.type);
+				switch (event.type) {
+				case ENET_EVENT_TYPE_CONNECT: {
+					UniqID id = server->idGenerator.getNewID();
+					ForwardClientENet* client = poolForwardClientENet.add();
+					client->id = id;
+					client->peer = event.peer;
+					client->ip = event.peer->address.host;
+					event.peer->data = client;
+					server->clients[id] = static_cast<ForwardClient*>(client);
+					char str[INET_ADDRSTRLEN];
+					inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
+					if (debug) logger->info("[ENet,c:{0}] connected, from {1}:{2}.",
+						client->id,
+						str,
+						event.peer->address.port);
+					if (debug) logger->info("ip = {0}", client->ip);
+					sendText(server->id, "hello");
 					break;
 				}
-				else if (ret < 0) {
+				case ENET_EVENT_TYPE_RECEIVE: {
+					ForwardClient* client = (ForwardClient*)event.peer->data;
+					ENetPacket * inPacket = event.packet;
+					onENetReceived(server, client, inPacket, event.channelID);
+					break;
+				}
+				case ENET_EVENT_TYPE_DISCONNECT: {
+					ForwardClientENet* client = event.peer->data ? (ForwardClientENet*)event.peer->data : nullptr;
+					if (client) {
+						if (debug) getLogger()->info("[ENet,c:{0}] disconnected.", client->id);
+						event.peer->data = nullptr;
+						auto it = server->clients.find(client->id);
+						if (it != server->clients.end())
+							server->clients.erase(it);
+						poolForwardClientENet.del(client);
+					}
+					if (server->isClient) {
+						server->doReconect();
+					}
+					break;
+				}
+				case ENET_EVENT_TYPE_NONE:
+					break;
+				}
+				if (isExit)
+					break;
+			}
+			else if (ret == 0) {
+				break;
+			}
+			else if (ret < 0) {
 #ifdef _MSC_VER
-					getLogger()->error("WSAGetLastError(): {0}\n", WSAGetLastError());
+				getLogger()->error("WSAGetLastError(): {0}\n", WSAGetLastError());
 #endif
-					break;
-				}
-			} while (true);
-			//std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		}
-		else if (it_server->netType == NetType::WS) {
-			ForwardServerWS* server = dynamic_cast<ForwardServerWS*>(it_server);
-			server->poll();
-		}
+				break;
+			}
+		} while (true);
+		//std::this_thread::sleep_for(std::chrono::milliseconds(20));
+	}
+	else if (pServer->netType == NetType::WS) {
+		ForwardServerWS* server = dynamic_cast<ForwardServerWS*>(pServer);
+		server->poll();
+	}
+}
+
+
+void ForwardCtrl::pollAllOnce() {
+	for (ForwardServer* pServer : servers) {
+		pollOnce(pServer);
 	}
 }
 
 
 void ForwardCtrl::loop() {
 	while (!isExit) {
-		pollOnce();
+		pollAllOnce();
 	}
 }
 

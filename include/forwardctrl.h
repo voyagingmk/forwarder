@@ -20,6 +20,7 @@ namespace forwarder {
 		ForwardPacketPtr packet = nullptr;
 		int channelID = 0;
 	};
+	
 
 	class ForwardCtrl {
 	public:
@@ -43,13 +44,22 @@ namespace forwarder {
 
 		ReturnCode sendText(UniqID serverId, std::string data);
 
+		typedef void(*eventCallback)();
+
+		void registerCallback(Event evt, eventCallback callback);
+
 		void exist() {
 			isExit = true;
 		}
 
 		rapidjson::Document stat() const;
 
-		void pollOnce();
+
+		void pollOnceByServerID(UniqID serverId);
+		
+		void pollOnce(ForwardServer* server);
+
+		void pollAllOnce();
 
 		void loop();
 
