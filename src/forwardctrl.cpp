@@ -443,6 +443,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		return ReturnCode::Err;
 
 	ForwardHeader outHeader;
+	outHeader.ip = inClient->ip;
 	outHeader.protocol = 2;
 
 	if (inHeader->getProtocolFlag(ProtocolFlag::WithAddress)) {
