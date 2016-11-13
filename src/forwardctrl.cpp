@@ -160,13 +160,21 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	if (server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
 		auto on_open = [=](websocketpp::connection_hdl hdl) {
+			ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
 			UniqID id = wsServer->idGenerator.getNewID();
 			ForwardClientWS* client = poolForwardClientWS.add();
 			client->id = id;
 			client->hdl = hdl;
+			std::string host = con->get_host();
+			uint16_t port = con->get_port();
+			if (host == "localhost")
+				host = "127.0.0.1";
+			asio::ip::address_v4::bytes_type ip = asio::ip::address_v4::from_string(host).to_bytes();
+			memcpy(&client->ip, ip.data(), 4);
 			wsServer->clients[id] = static_cast<ForwardClient*>(client);
 			wsServer->hdlToClientId[hdl] = id;
-			if (debug) logger->info("[WS,c:{0}] connected.", id);
+			if (debug) logger->info("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
+			if (debug) logger->info("ip = {0}", client->ip);
 		};
 
 		auto on_close = [=](websocketpp::connection_hdl hdl) {
@@ -512,7 +520,6 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	(this->*handleFunc)(param);
 }
 
-
 void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
 	if (debug) getLogger()->info("[cli:{0}][c:{1}][len:{2}]",
 									client->id,
@@ -593,28 +600,30 @@ ForwardServer* ForwardCtrl::getOutServer(ForwardHeader* inHeader, ForwardServer*
 
 void ForwardCtrl::pollOnce() {
 	ENetEvent event;
-	
+	auto logger = getLogger();
 	for (ForwardServer* it_server : servers) {
 		if (it_server->netType == NetType::ENet) {
 			ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(it_server);
 			do {
 				int ret = enet_host_service(server->host, &event, 5);
 				if (ret > 0) {
-					if (debug) getLogger()->info("event.type = {}", event.type);
+					if (debug) logger->info("event.type = {}", event.type);
 					switch (event.type) {
 					case ENET_EVENT_TYPE_CONNECT: {
 						UniqID id = server->idGenerator.getNewID();
 						ForwardClientENet* client = poolForwardClientENet.add();
 						client->id = id;
 						client->peer = event.peer;
+						client->ip = event.peer->address.host;
 						event.peer->data = client;
 						server->clients[id] = static_cast<ForwardClient*>(client);
 						char str[INET_ADDRSTRLEN];
 						inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
-						if (debug) getLogger()->info("[ENet,c:{0}] connected, from {1}:{2}.",
+						if (debug) logger->info("[ENet,c:{0}] connected, from {1}:{2}.",
 														client->id,
 														str,
 														event.peer->address.port);
+						if (debug) logger->info("ip = {0}", client->ip);
 						sendText(server->id, "hello");
 						break;
 					}

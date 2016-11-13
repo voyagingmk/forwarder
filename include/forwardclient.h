@@ -13,6 +13,7 @@ public:
 	}
 public:
 	UniqID id = 0;
+	uint32_t ip = 0;
 };
 
 class ForwardClientENet: public ForwardClient {

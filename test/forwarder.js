@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const base64 = require('./base64');
 
 const FORWARDER_VERSION = 1;
-const HEADER_LENGTH = 8;
+const HEADER_LENGTH = 12;
 const algorithm = "AES-128-CTR";
 const originEncoding = 'utf8';
 const ivSize = 16;

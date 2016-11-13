@@ -55,6 +55,7 @@ namespace forwarder {
 		uint8_t subID = 0;
 		uint8_t hostID = 0;
 		uint16_t clientID = 0;
+		uint32_t ip;
 	};
 
 }
