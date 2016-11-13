@@ -26,7 +26,7 @@ namespace forwarder {
 	public:
 		ForwardCtrl();
 
-		~ForwardCtrl();
+		virtual ~ForwardCtrl();
 
 		void setDebug(bool enabled);
 
