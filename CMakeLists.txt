@@ -6,6 +6,7 @@ set (FORWARDER_VERSION_MINOR 0)
 set (CMAKE_CXX_STANDARD 11)
 
 if(UNIX)
+    SET(CMAKE_C_COMPILER "/usr/bin/clang")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++0x")
 endif()
 
