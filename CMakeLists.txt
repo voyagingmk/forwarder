@@ -1,9 +1,4 @@
 cmake_minimum_required (VERSION 2.6)
-project (forwarder)
-
-set (FORWARDER_VERSION_MAJOR 1)
-set (FORWARDER_VERSION_MINOR 0)
-set (CMAKE_CXX_STANDARD 11)
 
 if(UNIX)
     MESSAGE(STATUS "It is UNIX-like OS")  
@@ -27,6 +22,13 @@ if(UNIX)
     SET (CMAKE_OBJDUMP "/usr/bin/llvm-objdump")
     SET (CMAKE_RANLIB  "/usr/bin/llvm-ranlib")
 endif()
+
+project (forwarder)
+
+set (FORWARDER_VERSION_MAJOR 1)
+set (FORWARDER_VERSION_MINOR 0)
+set (CMAKE_CXX_STANDARD 11)
+
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
