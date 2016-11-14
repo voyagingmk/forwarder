@@ -6,6 +6,7 @@ set (FORWARDER_VERSION_MINOR 0)
 set (CMAKE_CXX_STANDARD 11)
 
 if(UNIX)
+    MESSAGE(STATUS "It is UNIX-like OS")  
     SET (CMAKE_C_COMPILER             "/usr/bin/clang")
     SET (CMAKE_C_FLAGS                "-Wall -std=c99")
     SET (CMAKE_C_FLAGS_DEBUG          "-g")
