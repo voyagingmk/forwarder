@@ -52,6 +52,10 @@ namespace forwarder {
 			isExit = true;
 		}
 
+		inline Event getCurEvent() const {
+			return curEvent;
+		}
+
 		inline ForwardServer* getCurProcessServer() const {
 			return curProcessServer;
 		}
@@ -76,6 +80,10 @@ namespace forwarder {
 
 	private:
 		void onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID);
+
+		void onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
+
+		void onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
 
 		void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
 
@@ -134,6 +142,7 @@ namespace forwarder {
 		bool debug;
 		bool isExit;
 		Base64Codec& base64Codec;
+		Event curEvent;
 		ForwardServer* curProcessServer;
 		ForwardClient* curProcessClient;
 		ForwardPacketPtr curProcessPacket;

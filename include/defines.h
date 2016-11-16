@@ -24,8 +24,10 @@ namespace forwarder {
 	};
 
 	enum Event {
+		Nothing = 0,
 		Connected = 1,
-		Disconnected = 2
+		Disconnected = 2,
+		Message = 3
 	};
 
 	enum Convert {

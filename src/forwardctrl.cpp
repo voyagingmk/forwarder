@@ -160,46 +160,22 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 
 	if (server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
-		auto on_open = [=](websocketpp::connection_hdl hdl) {
-			ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
-			UniqID id = wsServer->idGenerator.getNewID();
-			ForwardClientWS* client = poolForwardClientWS.add();
-			client->id = id;
-			client->hdl = hdl;
-			std::string host = con->get_host();
-			uint16_t port = con->get_port();
-			if (host == "localhost")
-				host = "127.0.0.1";
-			asio::ip::address_v4::bytes_type ip = asio::ip::address_v4::from_string(host).to_bytes();
-			memcpy(&client->ip, ip.data(), 4);
-			wsServer->clients[id] = static_cast<ForwardClient*>(client);
-			wsServer->hdlToClientId[hdl] = id;
-			if (debug) logger->info("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
-			if (debug) logger->info("ip = {0}", client->ip);
-		};
-
-		auto on_close = [=](websocketpp::connection_hdl hdl) {
-			auto it = wsServer->hdlToClientId.find(hdl);
-			if (it != wsServer->hdlToClientId.end()) {
-				UniqID id = it->second;
-				if (debug) logger->info("[WS,c:{0}] disconnected.", id);
-				wsServer->hdlToClientId.erase(it);
-				auto it = wsServer->clients.find(id);
-				if (it != wsServer->clients.end()) {
-					ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
-					wsServer->clients.erase(it);
-					poolForwardClientWS.del(client);
-				}
-			}
-		};
 		wsServer->server.set_message_handler(websocketpp::lib::bind(
 			&ForwardCtrl::onWSReceived,
 			this,
 			wsServer,
 			websocketpp::lib::placeholders::_1,
 			websocketpp::lib::placeholders::_2));
-		wsServer->server.set_open_handler(on_open);
-		wsServer->server.set_close_handler(on_close);
+		wsServer->server.set_open_handler(websocketpp::lib::bind(
+			&ForwardCtrl::onWSConnected,
+			this,
+			wsServer,
+			websocketpp::lib::placeholders::_1));
+		wsServer->server.set_close_handler(websocketpp::lib::bind(
+			&ForwardCtrl::onWSDisconnected,
+			this,
+			wsServer,
+			websocketpp::lib::placeholders::_1));
 	}
 	server->init(serverConfig);
 
@@ -482,7 +458,45 @@ ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
 	curProcessServer = inServer;
 	curProcessClient = inClient;
 	curProcessPacket = rawPacket;
+	curEvent = Event::Message;
 	return ReturnCode::Ok;
+}
+
+void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
+	auto logger = getLogger();
+	ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
+	UniqID id = wsServer->idGenerator.getNewID();
+	ForwardClientWS* client = poolForwardClientWS.add();
+	client->id = id;
+	client->hdl = hdl;
+	std::string host = con->get_host();
+	uint16_t port = con->get_port();
+	if (host == "localhost")
+		host = "127.0.0.1";
+	asio::ip::address_v4::bytes_type ip = asio::ip::address_v4::from_string(host).to_bytes();
+	memcpy(&client->ip, ip.data(), 4);
+	wsServer->clients[id] = static_cast<ForwardClient*>(client);
+	wsServer->hdlToClientId[hdl] = id;
+	if (debug) logger->info("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
+	if (debug) logger->info("ip = {0}", client->ip);
+	curEvent = Event::Connected;
+}
+
+void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
+	auto logger = getLogger();
+	auto it = wsServer->hdlToClientId.find(hdl);
+	if (it != wsServer->hdlToClientId.end()) {
+		UniqID id = it->second;
+		if (debug) logger->info("[WS,c:{0}] disconnected.", id);
+		wsServer->hdlToClientId.erase(it);
+		auto it = wsServer->clients.find(id);
+		if (it != wsServer->clients.end()) {
+			ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
+			wsServer->clients.erase(it);
+			poolForwardClientWS.del(client);
+		}
+	}
+	curEvent = Event::Disconnected;
 }
 
 void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
@@ -527,7 +541,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	(this->*handleFunc)(param);
 }
 
-void  ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
+void ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
 	if (debug) getLogger()->info("[cli:{0}][c:{1}][len:{2}]",
 									client->id,
 									channelID,
@@ -616,6 +630,7 @@ void ForwardCtrl::pollOnceByServerID(UniqID serverId) {
 void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 	ENetEvent event;
 	auto logger = getLogger();
+	curEvent = Event::Nothing;
 	curProcessServer = nullptr;
 	curProcessClient = nullptr;
 	curProcessPacket = nullptr;
@@ -635,12 +650,13 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 				server->clients[id] = static_cast<ForwardClient*>(client);
 				char str[INET_ADDRSTRLEN];
 				inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
+				curEvent = Event::Connected;
 				if (debug) logger->info("[ENet,c:{0}] connected, from {1}:{2}.",
 					client->id,
 					str,
 					event.peer->address.port);
 				if (debug) logger->info("ip = {0}", client->ip);
-				sendText(server->id, "hello");
+				//sendText(server->id, "hello");
 				break;
 			}
 			case ENET_EVENT_TYPE_RECEIVE: {
@@ -662,6 +678,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 				if (server->isClient && server->reconnect) {
 					server->doReconect();
 				}
+				curEvent = Event::Disconnected;
 				break;
 			}
 			case ENET_EVENT_TYPE_NONE:
