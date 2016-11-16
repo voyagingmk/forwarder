@@ -147,7 +147,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 			}
 		}
 		if (!server->dest){
-			if (debug) getLogger()->info("Server[{0}] has no dest server");
+			if (debug) getLogger()->info("Server[{0}] has no dest server", server->id);
 		}
 	}
 }
@@ -160,7 +160,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	if (code == ReturnCode::Err) {
 		return code;
 	}
-	server->id = idGenerator.getNewID();
+	server->id = serverConfig["id"].GetInt();
 	servers.push_back(server);
 	serverDict[server->id] = server;
 
