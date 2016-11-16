@@ -401,15 +401,18 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 }
 
 ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
+	if (debug) getLogger()->info("forward begin");
+	auto logger = getLogger();
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
 	ForwardHeader* inHeader = param.header;
 
-
 	ForwardServer* outServer = getOutServer(inHeader, inServer);
-	if (!outServer)
+	if (!outServer) {
+		logger->warn("[forward] no outServer");
 		return ReturnCode::Err;
+	}
 
 	ForwardClient* outClient = getOutClient(inHeader, inServer, outServer);
 
@@ -417,8 +420,10 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 
 	outPacket = convertPacket(inPacket, inServer, outServer);
 
-	if (!outPacket)
+	if (!outPacket) {
+		logger->warn("[forward] no outPacket");
 		return ReturnCode::Err;
+	}
 
 	ForwardHeader outHeader;
 	outHeader.ip = inClient->ip;
