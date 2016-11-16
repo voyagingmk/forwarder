@@ -134,14 +134,20 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 	for (auto it = servers.begin(); it != servers.end(); it++) {
 		ForwardServer* server = *it;
 		int destId = server->destId;
-		if (!destId)
+		if (!destId){
+			if (debug) getLogger()->info("Server[{0}] has no destId");
 			continue;
+		}
 		for (auto it2 = servers.begin(); it2 != servers.end(); it2++) {
 			ForwardServer* _server = *it2;
 			if (_server->id == destId) {
 				server->dest = _server;
+				if (debug) getLogger()->info("Server[{0}] -> Server[{1}]", server->id, _server->id);
 				break;
 			}
+		}
+		if (!server->dest){
+			if (debug) getLogger()->info("Server[{0}] has no dest server");
 		}
 	}
 }
