@@ -39,6 +39,7 @@ class NetMgr {
             encrypt: true,
             encryptkey: "1234567812345678",
             base64: true,
+            peers: 1,
             port: this.getPort(),
             isClient: true,
             address: this.getHost(),
@@ -51,6 +52,7 @@ class NetMgr {
         this.flushMessage(); // 连接成功则发送队列中的包
     }
     isConnected() {
+        return true;
         return this.m_Ctrl.isConnected(this.m_ServerID);
     }
     disconnect() {
@@ -104,7 +106,8 @@ class NetMgr {
     }
     flushMessage() {
         // 发送队列中的包
-        for (const dPacketData of this.m_PacketQueue) {
+        for (let i = 0; i < this.m_PacketQueue.length;i++) {
+            const dPacketData = this.m_PacketQueue[i];
             if (dPacketData.header._queStatus > 0) {
                 return;
             }
@@ -178,7 +181,7 @@ class NetMgr {
         // switch (msg.header._cmd);
     }
     onSendMsg(cmd, dPacketData) {
-        const sData = this.toJSON(dPacketData);
+        const sData = JSON.stringify(dPacketData);
         this.m_Ctrl.sendText(this.m_ServerID, sData);
     }
     onConMessage(dNetHeader, dPacketData) {
@@ -203,4 +206,4 @@ class NetMgr {
 }
 
 
-exports = NetMgr;
+module.exports = NetMgr;
