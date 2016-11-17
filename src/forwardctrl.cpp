@@ -691,7 +691,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 					poolForwardClientENet.del(client);
 				}
 				if (server->isClientMode && server->reconnect) {
-					server->doReconect();
+					server->doReconnect();
 				}
 				curEvent = Event::Disconnected;				
 				

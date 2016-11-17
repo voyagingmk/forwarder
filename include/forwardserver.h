@@ -37,7 +37,7 @@ namespace forwarder {
 		bool hasConsistConfig(ForwardServer*);
 
 		// used for client mode
-		virtual void doReconect() {};
+		virtual void doReconnect() {};
 		virtual void doDisconnect() {};
 		virtual bool isConnected() { return false; };
 	public:
@@ -80,7 +80,7 @@ class ForwardServerENet : public ForwardServer {
 
 		virtual void init(rapidjson::Value& serverConfig);
 
-		virtual void doReconect();
+		virtual void doReconnect();
 
 		virtual void doDisconnect();
 

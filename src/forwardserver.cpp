@@ -84,7 +84,7 @@ namespace forwarder {
 		}
 	}
 
-	void ForwardServerENet::doReconect() {
+	void ForwardServerENet::doReconnect() {
 		ENetAddress enetAddress; 
 		enet_address_set_host(&enetAddress, address.c_str());
 		enetAddress.port = port;
