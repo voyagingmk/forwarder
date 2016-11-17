@@ -374,6 +374,7 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 	uint8_t * data = packet->getDataPtr();
 	size_t dataLength = packet->getDataLength();
 	ForwardPacketPtr rawPacket = decodeData(inServer, data, dataLength);
+	if (debug) getLogger()->info("raw data:{0}", rawPacket->getDataPtr());
 	ForwardPacketPtr outPacket = encodeData(outServer, rawPacket->getDataPtr(), rawPacket->getDataLength());
 	return outPacket;
 }
