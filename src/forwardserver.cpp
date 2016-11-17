@@ -10,7 +10,7 @@ namespace forwarder {
 		admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
 		encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
 		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
-		isClient = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
+		isClientMode = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
 		if (encrypt) {
 			if (serverConfig.HasMember("encryptkey")) {
 				initCipherKey(serverConfig["encryptkey"].GetString());
@@ -57,7 +57,7 @@ namespace forwarder {
 		if (serverConfig.HasMember("address")) {
 			address = serverConfig["address"].GetString();
 		}
-		if (!isClient) {
+		if (!isClientMode) {
 			enet_address_set_host(&enetAddress, "0.0.0.0");
 			enetAddress.port = port;
 		}
@@ -67,7 +67,7 @@ namespace forwarder {
 		}
 		size_t channelLimit = 1;
 		//address.host = ENET_HOST_ANY;
-		host = enet_host_create(isClient? nullptr: &enetAddress,
+		host = enet_host_create(isClientMode? nullptr: &enetAddress,
 			peerLimit,
 			channelLimit,
 			0      /* assume any amount of incoming bandwidth */,
@@ -77,7 +77,7 @@ namespace forwarder {
 			exit(1);
 			return;
 		}
-		if (isClient) {
+		if (isClientMode) {
 			reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
 			enet_host_connect(host, &enetAddress, channelLimit, 0);
 
@@ -91,6 +91,29 @@ namespace forwarder {
 		size_t channelLimit = 1;
 		enet_host_connect(host, &enetAddress, channelLimit, 0);
 	};
+
+	void ForwardServerENet::doDisconnect() {
+		auto it = clients.find(clientID);
+		if (it == clients.end()) {
+			return;
+		}
+		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it->second);
+		auto state = client->peer->state;
+		if(state == ENET_PEER_STATE_CONNECTING || state == ENET_PEER_STATE_CONNECTED){
+			enet_peer_disconnect(client->peer, 0);
+		}
+	}
+
+	bool ForwardServerENet::isConnected() {
+		auto it = clients.find(clientID);
+		if (it == clients.end()) {
+			return false;
+		}
+		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it->second);
+		auto state = client->peer->state;
+		return state == ENET_PEER_STATE_CONNECTED;
+	}
+
 
 	void  ForwardServerENet::release() {
 		enet_host_destroy(host);

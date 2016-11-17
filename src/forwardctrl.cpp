@@ -663,6 +663,9 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 				char str[INET_ADDRSTRLEN];
 				inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
 				curEvent = Event::Connected;
+				if (server->isClientMode) {
+					server->clientID = id;
+				}
 				if (debug) logger->info("[ENet,c:{0}] connected, from {1}:{2}.",
 					client->id,
 					str,
@@ -687,10 +690,14 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 						server->clients.erase(it);
 					poolForwardClientENet.del(client);
 				}
-				if (server->isClient && server->reconnect) {
+				if (server->isClientMode && server->reconnect) {
 					server->doReconect();
 				}
-				curEvent = Event::Disconnected;
+				curEvent = Event::Disconnected;				
+				
+				if (server->isClientMode) {
+					server->clientID = 0;
+				}
 				break;
 			}
 			case ENET_EVENT_TYPE_NONE:

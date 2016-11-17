@@ -8,7 +8,6 @@
 #include "aes.h"
 
 namespace forwarder {
-
 	class ForwardServer {
 	protected:
 		ForwardServer(NetType p_netType) :
@@ -21,7 +20,8 @@ namespace forwarder {
 			encrypt(false),
 			netType(p_netType),
 			dest(nullptr),
-			isClient(false),
+			isClientMode(false),
+			clientID(0),
 			reconnect(false)
 		{}
 		~ForwardServer() {
@@ -35,7 +35,11 @@ namespace forwarder {
 		virtual void init(rapidjson::Value& serverConfig) = 0;
 		void initCipherKey(const char* key);
 		bool hasConsistConfig(ForwardServer*);
+
+		// used for client mode
 		virtual void doReconect() {};
+		virtual void doDisconnect() {};
+		virtual bool isConnected() { return false; };
 	public:
 		UniqID id;
 		int destId;
@@ -52,12 +56,15 @@ namespace forwarder {
 		uint16_t port;
 
 		// used for client mode
-		bool isClient;
+		bool isClientMode;
 		std::string address;
+		UniqID clientID;
 		bool reconnect; // auto reconncet to target host when disconnected
 	};
 
-	class ForwardServerENet : public ForwardServer {
+
+
+class ForwardServerENet : public ForwardServer {
 	public:
 		ForwardServerENet() :
 			host(nullptr),
@@ -74,6 +81,10 @@ namespace forwarder {
 		virtual void init(rapidjson::Value& serverConfig);
 
 		virtual void doReconect();
+
+		virtual void doDisconnect();
+
+		virtual bool isConnected();
 	public:
 		ENetHost * host = nullptr;
 		uint8_t broadcastChannelID = 0;
