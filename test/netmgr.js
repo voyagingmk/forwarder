@@ -52,7 +52,6 @@ class NetMgr {
         this.flushMessage(); // 连接成功则发送队列中的包
     }
     isConnected() {
-        return true;
         return this.m_Ctrl.isConnected(this.m_ServerID);
     }
     disconnect() {
@@ -106,10 +105,10 @@ class NetMgr {
     }
     flushMessage() {
         // 发送队列中的包
-        for (let i = 0; i < this.m_PacketQueue.length;i++) {
+        for (let i = 0; i < this.m_PacketQueue.length; i++) {
             const dPacketData = this.m_PacketQueue[i];
             if (dPacketData.header._queStatus > 0) {
-                return;
+                continue;
             }
             if (this.isConnected()) {
                 dPacketData.header._queStatus = 1;
