@@ -21,32 +21,13 @@ bool isFileExist(const char *fileName)
     return infile.good();
 }
 
-bool setupLogger(const char* filename) {
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(make_shared<spdlog::sinks::rotating_file_sink_st>(filename, "txt", 1048576 * 5, 3));
-	//sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>(filename, "txt", 0, 0));
-#ifdef _MSC_VER
-	sinks.push_back(make_shared<spdlog::sinks::wincolor_stdout_sink_st>());
-#else
-	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
-#endif
-	auto logger = make_shared<spdlog::logger>("my_logger", begin(sinks), end(sinks));
-	spdlog::register_logger(logger);
-	logger->flush_on(spdlog::level::err);
-	spdlog::set_pattern("[%D %H:%M:%S:%e][%l] %v");
-	spdlog::set_level(spdlog::level::info);
-	logger->set_level(spdlog::level::debug);
-	logger->info("logger created successfully.");
-	return true;
-}
 
 void debugDocument(const rapidjson::Document& d) {
-	auto logger = spdlog::get("my_logger");
 	rapidjson::StringBuffer buffer;
 	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 	d.Accept(writer);
 	const char* s = buffer.GetString();
-	logger->info(s);
+	printf(s);
 }
 
 

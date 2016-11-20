@@ -28,7 +28,29 @@ namespace forwarder {
 
 		virtual ~ForwardCtrl();
 
+		void setupLogger(const char* filename = nullptr);
+
 		void setDebug(bool enabled);
+
+		template <typename... Args>
+		inline void logDebug(const char* fmt, const Args&... args) {
+			if (logger) logger->info(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logInfo(const char* fmt, const Args&... args) {
+			if(logger) logger->info(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logWarn(const char* fmt, const Args&... args) {
+			if (logger) logger->warn(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logError(const char* fmt, const Args&... args) {
+			if (logger) logger->error(fmt, args...);
+		}
 
 		ReturnCode initProtocolMap(rapidjson::Value& protocolConfig);
 
@@ -147,8 +169,10 @@ namespace forwarder {
 		ForwardClient* curProcessClient;
 		ForwardPacketPtr curProcessPacket;
 		static const size_t ivSize = 16;
+		std::shared_ptr<spdlog::logger> logger;
+		UniqID id;
+		static UniqID ForwardCtrlCount;
 	};
-
 }
 
 #endif

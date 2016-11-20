@@ -6,7 +6,7 @@ std::string readFile(const std::string &fileName);
 
 bool isFileExist(const char *fileName);
 
-bool setupLogger(const char* filename);
+bool setupLogger(const char* filename = nullptr);
 
 typedef std::function< void(int) > SignalFunc;
 
