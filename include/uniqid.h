@@ -11,10 +11,10 @@ public:
 	~UniqIDGenerator();
 	UniqID getNewID() noexcept;
 	void recycleID(UniqID id) noexcept;
-	inline int getCount() const noexcept {
+	inline size_t getCount() const noexcept {
 		return count;
 	}
-	inline int getPecycledLength() const noexcept {
+	inline size_t getPecycledLength() const noexcept {
 		return recycled.size();
 	}
 private:

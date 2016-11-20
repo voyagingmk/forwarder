@@ -306,7 +306,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, uint8_t* data
 	if (outServer->encrypt) {
 		static std::random_device rd;
 		static std::mt19937 gen(rd());
-		static std::uniform_int_distribution<> dis(0, std::pow(2, 8) - 1);
+		static std::uniform_int_distribution<> dis(0, int(std::pow(2, 8)) - 1);
 		if (debug) debugBytes("encodeData, originData", data, dataLength);
 		allocData = new uint8_t[dataLength + ivSize];
 		uint8_t* newData = allocData;

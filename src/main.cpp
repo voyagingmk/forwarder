@@ -34,7 +34,7 @@ int main(int argc, char ** argv)
 	}
 
 	ForwardCtrl ctrl;
-	ctrl.setupLogger("debug");
+	//ctrl.setupLogger("debug");
 	ctrl.setDebug(true);
 
 	RegisterSystemSignal(SIGINT, [&](int nSig)->void { ctrl.exist(); });

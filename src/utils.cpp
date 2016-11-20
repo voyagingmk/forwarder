@@ -2,39 +2,42 @@
 
 using namespace std;
 
-std::string readFile(const string &fileName)
-{
-	ifstream ifs(fileName.c_str(), ios::in | ios::binary | ios::ate);
+namespace forwarder {
 
-	ifstream::pos_type fileSize = ifs.tellg();
-	ifs.seekg(0, ios::beg);
+	std::string readFile(const string &fileName)
+	{
+		ifstream ifs(fileName.c_str(), ios::in | ios::binary | ios::ate);
 
-	vector<char> bytes(fileSize);
-	ifs.read(&bytes[0], fileSize);
+		ifstream::pos_type fileSize = ifs.tellg();
+		ifs.seekg(0, ios::beg);
 
-	return string(&bytes[0], fileSize);
-}
+		vector<char> bytes(fileSize);
+		ifs.read(&bytes[0], fileSize);
 
-bool isFileExist(const char *fileName)
-{
-    std::ifstream infile(fileName);
-    return infile.good();
-}
-
-
-void debugDocument(const rapidjson::Document& d) {
-	rapidjson::StringBuffer buffer;
-	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-	d.Accept(writer);
-	const char* s = buffer.GetString();
-	printf(s);
-}
-
-
-void debugBytes(const char * msg, uint8_t* data, size_t len) {
-	std::cout << msg << ":";
-	for (int i = 0; i < len; i++) {
-		std::cout << std::hex << (int)data[i] << std::dec << ",";
+		return string(&bytes[0], fileSize);
 	}
-	std::cout << std::endl;
+
+	bool isFileExist(const char *fileName)
+	{
+		std::ifstream infile(fileName);
+		return infile.good();
+	}
+
+
+	void debugDocument(const rapidjson::Document& d) {
+		rapidjson::StringBuffer buffer;
+		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+		d.Accept(writer);
+		const char* s = buffer.GetString();
+		printf(s);
+	}
+
+
+	void debugBytes(const char * msg, uint8_t* data, size_t len) {
+		std::cout << msg << ":";
+		for (int i = 0; i < len; i++) {
+			std::cout << std::hex << (int)data[i] << std::dec << ",";
+		}
+		std::cout << std::endl;
+	}
 }

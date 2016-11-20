@@ -32,26 +32,6 @@ namespace forwarder {
 
 		void setDebug(bool enabled);
 
-		template <typename... Args>
-		inline void logDebug(const char* fmt, const Args&... args) {
-			if (logger) logger->info(fmt, args...);
-		}
-
-		template <typename... Args>
-		inline void logInfo(const char* fmt, const Args&... args) {
-			if(logger) logger->info(fmt, args...);
-		}
-
-		template <typename... Args>
-		inline void logWarn(const char* fmt, const Args&... args) {
-			if (logger) logger->warn(fmt, args...);
-		}
-
-		template <typename... Args>
-		inline void logError(const char* fmt, const Args&... args) {
-			if (logger) logger->error(fmt, args...);
-		}
-
 		ReturnCode initProtocolMap(rapidjson::Value& protocolConfig);
 
 		void initServers(rapidjson::Value& serversConfig);
@@ -147,6 +127,26 @@ namespace forwarder {
 
 		uint8_t* getBuffer() const {
 			return buffer;
+		}
+
+		template <typename... Args>
+		inline void logDebug(const char* fmt, const Args&... args) {
+			if (logger) logger->info(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logInfo(const char* fmt, const Args&... args) {
+			if (logger) logger->info(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logWarn(const char* fmt, const Args&... args) {
+			if (logger) logger->warn(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logError(const char* fmt, const Args&... args) {
+			if (logger) logger->error(fmt, args...);
 		}
 
 	private:
