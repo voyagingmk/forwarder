@@ -55,7 +55,7 @@ void ForwardCtrl::setupLogger(const char* filename) {
 #else
 	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
 #endif
-	std::string name("ctrl" + id);
+	std::string name("ctrl" + std::to_string(id));
 	logger = make_shared<spdlog::logger>(name, begin(sinks), end(sinks));
 	if (spdlog::get(name)) {
 		spdlog::drop(name);
