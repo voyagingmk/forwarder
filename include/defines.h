@@ -10,10 +10,6 @@ namespace forwarder {
 		Err = 2
 	};
 
-	enum ProtocolFlag {
-		WithAddress = 1
-	};
-
 	enum ProtocolType {
 		Unknown = 0
 	};
