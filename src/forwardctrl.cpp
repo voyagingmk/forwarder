@@ -114,22 +114,22 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, uint8_t* data, size_t dataLe
 }
 
 ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
-	ForwardServer * server = getServerByID(serverId);
-	if (!server) {
+	ForwardServer * outServer = getServerByID(serverId);
+	if (!outServer) {
 		return ReturnCode::Err;
 	}
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
 	outHeader.cleanFlag();
 	outHeader.resetHeaderLength();
-	ForwardPacketPtr packet = encodeData(server, &outHeader, (uint8_t*)data.c_str(), data.size());
+	ForwardPacketPtr packet = encodeData(outServer, &outHeader, (uint8_t*)data.c_str(), data.size());
 	if (!packet)
 		return ReturnCode::Err;
 	ForwardParam param;
 	param.header = nullptr;
 	param.packet = packet;
 	param.client = nullptr;
-	param.server = server;
+	param.server = outServer;
 
 	broadcastPacket(param);
 	return ReturnCode::Ok;
@@ -356,7 +356,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 	outData = data;
 	outDataLength = dataLength;
 
-	if (inServer->base64) {
+	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
 		if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
 		uint8_t* newData = new uint8_t[newDataLength];
@@ -366,7 +366,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 		if (debug) debugBytes("decodeData, base64decoded Data", outData, outDataLength);
 	}
 
-	if (inServer->encrypt) { // DO decrypt
+	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
 		size_t newDataLength = outDataLength - ivSize;
 		uint8_t* encryptedData = outData + ivSize;
 		uint8_t* newData = new uint8_t[newDataLength];
