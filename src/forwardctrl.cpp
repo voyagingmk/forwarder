@@ -8,13 +8,16 @@ using namespace std;
 using namespace rapidjson;
 using namespace forwarder;
 
+
+size_t ForwardCtrl::bufferNum = 4;
+UniqID ForwardCtrl::ForwardCtrlCount = 0;
+
 ForwardCtrl::ForwardCtrl() :
 	poolForwardServerENet(sizeof(ForwardServerENet)),
 	poolForwardClientENet(sizeof(ForwardClientENet)),
 	poolForwardServerWS(sizeof(ForwardServerWS)),
 	poolForwardClientWS(sizeof(ForwardClientWS)),
 	serverNum(0),
-	buffer(nullptr),
 	debug(false),
 	base64Codec(Base64Codec::get()),
 	isExit(false),
@@ -25,7 +28,14 @@ ForwardCtrl::ForwardCtrl() :
 	curProcessDataLength(0),
 	logger(nullptr),
 	id(0)
-{	//default
+{
+	buffers = new uint8_t*[bufferNum];
+	bufferSize = new size_t[bufferNum];
+	for (size_t i = 0; i < bufferNum; i++) {
+		bufferSize[i] = 0xff;
+		buffers[i] = new uint8_t[bufferSize[i]]{ 0 };
+	}
+	//default
 	handleFuncs[0] = &ForwardCtrl::handlePacket_SysCmd;
 	handleFuncs[2] = &ForwardCtrl::handlePacket_Forward;
 	handleFuncs[3] = &ForwardCtrl::handlePacket_Process;
@@ -34,6 +44,13 @@ ForwardCtrl::ForwardCtrl() :
 
 
 ForwardCtrl::~ForwardCtrl() {
+	for (size_t i = 0; i < bufferNum; i++) {
+		if (buffers[i]) {
+			delete[] buffers[i];
+		}
+	}
+	delete[] buffers;
+	delete[] bufferSize;
 	while (servers.size() > 0) {
 		ForwardServer* server = servers.back();
 		servers.pop_back();
@@ -94,26 +111,6 @@ ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
 }
 
 ReturnCode ForwardCtrl::sendBinary(UniqID serverId, uint8_t* data, size_t dataLength) {
-	ForwardServer * server = getServerByID(serverId);
-	if (!server) {
-		return ReturnCode::Err;
-	}
-	ForwardHeader outHeader;
-	outHeader.setProtocol(2);
-	ForwardPacketPtr packet = encodeData(server, &outHeader, data, dataLength);
-	if (!packet)
-		return ReturnCode::Err;
-	ForwardParam param;
-	param.header = nullptr;
-	param.packet = packet;
-	param.client = nullptr;
-	param.server = server;
-
-	broadcastPacket(param);
-	return ReturnCode::Ok;
-}
-
-ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
 	ForwardServer * outServer = getServerByID(serverId);
 	if (!outServer) {
 		return ReturnCode::Err;
@@ -121,8 +118,12 @@ ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
 	outHeader.cleanFlag();
+	if (outServer->base64)
+		outHeader.setFlag(HeaderFlag::Base64, true);
+	if (outServer->encrypt)
+		outHeader.setFlag(HeaderFlag::Encrypt, true);
 	outHeader.resetHeaderLength();
-	ForwardPacketPtr packet = encodeData(outServer, &outHeader, (uint8_t*)data.c_str(), data.size());
+	ForwardPacketPtr packet = encodeData(outServer, &outHeader, data, dataLength);
 	if (!packet)
 		return ReturnCode::Err;
 	ForwardParam param;
@@ -133,6 +134,10 @@ ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
 
 	broadcastPacket(param);
 	return ReturnCode::Ok;
+}
+
+ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
+	return sendBinary(serverId, (uint8_t*)data.c_str(), data.size());
 }
 
 ForwardServer* ForwardCtrl::createServerByNetType(NetType netType) {
@@ -306,15 +311,16 @@ ForwardPacketPtr ForwardCtrl::createPacket(ENetPacket* packet) {
 	return std::make_shared<ForwardPacketENet>(packet);
 }
 
-ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, ForwardHeader* outHeader, uint8_t* data, size_t dataLength) {
-	uint8_t* tmpData = nullptr;
+ForwardPacketPtr ForwardCtrl::encodeData(
+	ForwardServer* outServer, ForwardHeader* outHeader, 
+	uint8_t* data, size_t dataLength) 
+{
 	if (outServer->encrypt) {
 		static std::random_device rd;
 		static std::mt19937 gen(rd());
 		static std::uniform_int_distribution<> dis(0, int(std::pow(2, 8)) - 1);
 		if (debug) debugBytes("encodeData, originData", data, dataLength);
-		tmpData = new uint8_t[dataLength + ivSize];
-		uint8_t* newData = tmpData;
+		uint8_t* newData = getBuffer(0, dataLength + ivSize);
 		uint8_t* iv = newData;
 		uint8_t ivTmp[ivSize];
 		for (int i = 0; i < ivSize; i++) {
@@ -346,9 +352,6 @@ ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, ForwardHeader
 	newPacket->setData(data, dataLength);
 	logInfo("encodeData, final, length:{0}", newPacket->getTotalLength());
 	if (debug) debugBytes("encodeData, final==", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
-	if (tmpData) {
-		delete tmpData;
-	}
 	return newPacket;
 }
 
@@ -359,7 +362,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
 		if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
-		uint8_t* newData = new uint8_t[newDataLength];
+		uint8_t* newData = getBuffer(0, newDataLength);
 		base64Codec.toByteArray((const char*)data, dataLength, newData, &newDataLength);
 		outData = newData;
 		outDataLength = newDataLength;
@@ -369,14 +372,11 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
 		size_t newDataLength = outDataLength - ivSize;
 		uint8_t* encryptedData = outData + ivSize;
-		uint8_t* newData = new uint8_t[newDataLength];
+		uint8_t* newData = getBuffer(1, newDataLength);
 		uint8_t* iv = outData;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;
 		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
-		if (outData != data) {
-			delete outData;
-		}
 		outData = newData;
 		outDataLength = newDataLength;
 		if (debug) debugBytes("decodeData, decrypt Data", outData, outDataLength);
@@ -620,9 +620,7 @@ void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
 
 void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket) {
 	ForwardClient* client = (ForwardClient*)peer->data;
-	logDebug("[cli:{0}][len:{2}]",
-									client->id,
-									inPacket->dataLength);
+	logDebug("[cli:{0}][len:{1}]", client->id, inPacket->dataLength);
 	ForwardHeader header;
 	ReturnCode err = getHeader(&header, inPacket);
 	if (err == ReturnCode::Err) {
@@ -842,6 +840,3 @@ Document ForwardCtrl::stat() const {
 	d.AddMember("servers", lstServers.Move(), d.GetAllocator());
 	return d;
 }
-
-
-UniqID ForwardCtrl::ForwardCtrlCount = 0;

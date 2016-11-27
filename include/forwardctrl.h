@@ -141,7 +141,19 @@ namespace forwarder {
 
 		void broadcastPacket(ForwardParam& param);
 
-		uint8_t* getBuffer() const {
+		uint8_t* getBuffer(uint8_t bufferID, size_t n) {
+			uint8_t* buffer = buffers[bufferID];
+			size_t size = bufferSize[bufferID];
+			if (!buffer || n > size) {
+				while (n > size) {
+					size = size << 1;
+				}
+				if (buffer) {
+					delete buffer;
+				}
+				buffer = new uint8_t[size]{ 0 };
+				buffers[bufferID] = buffer;
+			}
 			return buffer;
 		}
 
@@ -175,7 +187,8 @@ namespace forwarder {
 		std::map<UniqID, ForwardServer*> serverDict;
 		std::map<int, handlePacketFunc> handleFuncs;
 		UniqIDGenerator idGenerator;
-		uint8_t* buffer;
+		uint8_t** buffers;
+		size_t* bufferSize;
 		int serverNum;
 		bool debug;
 		bool isExit;
@@ -189,6 +202,9 @@ namespace forwarder {
 		static const size_t ivSize = 16;
 		std::shared_ptr<spdlog::logger> logger;
 		UniqID id;
+
+		// static members
+		static size_t bufferNum;
 		static UniqID ForwardCtrlCount;
 	};
 }
