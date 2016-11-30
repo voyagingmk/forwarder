@@ -118,7 +118,7 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 	ForwardClient* outClient = nullptr;
 	if (clientId) {
 		auto it_client = outServer->clients.find(clientId);
-		if (it_client == outServer->clients.end())
+		if (it_client != outServer->clients.end())
 			outClient = it_client->second;
 	}
 	ForwardHeader outHeader;
