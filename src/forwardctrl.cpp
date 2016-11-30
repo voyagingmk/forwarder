@@ -137,8 +137,12 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 	param.packet = packet;
 	param.client = outClient;
 	param.server = outServer;
-
-	broadcastPacket(param);
+	if (outClient) {
+		sendPacket(param);
+	}
+	else {
+		broadcastPacket(param);
+	}
 	return ReturnCode::Ok;
 }
 
@@ -522,6 +526,7 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	logDebug("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
 	logDebug("ip = {0}", client->ip);
 	curEvent = Event::Connected;
+	curProcessClient = client;
 }
 
 void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
@@ -535,13 +540,13 @@ void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::conne
 			ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
 			wsServer->clients.erase(it);
 			poolForwardClientWS.del(client);
+			curProcessClient = client;
 		}
 	}
 	curEvent = Event::Disconnected;
 }
 
 void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
-	
 	auto it1 = wsServer->hdlToClientId.find(hdl);
 	if (it1 == wsServer->hdlToClientId.end()) {
 		logError("[onWSReceived] no such hdl");
@@ -585,6 +590,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 	UniqID id = server->idGenerator.getNewID();
 	ForwardClientENet* client = poolForwardClientENet.add();
+
 	client->id = id;
 	client->peer = peer;
 	client->ip = peer->address.host;
@@ -601,6 +607,7 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 		str,
 		peer->address.port);
 	logDebug("ip = {0}", client->ip);
+	curProcessClient = client;
 	// sendText(server->id, 0, "hello");
 }
 
@@ -618,10 +625,10 @@ void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
 		server->doReconnect();
 	}
 	curEvent = Event::Disconnected;
-
 	if (server->isClientMode) {
 		server->clientID = 0;
 	}
+	curProcessClient = client;
 }
 
 void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket) {
@@ -718,6 +725,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 		int ret = enet_host_service(server->host, &event, 5);
 		if (ret > 0) {
 			logDebug("event.type = {}", event.type);
+			curProcessServer = pServer;
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
 				onENetConnected(server, event.peer);
