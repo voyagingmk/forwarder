@@ -18,6 +18,7 @@ void onSIGINT(int n)
 int main(int argc, char ** argv)
 {
 	printf("forwarder started.\n");
+
 	char * configPath = argv[1];
 	printf("config path:%s\n", configPath);
 	if(!isFileExist(configPath)){	
@@ -34,7 +35,12 @@ int main(int argc, char ** argv)
 	}
 
 	ForwardCtrl ctrl;
-	//ctrl.setupLogger("debug");
+	if (argv[2]) {
+		ctrl.setupLogger(argv[2]);
+	}
+	else {
+		ctrl.setupLogger("debug");
+	}
 	ctrl.setDebug(true);
 
 	RegisterSystemSignal(SIGINT, [&](int nSig)->void { ctrl.exist(); });
