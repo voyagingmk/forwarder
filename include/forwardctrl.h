@@ -41,9 +41,9 @@ namespace forwarder {
 
 		ForwardServer* getServerByID(UniqID serverId) const;
 
-		ReturnCode sendBinary(UniqID serverId, uint8_t* data, size_t dataLength);
+		ReturnCode sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength);
 
-		ReturnCode sendText(UniqID serverId, std::string data);
+		ReturnCode sendText(UniqID serverId, UniqID clientId, std::string data);
 
 		typedef void(*eventCallback)();
 

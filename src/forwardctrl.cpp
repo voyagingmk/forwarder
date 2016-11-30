@@ -110,10 +110,16 @@ ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
 	return ReturnCode::Ok;
 }
 
-ReturnCode ForwardCtrl::sendBinary(UniqID serverId, uint8_t* data, size_t dataLength) {
-	ForwardServer * outServer = getServerByID(serverId);
+ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
+	ForwardServer* outServer = getServerByID(serverId);
 	if (!outServer) {
 		return ReturnCode::Err;
+	}
+	ForwardClient* outClient = nullptr;
+	if (clientId) {
+		auto it_client = outServer->clients.find(clientId);
+		if (it_client == outServer->clients.end())
+			outClient = it_client->second;
 	}
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
@@ -129,15 +135,15 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, uint8_t* data, size_t dataLe
 	ForwardParam param;
 	param.header = nullptr;
 	param.packet = packet;
-	param.client = nullptr;
+	param.client = outClient;
 	param.server = outServer;
 
 	broadcastPacket(param);
 	return ReturnCode::Ok;
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
-	return sendBinary(serverId, (uint8_t*)data.c_str(), data.size());
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string data) {
+	return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size());
 }
 
 ForwardServer* ForwardCtrl::createServerByNetType(NetType netType) {
@@ -595,7 +601,7 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 		str,
 		peer->address.port);
 	logDebug("ip = {0}", client->ip);
-	sendText(server->id, "hello");
+	// sendText(server->id, 0, "hello");
 }
 
 void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
