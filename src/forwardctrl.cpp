@@ -327,14 +327,16 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	ForwardServer* outServer, ForwardHeader* outHeader, 
 	uint8_t* data, size_t dataLength) 
 {
+	if (debug) debugBytes("encodeData, raw Data", data, dataLength);
 	if (outServer->compress) {
 		size_t bufferLen = compressBound(dataLength);
 		uint8_t* newData = getBuffer(0, bufferLen);
 		uLongf realLen;
+		outHeader->setUncompressedSize(dataLength);// used for uncompression
 		compress((Bytef*)newData, &realLen, data, dataLength);
 		data = newData;
 		dataLength = realLen;
-		if (debug) debugBytes("encodeData, compressed Data", data, dataLength);
+		if (debug) debugBytes("encodeData, compressed", data, dataLength);
 	}
 
 	if (outServer->encrypt) {
@@ -354,7 +356,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
 		data = newData;
 		dataLength = dataLength + ivSize;
-		if (debug) debugBytes("encodeData, encryptedData", data, dataLength);
+		if (debug) debugBytes("encodeData, encrypted", data, dataLength);
 	}
 
 	std::string b64("");
@@ -370,19 +372,18 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	// copy
 	newPacket->setHeader(outHeader);
 	newPacket->setData(data, dataLength);
-	logInfo("encodeData, final, length:{0}", newPacket->getTotalLength());
-	if (debug) debugBytes("encodeData, final==", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
+	if (debug) debugBytes("encodeData, final", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
 	return newPacket;
 }
 
 void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength) {
 	outData = data;
 	outDataLength = dataLength;
-
+	if (debug) debugBytes("decodeData, inHeader", inHeader->data, inHeader->getHeaderLength());
 	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
 		if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
-		uint8_t* newData = getBuffer(1, newDataLength);
+		uint8_t* newData = getBuffer(0, newDataLength);
 		base64Codec.toByteArray((const char*)data, dataLength, newData, &newDataLength);
 		outData = newData;
 		outDataLength = newDataLength;
@@ -392,25 +393,38 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
 		size_t newDataLength = outDataLength - ivSize;
 		uint8_t* encryptedData = outData + ivSize;
-		uint8_t* newData = getBuffer(2, newDataLength);
+		uint8_t* newData = getBuffer(1, newDataLength);
 		uint8_t* iv = outData;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;
 		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
 		outData = newData;
 		outDataLength = newDataLength;
-		if (debug) debugBytes("decodeData, decrypt Data", outData, outDataLength);
+		if (debug) debugBytes("decodeData, decrypted Data", outData, outDataLength);
 	}
 
 
 	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
-		size_t bufferLen = compressBound(outDataLength);
-		uint8_t* newData = getBuffer(0, bufferLen);
-		uLongf realLen;
-		uncompress((Bytef*)newData, &realLen, outData, outDataLength);
-		outData = newData;
-		outDataLength = realLen;
-		if (debug) debugBytes("decodeData, uncompressed Data", outData, outDataLength);
+		uLongf bufferLen = inHeader->getUncompressedSize();
+		uint8_t* newData = getBuffer(2, bufferLen);
+		uLongf realLen = bufferLen;
+		int ret = uncompress((Bytef*)newData, &realLen, outData, outDataLength);
+		logInfo("uncompress, bufferLen={0},realLen={1},outDataLength={2}",
+			bufferLen, realLen, outDataLength);
+		if (ret == Z_OK) {
+			outData = newData;
+			outDataLength = realLen;
+			if (debug) debugBytes("decodeData, uncompressed Data", outData, outDataLength);
+		}
+		else {
+			logError("uncompress failed");
+			if (ret == Z_MEM_ERROR)
+				logError("Z_MEM_ERROR");
+			else if (ret == Z_BUF_ERROR)
+				logError("Z_BUF_ERROR");
+			else if (ret == Z_DATA_ERROR)
+				logError("Z_DATA_ERROR");
+		}
 	}
 
 }
@@ -630,7 +644,13 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 		peer->address.port);
 	logDebug("ip = {0}", client->ip);
 	curProcessClient = client;
-	sendText(server->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+	//sendText(server->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 }
 
 void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
