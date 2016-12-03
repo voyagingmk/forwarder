@@ -128,6 +128,8 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 		outHeader.setFlag(HeaderFlag::Base64, true);
 	if (outServer->encrypt)
 		outHeader.setFlag(HeaderFlag::Encrypt, true);
+	if (outServer->compress)
+		outHeader.setFlag(HeaderFlag::Compress, true);
 	outHeader.resetHeaderLength();
 	ForwardPacketPtr packet = encodeData(outServer, &outHeader, data, dataLength);
 	if (!packet)
@@ -347,6 +349,15 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		dataLength = dataLength + ivSize;
 	}
 
+	if (outServer->compress) {
+		size_t bufferLen = compressBound(dataLength);
+		uint8_t* newData = getBuffer(1, bufferLen);
+		uLongf realLen;
+		compress((Bytef*)newData, &realLen, data, dataLength);
+		data = newData;
+		dataLength = realLen;
+	}
+
 	std::string b64("");
 	if (outServer->base64) {
 		b64 = base64Codec.fromByteArray(data, dataLength);
@@ -379,10 +390,19 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 		if (debug) debugBytes("decodeData, base64decoded Data", outData, outDataLength);
 	}
 
+	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
+		size_t bufferLen = compressBound(outDataLength);
+		uint8_t* newData = getBuffer(1, bufferLen);
+		uLongf realLen;
+		uncompress((Bytef*)newData, &realLen, outData, outDataLength);
+		outData = newData;
+		outDataLength = realLen;
+	}
+
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
 		size_t newDataLength = outDataLength - ivSize;
 		uint8_t* encryptedData = outData + ivSize;
-		uint8_t* newData = getBuffer(1, newDataLength);
+		uint8_t* newData = getBuffer(2, newDataLength);
 		uint8_t* iv = outData;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;

@@ -20,13 +20,15 @@ FILE(GLOB_RECURSE MY_HEADERS "${PROJECT_SOURCE_DIR}/include/*.h")
 source_group("My Headers" FILES ${MY_HEADERS})
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
+include_directories("${PROJECT_SOURCE_DIR}/include/zlib")
 include_directories("${PROJECT_SOURCE_DIR}/src")
+include_directories("${PROJECT_SOURCE_DIR}/zlib")
 include_directories("${PROJECT_SOURCE_DIR}/enet")
 add_subdirectory (enet)
 set (EXTRA_LIBS ${EXTRA_LIBS} enet)
 
 
-FILE(GLOB_RECURSE MY_SOURCERS ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.c)
+FILE(GLOB_RECURSE MY_SOURCERS ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.c ${PROJECT_SOURCE_DIR}/zlib/*.c)
 
 add_executable(forwarder ${MY_SOURCERS})
 target_link_libraries (forwarder ${EXTRA_LIBS})

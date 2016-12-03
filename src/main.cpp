@@ -18,7 +18,17 @@ void onSIGINT(int n)
 int main(int argc, char ** argv)
 {
 	printf("forwarder started.\n");
-
+	/*
+	Bytef* dest = nullptr;
+	uLongf destLen = 0;
+	Bytef* data = (Bytef*)"hello";
+	destLen = compressBound(5);
+	dest = new Bytef[destLen];
+	compress(dest, &destLen, data, 5);
+	uLongf origintLen = compressBound(destLen);
+	Bytef* origin = new Bytef[origintLen];
+	uncompress(origin, &origintLen, dest, destLen);
+	*/
 	char * configPath = argv[1];
 	printf("config path:%s\n", configPath);
 	if(!isFileExist(configPath)){	
