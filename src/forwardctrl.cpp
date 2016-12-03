@@ -327,35 +327,34 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	ForwardServer* outServer, ForwardHeader* outHeader, 
 	uint8_t* data, size_t dataLength) 
 {
+	if (outServer->compress) {
+		size_t bufferLen = compressBound(dataLength);
+		uint8_t* newData = getBuffer(0, bufferLen);
+		uLongf realLen;
+		compress((Bytef*)newData, &realLen, data, dataLength);
+		data = newData;
+		dataLength = realLen;
+		if (debug) debugBytes("encodeData, compressed Data", data, dataLength);
+	}
+
 	if (outServer->encrypt) {
 		static std::random_device rd;
 		static std::mt19937 gen(rd());
 		static std::uniform_int_distribution<> dis(0, int(std::pow(2, 8)) - 1);
-		if (debug) debugBytes("encodeData, originData", data, dataLength);
-		uint8_t* newData = getBuffer(0, dataLength + ivSize);
+		uint8_t* newData = getBuffer(1, dataLength + ivSize);
 		uint8_t* iv = newData;
 		uint8_t ivTmp[ivSize];
 		for (int i = 0; i < ivSize; i++) {
 			iv[i] = dis(gen);
 		}
 		memcpy(ivTmp, iv, ivSize);
-		if (debug) debugBytes("encodeData, iv", iv, ivSize);
 		uint8_t* encryptedData = newData + ivSize;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
-		if (debug) debugBytes("encodeData, encryptedData", encryptedData, dataLength);
 		data = newData;
 		dataLength = dataLength + ivSize;
-	}
-
-	if (outServer->compress) {
-		size_t bufferLen = compressBound(dataLength);
-		uint8_t* newData = getBuffer(1, bufferLen);
-		uLongf realLen;
-		compress((Bytef*)newData, &realLen, data, dataLength);
-		data = newData;
-		dataLength = realLen;
+		if (debug) debugBytes("encodeData, encryptedData", data, dataLength);
 	}
 
 	std::string b64("");
@@ -383,20 +382,11 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
 		if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
-		uint8_t* newData = getBuffer(0, newDataLength);
+		uint8_t* newData = getBuffer(1, newDataLength);
 		base64Codec.toByteArray((const char*)data, dataLength, newData, &newDataLength);
 		outData = newData;
 		outDataLength = newDataLength;
 		if (debug) debugBytes("decodeData, base64decoded Data", outData, outDataLength);
-	}
-
-	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
-		size_t bufferLen = compressBound(outDataLength);
-		uint8_t* newData = getBuffer(1, bufferLen);
-		uLongf realLen;
-		uncompress((Bytef*)newData, &realLen, outData, outDataLength);
-		outData = newData;
-		outDataLength = realLen;
 	}
 
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
@@ -411,6 +401,18 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 		outDataLength = newDataLength;
 		if (debug) debugBytes("decodeData, decrypt Data", outData, outDataLength);
 	}
+
+
+	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
+		size_t bufferLen = compressBound(outDataLength);
+		uint8_t* newData = getBuffer(0, bufferLen);
+		uLongf realLen;
+		uncompress((Bytef*)newData, &realLen, outData, outDataLength);
+		outData = newData;
+		outDataLength = realLen;
+		if (debug) debugBytes("decodeData, uncompressed Data", outData, outDataLength);
+	}
+
 }
 
 ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, ForwardHeader* outHeader) {
@@ -628,7 +630,7 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 		peer->address.port);
 	logDebug("ip = {0}", client->ip);
 	curProcessClient = client;
-	// sendText(server->id, 0, "hello");
+	sendText(server->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 }
 
 void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
