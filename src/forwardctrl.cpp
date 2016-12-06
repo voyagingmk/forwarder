@@ -355,13 +355,26 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	if (debug) debugBytes("encodeData, raw Data", data, dataLength);
 	if (outServer->compress) {
 		size_t bufferLen = compressBound(dataLength);
+		logDebug("encodeData, compressBound={0}", bufferLen);
 		uint8_t* newData = getBuffer(0, bufferLen);
-		uLongf realLen;
+		uLongf realLen = bufferLen;
 		outHeader->setUncompressedSize(dataLength);// used for uncompression
-		compress((Bytef*)newData, &realLen, data, dataLength);
-		data = newData;
-		dataLength = realLen;
-		if (debug) debugBytes("encodeData, compressed", data, dataLength);
+		int ret = compress((Bytef*)newData, &realLen, data, dataLength);
+		if (ret == Z_OK) {
+			data = newData;
+			dataLength = realLen;
+			if (debug) debugBytes("encodeData, compressed", data, dataLength);
+		}
+		else {
+			logError("compress failed");
+			if (ret == Z_MEM_ERROR)
+				logError("Z_MEM_ERROR");
+			else if (ret == Z_BUF_ERROR)
+				logError("Z_BUF_ERROR");
+			else if (ret == Z_DATA_ERROR)
+				logError("Z_DATA_ERROR");
+			return nullptr;
+		}
 	}
 
 	if (outServer->encrypt) {
@@ -404,7 +417,8 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength) {
 	outData = data;
 	outDataLength = dataLength;
-	if (debug) debugBytes("decodeData, inHeader", inHeader->data, inHeader->getHeaderLength());
+	logDebug("inHeader,ver={0},len={1},ip={2}", inHeader->getVersion(), inHeader->getHeaderLength(), inHeader->getIP());
+	if (debug) debugBytes("decodeData, inHeader'data", inHeader->data, inHeader->getHeaderLength() - HeaderBaseLength);
 	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
 		if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
@@ -449,6 +463,8 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 				logError("Z_BUF_ERROR");
 			else if (ret == Z_DATA_ERROR)
 				logError("Z_DATA_ERROR");
+			outData = nullptr;
+			outDataLength = 0;
 		}
 	}
 
@@ -462,6 +478,9 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 		packet->getDataPtr(), packet->getDataLength(),
 		rawData, rawDataLength);
 	logDebug("raw data:{0}", rawData);
+	if (!rawData || rawDataLength <= 0) {
+		return nullptr;
+	}
 	ForwardPacketPtr outPacket = encodeData(outServer, outHeader, rawData, rawDataLength);
 	return outPacket;
 }
@@ -513,11 +532,17 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
 	outHeader.cleanFlag();
+	// outServer's flag
+	if (outServer->base64)
+		outHeader.setFlag(HeaderFlag::Base64, true);
+	if (outServer->encrypt)
+		outHeader.setFlag(HeaderFlag::Encrypt, true);
+	if (outServer->compress)
+		outHeader.setFlag(HeaderFlag::Compress, true);
 	// Default flag
 	outHeader.setFlag(HeaderFlag::IP, true);
 	outHeader.setFlag(HeaderFlag::HostID, true);
 	outHeader.setFlag(HeaderFlag::ClientID, true);
-
 	if (outHeader.isFlagOn(HeaderFlag::IP)) {
 		outHeader.setIP(inClient->ip);
 	}
@@ -528,6 +553,8 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		outHeader.setClientID(param.client->id);
 	}
 
+	outHeader.resetHeaderLength();
+
 	ForwardPacketPtr outPacket;
 
 	outPacket = convertPacket(inPacket, inServer, outServer, &outHeader);
@@ -536,8 +563,6 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		logWarn("[forward] convertPacket failed.");
 		return ReturnCode::Err;
 	}
-	outPacket->setHeader(&outHeader);
-
 	param.header = nullptr;
 	param.packet = outPacket;
 	param.client = outClient;
