@@ -29,7 +29,7 @@ namespace forwarder {
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		d.Accept(writer);
 		const char* s = buffer.GetString();
-		printf(s);
+		printf("%s\n", s);
 	}
 
 

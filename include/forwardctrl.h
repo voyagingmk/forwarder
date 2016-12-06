@@ -107,6 +107,8 @@ namespace forwarder {
 
 		ForwardPacketPtr createPacket(NetType netType, size_t len);
 
+		ForwardPacketPtr createPacket(const std::string& packet);
+
 		ForwardPacketPtr createPacket(ENetPacket* packet);
 
 		ForwardPacketPtr encodeData(ForwardServer* outServer, ForwardHeader* outHeader, uint8_t* data, size_t dataLength);

@@ -86,6 +86,14 @@ namespace forwarder {
 
 	class ForwardPacketWS : public ForwardPacket {
 	public:
+		ForwardPacketWS(const std::string& packet) :
+			owned(false),
+			packetString(packet)
+		{
+			length = packet.size();
+			packetData = (uint8_t*)(packetString.c_str());
+		}
+	
 		ForwardPacketWS(void* p_data) :
 			owned(false),
 			packetData(static_cast<uint8_t*>(p_data))
@@ -135,6 +143,7 @@ namespace forwarder {
 	public:
 		bool owned = false;
 		uint8_t* packetData = nullptr;
+		std::string packetString;
 	};
 }
 

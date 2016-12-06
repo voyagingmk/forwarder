@@ -213,22 +213,42 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 
 	if (server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
-		wsServer->server.set_message_handler(websocketpp::lib::bind(
-			&ForwardCtrl::onWSReceived,
-			this,
-			wsServer,
-			websocketpp::lib::placeholders::_1,
-			websocketpp::lib::placeholders::_2));
-		wsServer->server.set_open_handler(websocketpp::lib::bind(
-			&ForwardCtrl::onWSConnected,
-			this,
-			wsServer,
-			websocketpp::lib::placeholders::_1));
-		wsServer->server.set_close_handler(websocketpp::lib::bind(
-			&ForwardCtrl::onWSDisconnected,
-			this,
-			wsServer,
-			websocketpp::lib::placeholders::_1));
+		if (!wsServer->isClientMode) {
+			wsServer->server.set_message_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSReceived,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1,
+				websocketpp::lib::placeholders::_2));
+			wsServer->server.set_open_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSConnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+			wsServer->server.set_close_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSDisconnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+		}
+		else {
+			wsServer->serverAsClient.set_message_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSReceived,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1,
+				websocketpp::lib::placeholders::_2));
+			wsServer->serverAsClient.set_open_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSConnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+			wsServer->serverAsClient.set_close_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSDisconnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+		}
 	}
 	server->init(serverConfig);
 
@@ -296,7 +316,7 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 			uint8_t channelID = 0;
 			enet_peer_send(client->peer, channelID, enetPacket);
 		}
-		logDebug("broadcast, len:{0}", enetPacket->dataLength);
+		logDebug("enet.broadcast, len:{0}, clientNum:{1}", enetPacket->dataLength, enetServer->clients.size());
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
@@ -307,6 +327,7 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 				param.packet->getTotalLength(),
 				websocketpp::frame::opcode::value::BINARY);
 		}
+		logDebug("ws.broadcast, len:{0}, clientNum:{1}", param.packet->getTotalLength(), wsServer->clients.size());
 	}
 }
 
@@ -317,6 +338,10 @@ ForwardPacketPtr ForwardCtrl::createPacket(NetType netType, size_t len) {
 		return std::make_shared<ForwardPacketWS>(len);
 	}
 	return nullptr;
+}
+
+ForwardPacketPtr ForwardCtrl::createPacket(const std::string& packet) {
+	return std::make_shared<ForwardPacketWS>(packet);
 }
 
 ForwardPacketPtr ForwardCtrl::createPacket(ENetPacket* packet) {
@@ -563,6 +588,13 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	logDebug("ip = {0}", client->ip);
 	curEvent = Event::Connected;
 	curProcessClient = client;
+	sendText(wsServer->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+			aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 }
 
 void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
@@ -600,7 +632,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 								clientID,
 								msg->get_payload().size());
 	ForwardHeader header;
-	std::string const & payload = msg->get_payload();
+	const std::string& payload = msg->get_payload();
 	ReturnCode code = getHeader(&header, payload);
 	if (code == ReturnCode::Err) {
 		logWarn("[onWSReceived] getHeader err");
@@ -613,10 +645,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	}
 	ForwardParam param;
 	param.header = &header;
-	param.packet = createPacket(NetType::WS, msg->get_payload().size());
-	size_t headerLength = header.getHeaderLength();
-	const char * content = payload.data() + headerLength;
-	param.packet->setData((uint8_t*)content, msg->get_payload().size() - headerLength);
+	param.packet = createPacket(payload);
 	param.client = client;
 	param.server = static_cast<ForwardServer*>(wsServer);
 	handlePacketFunc handleFunc = it->second;
