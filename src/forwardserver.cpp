@@ -10,6 +10,7 @@ namespace forwarder {
 		port = serverConfig["port"].GetInt();
 		admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
 		encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
+		compress = serverConfig.HasMember("compress") && serverConfig["compress"].GetBool();
 		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
 		isClientMode = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
 		if (serverConfig.HasMember("address")) {

@@ -7,6 +7,7 @@
         "encrypt": false,
         "encryptkey": "1234567812345678",
         "base64": false,
+		"compress": false,
         "port": 9998,
         "peers": 3000
     }, {
@@ -17,6 +18,7 @@
         "encrypt": true,
         "encryptkey": "1234567812345678",
         "base64": true,
+		"compress": true,
         "port": 9999,
         "peers": 3000
     }, {
@@ -27,6 +29,7 @@
         "admin": true,
         "encrypt": false,
         "base64": false,
+		"compress": false,
         "port": 10000,
         "peers": 1
     }]

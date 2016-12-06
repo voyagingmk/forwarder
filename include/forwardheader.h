@@ -35,7 +35,7 @@ dynamic data sequence by flag
 		{ HeaderFlag::SubID,		1 },
 		{ HeaderFlag::Base64,		0 },
 		{ HeaderFlag::Encrypt,		0 },
-		{ HeaderFlag::Compress,		0 },
+		{ HeaderFlag::Compress,		4 },
 	};
 
 	// small endian
@@ -139,6 +139,14 @@ dynamic data sequence by flag
 
 		inline void setIP(uint32_t ip) {
 			*((uint32_t*)(data + getFlagPos(HeaderFlag::IP))) = ip;
+		}
+
+		inline uint32_t getUncompressedSize() {
+			return *((size_t*)(data + getFlagPos(HeaderFlag::Compress)));
+		}
+
+		inline void setUncompressedSize(size_t size) {
+			*((size_t*)(data + getFlagPos(HeaderFlag::Compress))) = size;
 		}
 	public:
 		uint8_t version = Version;

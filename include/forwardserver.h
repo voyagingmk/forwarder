@@ -18,6 +18,7 @@ namespace forwarder {
 			admin(false),
 			base64(false),
 			encrypt(false),
+			compress(false),
 			netType(p_netType),
 			dest(nullptr),
 			isClientMode(false),
@@ -46,6 +47,7 @@ namespace forwarder {
 		bool admin;
 		bool encrypt;
 		bool base64;
+		bool compress;
 		int peerLimit;
 		AES_KEY encryptkey;
 		NetType netType;

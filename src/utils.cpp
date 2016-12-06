@@ -34,7 +34,7 @@ namespace forwarder {
 
 
 	void debugBytes(const char * msg, uint8_t* data, size_t len) {
-		std::cout << msg << ":";
+		std::cout << msg << "[" << len <<"]:";
 		for (int i = 0; i < len; i++) {
 			std::cout << std::hex << (int)data[i] << std::dec << ",";
 		}
