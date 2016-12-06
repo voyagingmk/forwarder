@@ -588,7 +588,7 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	logDebug("ip = {0}", client->ip);
 	curEvent = Event::Connected;
 	curProcessClient = client;
-	sendText(wsServer->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+	// sendText(wsServer->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
 			aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
 		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
 		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
