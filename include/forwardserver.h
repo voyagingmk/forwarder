@@ -93,6 +93,7 @@ class ForwardServerENet : public ForwardServer {
 	class ForwardServerWS : public ForwardServer {
 	public:
 		typedef websocketpp::server<websocketpp::config::asio> WebsocketServer;
+		typedef websocketpp::client<websocketpp::config::asio_client> WebsocketClient;
 	public:
 		ForwardServerWS() :
 			ForwardServer(NetType::WS)
@@ -105,11 +106,21 @@ class ForwardServerENet : public ForwardServer {
 		virtual void release();
 
 		virtual void init(rapidjson::Value& serverConfig);
+		
+		virtual void doReconnect();
+
+		virtual void doDisconnect();
+
+		virtual bool isConnected();
 
 		void poll();
+	private:
+		std::string getUri() {
+			return "ws://" + address + ":" + std::to_string(port);
+		}
 	public:
 		WebsocketServer server;
-
+		WebsocketClient serverAsClient;
 		std::map<websocketpp::connection_hdl, UniqID, std::owner_less<websocketpp::connection_hdl> > hdlToClientId;
 	};
 
