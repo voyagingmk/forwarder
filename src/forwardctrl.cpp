@@ -637,6 +637,12 @@ void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::conne
 			curProcessClient = client;
 		}
 	}
+	if (wsServer->isClientMode) {
+		wsServer->clientID = 0;
+	}	
+	if (wsServer->isClientMode && wsServer->reconnect) {
+		wsServer->doReconnect();
+	}
 	curProcessServer = wsServer;
 	curEvent = Event::Disconnected;
 }
@@ -722,10 +728,10 @@ void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
 	if (server->isClientMode && server->reconnect) {
 		server->doReconnect();
 	}
-	curEvent = Event::Disconnected;
 	if (server->isClientMode) {
 		server->clientID = 0;
 	}
+	curEvent = Event::Disconnected;
 	curProcessClient = client;
 }
 
