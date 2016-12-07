@@ -119,7 +119,7 @@ class ForwardServerENet : public ForwardServer {
 	private:
 		std::string getUri() {
 			if (address == "127.0.0.1" || address == "localhost") {
-				return "http://127.0.0.1:" + std::to_string(port);
+				return "http://localhost:" + std::to_string(port);
 			}
 			return "ws://" + address + ":" + std::to_string(port);
 		}

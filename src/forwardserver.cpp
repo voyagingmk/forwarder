@@ -138,6 +138,12 @@ namespace forwarder {
 	}
 
 	void  ForwardServerWS::release() {
+		if (!isClientMode) {
+			server.stop();
+		}
+		else {
+			serverAsClient.stop();
+		}
 		hdlToClientId.clear();
 	}
 
