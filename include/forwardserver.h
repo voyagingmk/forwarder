@@ -29,9 +29,10 @@ namespace forwarder {
 			dest = nullptr;
 			admin = false;
 			clients.clear();
+			release();
 		}
 	public:
-		virtual void release() = 0;
+		virtual void release() {};
 		virtual ReturnCode initCommon(rapidjson::Value& serverConfig) final;
 		virtual void init(rapidjson::Value& serverConfig) = 0;
 		void initCipherKey(const char* key);

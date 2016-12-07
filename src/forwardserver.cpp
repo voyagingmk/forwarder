@@ -157,6 +157,9 @@ namespace forwarder {
 	}	
 
 	void ForwardServerWS::doReconnect() {
+		if (isConnected()) {
+			return;
+		}
 		std::string uri = getUri();
 		websocketpp::lib::error_code ec;
 		WebsocketClient::connection_ptr con = serverAsClient.get_connection(uri, ec);
