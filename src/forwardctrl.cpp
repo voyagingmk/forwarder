@@ -611,7 +611,8 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	wsServer->hdlToClientId[hdl] = id;
 	logDebug("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
 	logDebug("ip = {0}", client->ip);
-	curEvent = Event::Connected;
+	curEvent = Event::Connected; 
+	curProcessServer = wsServer;
 	curProcessClient = client;
 	// sendText(wsServer->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
 			aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
@@ -636,6 +637,7 @@ void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::conne
 			curProcessClient = client;
 		}
 	}
+	curProcessServer = wsServer;
 	curEvent = Event::Disconnected;
 }
 
