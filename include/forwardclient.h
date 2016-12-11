@@ -9,11 +9,15 @@ namespace forwarder {
 
 	class ForwardClient {
 	public:
+		ForwardClient() {
+			printf("ForwardClient ctor--\n");
+		}
+		virtual ~ForwardClient() {
+			printf("ForwardClient dtor==\n");
+		}
 		inline UniqID getUniqID() const {
 			return id;
-		}
-		virtual void hh() const {
-		}
+		}	
 	public:
 		UniqID id = 0;
 		uint32_t ip = 0;

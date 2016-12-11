@@ -29,6 +29,7 @@ ForwardCtrl::ForwardCtrl() :
 	logger(nullptr),
 	id(0)
 {
+	printf("ForwardClient ctor--\n");
 	buffers = new uint8_t*[bufferNum];
 	bufferSize = new size_t[bufferNum];
 	for (size_t i = 0; i < bufferNum; i++) {
@@ -44,6 +45,7 @@ ForwardCtrl::ForwardCtrl() :
 
 
 ForwardCtrl::~ForwardCtrl() {
+	printf("ForwardClient dtor==\n");
 	for (size_t i = 0; i < bufferNum; i++) {
 		if (buffers[i]) {
 			delete[] buffers[i];
@@ -54,6 +56,25 @@ ForwardCtrl::~ForwardCtrl() {
 	while (servers.size() > 0) {
 		ForwardServer* server = servers.back();
 		servers.pop_back();
+		if (server->isClientMode) {
+			server->doDisconnect();
+		}
+		else {
+			for (auto it = server->clients.begin(); it != server->clients.end(); it++) {
+				auto client = it->second;
+				if (server->netType == NetType::WS) {
+					poolForwardClientWS.del(dynamic_cast<ForwardClientWS*>(client));
+				}
+				else if (server->netType == NetType::ENet) {
+					poolForwardClientENet.del(dynamic_cast<ForwardClientENet*>(client));
+				}
+			}
+		}
+		if (server->netType == NetType::WS) {
+			poolForwardServerWS.del(dynamic_cast<ForwardServerWS*>(server));
+		}else if (server->netType == NetType::ENet) {
+			poolForwardServerENet.del(dynamic_cast<ForwardServerENet*>(server));
+		}
 	}
 	poolForwardServerENet.clear();
 	poolForwardClientENet.clear();

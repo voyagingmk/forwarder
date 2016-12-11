@@ -24,8 +24,12 @@ namespace forwarder {
 			isClientMode(false),
 			clientID(0),
 			reconnect(false)
-		{}
+		{
+			printf("ForwardClient ctor--\n");
+		}
+
 		~ForwardServer() {
+			printf("ForwardClient dtor==\n");
 			dest = nullptr;
 			admin = false;
 			clients.clear();
