@@ -19,6 +19,7 @@ ForwardCtrl::ForwardCtrl() :
 	poolForwardClientWS(sizeof(ForwardClientWS)),
 	serverNum(0),
 	debug(false),
+	released(false),
 	base64Codec(Base64Codec::get()),
 	isExit(false),
 	curProcessServer(nullptr),
@@ -43,8 +44,15 @@ ForwardCtrl::ForwardCtrl() :
 	id = ++ForwardCtrlCount;
 }
 
-
 ForwardCtrl::~ForwardCtrl() {
+	release();
+}
+
+void ForwardCtrl::release() {
+	if (released) {
+		return;
+	}
+	released = true;
 	printf("ForwardClient dtor==\n");
 	for (size_t i = 0; i < bufferNum; i++) {
 		if (buffers[i]) {

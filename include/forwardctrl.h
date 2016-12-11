@@ -26,6 +26,8 @@ namespace forwarder {
 		ForwardCtrl();
 
 		virtual ~ForwardCtrl();
+
+		void release();
 	
 		int version() {
 			return ForwarderVersion;
@@ -197,6 +199,7 @@ namespace forwarder {
 		size_t* bufferSize;
 		int serverNum;
 		bool debug;
+		bool released;
 		bool isExit;
 		Base64Codec& base64Codec;
 		Event curEvent;
