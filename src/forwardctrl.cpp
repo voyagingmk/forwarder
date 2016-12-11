@@ -30,7 +30,7 @@ ForwardCtrl::ForwardCtrl() :
 	logger(nullptr),
 	id(0)
 {
-	printf("ForwardClient ctor--\n");
+	printf("ForwardCtrl ctor--\n");
 	buffers = new uint8_t*[bufferNum];
 	bufferSize = new size_t[bufferNum];
 	for (size_t i = 0; i < bufferNum; i++) {
@@ -53,7 +53,7 @@ void ForwardCtrl::release() {
 		return;
 	}
 	released = true;
-	printf("ForwardClient dtor==\n");
+	printf("ForwardCtrl dtor==\n");
 	for (size_t i = 0; i < bufferNum; i++) {
 		if (buffers[i]) {
 			delete[] buffers[i];
