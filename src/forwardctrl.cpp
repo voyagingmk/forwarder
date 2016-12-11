@@ -64,10 +64,7 @@ void ForwardCtrl::release() {
 	while (servers.size() > 0) {
 		ForwardServer* server = servers.back();
 		servers.pop_back();
-		if (server->isClientMode) {
-			server->doDisconnect();
-		}
-		else {
+		if (!server->isClientMode) {
 			for (auto it = server->clients.begin(); it != server->clients.end(); it++) {
 				auto client = it->second;
 				if (server->netType == NetType::WS) {

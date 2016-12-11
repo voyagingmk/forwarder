@@ -25,11 +25,11 @@ namespace forwarder {
 			clientID(0),
 			reconnect(false)
 		{
-			printf("ForwardClient ctor--\n");
+			printf("ForwardServer ctor--\n");
 		}
 
 		~ForwardServer() {
-			printf("ForwardClient dtor==\n");
+			printf("ForwardServer dtor==\n");
 			dest = nullptr;
 			admin = false;
 			clients.clear();
@@ -77,9 +77,6 @@ class ForwardServerENet : public ForwardServer {
 			host(nullptr),
 			ForwardServer(NetType::ENet)
 		{}
-		~ForwardServerENet() {
-			host = nullptr;
-		}
 		ForwardServerENet(const ForwardServerENet& x) = delete;
 		ForwardServerENet& operator=(const ForwardServerENet& x) = delete;
 
@@ -105,8 +102,6 @@ class ForwardServerENet : public ForwardServer {
 		ForwardServerWS() :
 			ForwardServer(NetType::WS)
 		{}
-		~ForwardServerWS() {
-		}
 		ForwardServerWS(const ForwardServerWS& x) = delete;
 		ForwardServerWS& operator=(const ForwardServerWS& x) = delete;
 

@@ -94,6 +94,7 @@ namespace forwarder {
 	};
 
 	void ForwardServerENet::doDisconnect() {
+		printf("doDisconnect ENet\n");
 		auto it = clients.find(clientID);
 		if (it == clients.end()) {
 			return;
@@ -142,6 +143,7 @@ namespace forwarder {
 			server.stop();
 		}
 		else {
+			doDisconnect();
 			serverAsClient.stop();
 		}
 		hdlToClientId.clear();
@@ -171,6 +173,7 @@ namespace forwarder {
 	}
 
 	void ForwardServerWS::doDisconnect() {
+		printf("doDisconnect WS\n");
 		auto it = clients.find(clientID);
 		if (it == clients.end()) {
 			return;
