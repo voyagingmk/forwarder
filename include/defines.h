@@ -3,7 +3,8 @@
 
 namespace forwarder {
 
-	constexpr int Version = 1;
+	constexpr int ForwarderVersion = 1;
+	constexpr int HeaderVersion = 1;
 
 	enum ReturnCode {
 		Ok = 1,

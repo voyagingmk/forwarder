@@ -781,8 +781,8 @@ void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPack
 }
 
 ReturnCode ForwardCtrl::validHeader(ForwardHeader* header) {
-	if (header->getVersion() != Version) {
-		logWarn("[validHeader] wrong version {0} != {1}", header->getVersion(), Version);
+	if (header->getVersion() != HeaderVersion) {
+		logWarn("[validHeader] wrong version {0} != {1}", header->getVersion(), HeaderVersion);
 		return ReturnCode::Err;
 	}
 	return ReturnCode::Ok;

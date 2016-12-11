@@ -26,6 +26,10 @@ namespace forwarder {
 		ForwardCtrl();
 
 		virtual ~ForwardCtrl();
+	
+		int version() {
+			return ForwarderVersion;
+		}
 
 		void setupLogger(const char* filename = nullptr);
 

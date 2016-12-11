@@ -149,7 +149,7 @@ dynamic data sequence by flag
 			*((size_t*)(data + getFlagPos(HeaderFlag::Compress))) = size;
 		}
 	public:
-		uint8_t version = Version;
+		uint8_t version = HeaderVersion;
 		uint8_t length = 0;
 		uint8_t protocol = 0;
 		uint8_t hash = 0;
