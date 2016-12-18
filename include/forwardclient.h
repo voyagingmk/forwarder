@@ -10,10 +10,8 @@ namespace forwarder {
 	class ForwardClient {
 	public:
 		ForwardClient() {
-			printf("ForwardClient ctor--\n");
 		}
 		virtual ~ForwardClient() {
-			printf("ForwardClient dtor==\n");
 		}
 		inline UniqID getUniqID() const {
 			return id;
@@ -27,7 +25,16 @@ namespace forwarder {
 	public:
 		ForwardClientENet() :
 			peer(nullptr)
-		{};
+		{
+#ifdef DEBUG_MODE
+			printf("[forwarder] ForwardClient ENet created.\n");
+#endif
+		};
+		virtual ~ForwardClientENet() {
+#ifdef DEBUG_MODE
+			printf("[forwarder] ForwardClient ENet released.\n");
+#endif
+		}
 		ForwardClientENet(const ForwardClientENet& x) = delete;
 		ForwardClientENet& operator=(const ForwardClientENet& x) = delete;
 	public:
@@ -38,7 +45,16 @@ namespace forwarder {
 		typedef websocketpp::connection_hdl Hdl;
 	public:
 		ForwardClientWS()
-		{};
+		{
+#ifdef DEBUG_MODE
+			printf("[forwarder] ForwardClient WS created.\n");
+#endif
+		};
+		virtual ~ForwardClientWS() {
+#ifdef DEBUG_MODE
+			printf("[forwarder] ForwardClient WS released.\n");
+#endif
+		}
 		ForwardClientWS(const ForwardClientWS& x) = delete;
 		ForwardClientWS& operator=(const ForwardClientWS& x) = delete;
 	public:

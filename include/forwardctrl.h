@@ -107,8 +107,11 @@ namespace forwarder {
 
 		void onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
 
-		void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
+		void onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
 
+		void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
+		
+		void onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer);
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 		ForwardPacketPtr createPacket(NetType netType, size_t len);

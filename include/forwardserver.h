@@ -23,13 +23,18 @@ namespace forwarder {
 			dest(nullptr),
 			isClientMode(false),
 			clientID(0),
-			reconnect(false)
+			reconnect(false),
+			reconnectdelay(1000)
 		{
-			printf("ForwardServer ctor--\n");
+#ifdef DEBUG_MODE
+			printf("[forwarder] ForwardServer created, netType:%d\n", int(netType));
+#endif
 		}
 
 		~ForwardServer() {
-			printf("ForwardServer dtor==\n");
+#ifdef DEBUG_MODE
+			printf("[forwarder] ForwardServer released, netType:%d\n", int(netType));
+#endif
 			dest = nullptr;
 			admin = false;
 			clients.clear();
@@ -67,6 +72,7 @@ namespace forwarder {
 		std::string address;
 		UniqID clientID;
 		bool reconnect; // auto reconncet to target host when disconnected
+		size_t reconnectdelay; // ms
 	};
 
 

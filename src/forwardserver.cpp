@@ -13,6 +13,10 @@ namespace forwarder {
 		compress = serverConfig.HasMember("compress") && serverConfig["compress"].GetBool();
 		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
 		isClientMode = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
+		reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
+		if (serverConfig.HasMember("reconnectdelay")) {
+			reconnectdelay = serverConfig["reconnectdelay"].GetUint();
+		}
 		if (serverConfig.HasMember("address")) {
 			address = serverConfig["address"].GetString();
 		}
@@ -79,9 +83,7 @@ namespace forwarder {
 			return;
 		}
 		if (isClientMode) {
-			reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
 			enet_host_connect(host, &enetAddress, channelLimit, 0);
-
 		}
 	}
 
@@ -159,6 +161,7 @@ namespace forwarder {
 	}	
 
 	void ForwardServerWS::doReconnect() {
+		std::cout << "[forwarder] [info] [forwarder.WS] doReconnect" << std::endl;
 		if (isConnected()) {
 			return;
 		}
@@ -166,7 +169,7 @@ namespace forwarder {
 		websocketpp::lib::error_code ec;
 		WebsocketClient::connection_ptr con = serverAsClient.get_connection(uri, ec);
 		if (ec) {
-			std::cout << "[error][forwarder.WS] could not create connection because: " << ec.message() << std::endl;
+			std::cout << "[forwarder] [error] [forwarder.WS] could not create connection because: " << ec.message() << std::endl;
 			return;
 		}
 		serverAsClient.connect(con);

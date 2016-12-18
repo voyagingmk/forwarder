@@ -30,7 +30,9 @@ ForwardCtrl::ForwardCtrl() :
 	logger(nullptr),
 	id(0)
 {
-	printf("ForwardCtrl ctor--\n");
+#ifdef DEBUG_MODE
+	printf("[forwarder] ForwardCtrl created.\n");
+#endif
 	buffers = new uint8_t*[bufferNum];
 	bufferSize = new size_t[bufferNum];
 	for (size_t i = 0; i < bufferNum; i++) {
@@ -53,7 +55,9 @@ void ForwardCtrl::release() {
 		return;
 	}
 	released = true;
-	printf("ForwardCtrl dtor==\n");
+#ifdef DEBUG_MODE
+	printf("[forwarder] ForwardCtrl released\n");
+#endif
 	for (size_t i = 0; i < bufferNum; i++) {
 		if (buffers[i]) {
 			delete[] buffers[i];
@@ -271,6 +275,11 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 				websocketpp::lib::placeholders::_1));
 			wsServer->serverAsClient.set_close_handler(websocketpp::lib::bind(
 				&ForwardCtrl::onWSDisconnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+			wsServer->serverAsClient.set_fail_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSError,
 				this,
 				wsServer,
 				websocketpp::lib::placeholders::_1));
@@ -665,12 +674,38 @@ void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::conne
 	}
 	if (wsServer->isClientMode) {
 		wsServer->clientID = 0;
-	}	
+	}
 	if (wsServer->isClientMode && wsServer->reconnect) {
-		wsServer->doReconnect();
+		wsServer->serverAsClient.set_timer(wsServer->reconnectdelay, websocketpp::lib::bind(
+			&ForwardCtrl::onWSReconnectTimeOut,
+			this,
+			websocketpp::lib::placeholders::_1,
+			wsServer
+			));
 	}
 	curProcessServer = wsServer;
 	curEvent = Event::Disconnected;
+}
+
+void ForwardCtrl::onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer) {
+	logDebug("[onWSReconnectTimeOut]");
+	if (ec) {
+		logError("[onWSReconnectTimeOut] err: {0}", ec.message());
+		return;
+	}
+	wsServer->doReconnect();
+}
+
+void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
+	auto con = wsServer->server.get_con_from_hdl(hdl);
+	logDebug("[forwarder] onWSError:");
+	logDebug("get_state:{0}", con->get_state());
+	logDebug("local_close_code:{0}", con->get_local_close_code());
+	logDebug("local_close_reason:{0}", con->get_local_close_reason());
+	logDebug("remote_close_code:{0}", con->get_remote_close_code());
+	logDebug("remote_close_reason:{0}", con->get_remote_close_reason());
+	logDebug("get_ec:{0} ,msg:{1}", con->get_ec().value(), con->get_ec().message());
+	onWSDisconnected(wsServer, hdl);
 }
 
 void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {

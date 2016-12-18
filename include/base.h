@@ -43,7 +43,7 @@
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
-
+#include <asio.hpp>
 
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>
@@ -54,5 +54,8 @@
 #endif
 
 #define CHUNK 16384
+
+
+#define DEBUG_MODE 1
 
 #endif
