@@ -95,7 +95,7 @@ void ForwardCtrl::release() {
 
 void ForwardCtrl::setupLogger(const char* filename) {
 	std::vector<spdlog::sink_ptr> sinks;
-	if (filename) {
+	if (filename && strlen(filename) > 0) {
 		sinks.push_back(make_shared<spdlog::sinks::rotating_file_sink_st>(filename, "txt", 1048576 * 5, 3));
 	}
 	//sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>(filename, "txt", 0, 0));

@@ -106,7 +106,7 @@ class ForwardServerENet : public ForwardServer {
 
 
 
-	class ForwardServerWS : public ForwardServer {
+class ForwardServerWS : public ForwardServer {
 	public:
 		typedef websocketpp::server<websocketpp::config::asio> WebsocketServer;
 		typedef websocketpp::client<websocketpp::config::asio_client> WebsocketClient;
