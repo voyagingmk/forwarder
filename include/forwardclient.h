@@ -21,6 +21,9 @@ namespace forwarder {
 		uint32_t ip = 0;
 	};
 
+
+
+
 	class ForwardClientENet : public ForwardClient {
 	public:
 		ForwardClientENet() :
@@ -37,9 +40,17 @@ namespace forwarder {
 		}
 		ForwardClientENet(const ForwardClientENet& x) = delete;
 		ForwardClientENet& operator=(const ForwardClientENet& x) = delete;
+
+	public:
+		void setPeerTimeout(enet_uint32 timeoutLimit, enet_uint32 timeoutMinimum, enet_uint32 timeoutMaximum);
+		void setPing(enet_uint32 pingInterval = 0);
 	public:
 		ENetPeer* peer;
 	};
+
+
+
+
 
 	class ForwardClientWS : public ForwardClient {
 		typedef websocketpp::connection_hdl Hdl;

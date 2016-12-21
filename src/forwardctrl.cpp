@@ -147,9 +147,7 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 	}
 	ForwardClient* outClient = nullptr;
 	if (clientId) {
-		auto it_client = outServer->clients.find(clientId);
-		if (it_client != outServer->clients.end())
-			outClient = it_client->second;
+		outClient = outServer->getClient(clientId);
 	}
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
@@ -674,14 +672,14 @@ void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::conne
 	}
 	if (wsServer->isClientMode) {
 		wsServer->clientID = 0;
-	}
-	if (wsServer->isClientMode && wsServer->reconnect) {
-		wsServer->serverAsClient.set_timer(wsServer->reconnectdelay, websocketpp::lib::bind(
-			&ForwardCtrl::onWSReconnectTimeOut,
-			this,
-			websocketpp::lib::placeholders::_1,
-			wsServer
-			));
+		if (wsServer->reconnect) {
+			wsServer->serverAsClient.set_timer(wsServer->reconnectdelay, websocketpp::lib::bind(
+				&ForwardCtrl::onWSReconnectTimeOut,
+				this,
+				websocketpp::lib::placeholders::_1,
+				wsServer
+				));
+		}
 	}
 	curProcessServer = wsServer;
 	curEvent = Event::Disconnected;
@@ -715,13 +713,12 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 		return;
 	}
 	UniqID clientID = it1->second;
-	auto it2 = wsServer->clients.find(clientID);
-	if (it2 == wsServer->clients.end()) {
+	ForwardClient* client = wsServer->getClient(clientID);
+	if (!client) {
 		logError("[onWSReceived] no such clientID:{0}",
 			clientID);
 		return;
 	}
-	ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it2->second);
 	logDebug("[WS,cli:{0}][len:{1}]",
 								clientID,
 								msg->get_payload().size());
@@ -847,10 +844,7 @@ ForwardClient* ForwardCtrl::getOutClient(ForwardHeader* inHeader, ForwardServer*
 	if (!inServer->dest) {
 		// only use inHeader->clientID when inServer has no destServer
 		int clientID = inHeader->getClientID();
-		auto it_client = outServer->clients.find(clientID);
-		if (it_client == outServer->clients.end())
-			return nullptr;
-		outClient = it_client->second;
+		outClient = outServer->getClient(clientID);
 	}
 	return outClient;
 }

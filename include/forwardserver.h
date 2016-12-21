@@ -46,11 +46,13 @@ namespace forwarder {
 		virtual void init(rapidjson::Value& serverConfig) = 0;
 		void initCipherKey(const char* key);
 		bool hasConsistConfig(ForwardServer*);
+		ForwardClient* getClient(UniqID clientId);
 
 		// used for client mode
 		virtual void doReconnect() {};
 		virtual void doDisconnect() {};
 		virtual bool isConnected() { return false; };
+		virtual void poll() {};
 	public:
 		UniqID id;
 		int destId;
@@ -77,6 +79,7 @@ namespace forwarder {
 
 
 
+
 class ForwardServerENet : public ForwardServer {
 	public:
 		ForwardServerENet() :
@@ -100,6 +103,9 @@ class ForwardServerENet : public ForwardServer {
 		uint8_t broadcastChannelID = 0;
 	};
 
+
+
+
 	class ForwardServerWS : public ForwardServer {
 	public:
 		typedef websocketpp::server<websocketpp::config::asio> WebsocketServer;
@@ -121,7 +127,7 @@ class ForwardServerENet : public ForwardServer {
 
 		virtual bool isConnected();
 
-		void poll();
+		virtual void poll();
 	private:
 		std::string getUri() {
 			if (address == "127.0.0.1" || address == "localhost") {

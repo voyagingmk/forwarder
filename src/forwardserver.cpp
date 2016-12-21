@@ -56,6 +56,15 @@ namespace forwarder {
 		return true;
 	}
 
+	ForwardClient*  ForwardServer::getClient(UniqID clientId) {
+		if (clientId) {
+			auto it_client = clients.find(clientId);
+			if (it_client != clients.end())
+				return it_client->second;
+		}
+		return nullptr;
+	}
+
 	void ForwardServer::initCipherKey(const char* key){
 		AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
 	}
@@ -97,32 +106,32 @@ namespace forwarder {
 
 	void ForwardServerENet::doDisconnect() {
 		printf("doDisconnect ENet\n");
-		auto it = clients.find(clientID);
-		if (it == clients.end()) {
+		ForwardClient* client = getClient(clientID);
+		if (!client) {
 			return;
 		}
-		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it->second);
-		auto state = client->peer->state;
+		ForwardClientENet* clientENet = dynamic_cast<ForwardClientENet*>(client);
+		auto state = clientENet->peer->state;
 		if(state == ENET_PEER_STATE_CONNECTING || state == ENET_PEER_STATE_CONNECTED){
-			enet_peer_disconnect(client->peer, 0);
+			enet_peer_disconnect(clientENet->peer, 0);
 		}
 	}
 
 	bool ForwardServerENet::isConnected() {
-		auto it = clients.find(clientID);
-		if (it == clients.end()) {
+		ForwardClient* client = getClient(clientID);
+		if (!client) {
 			return false;
 		}
-		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it->second);
-		auto state = client->peer->state;
+		auto state = dynamic_cast<ForwardClientENet*>(client)->peer->state;
 		return state == ENET_PEER_STATE_CONNECTED;
 	}
-
 
 	void  ForwardServerENet::release() {
 		enet_host_destroy(host);
 		host = nullptr;
 	}
+
+
 
 	void ForwardServerWS::init(rapidjson::Value& serverConfig) {
 		if (!isClientMode) {
@@ -177,12 +186,12 @@ namespace forwarder {
 
 	void ForwardServerWS::doDisconnect() {
 		printf("doDisconnect WS\n");
-		auto it = clients.find(clientID);
-		if (it == clients.end()) {
+		auto client = getClient(clientID);
+		if (!client) {
 			return;
 		}
-		ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
-		auto hdl = client->hdl;
+		ForwardClientWS* clientWS = dynamic_cast<ForwardClientWS*>(client);
+		auto hdl = clientWS->hdl;
 		websocketpp::lib::error_code ec;
 		websocketpp::close::status::value code = websocketpp::close::status::normal;
 		std::string reason = "";
@@ -194,12 +203,11 @@ namespace forwarder {
 
 
 	bool ForwardServerWS::isConnected() {
-		auto it = clients.find(clientID);
-		if (it == clients.end()) {
+		auto client = getClient(clientID);
+		if (!client) {
 			return false;
 		}
-		ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
-		auto hdl = client->hdl;
+		auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
 		return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
 	}
 }
