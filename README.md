@@ -21,6 +21,15 @@ cd xcode_build
 
 cmake .. -G Xcode
 
+## centos 6
+
+yum install centos-release-scl-rh
+yum install devtoolset-3-gcc devtoolset-3-gcc-c++
+
+scl enable devtoolset-3 bash
+
+cmake  -DCMAKE_C_COMPILER:FILEPATH=clang -DCMAKE_CXX_COMPILER:FILEPATH=clang++  ..
+
 
 ## DEPENDENCIES
 
