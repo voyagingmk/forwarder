@@ -3,15 +3,12 @@
 
 namespace forwarder {
 
-	constexpr int Version = 1;
+	constexpr int ForwarderVersion = 1;
+	constexpr int HeaderVersion = 1;
 
 	enum ReturnCode {
 		Ok = 1,
 		Err = 2
-	};
-
-	enum ProtocolFlag {
-		WithAddress = 1
 	};
 
 	enum ProtocolType {

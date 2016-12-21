@@ -45,6 +45,10 @@ https://github.com/miloyip/rapidjson
 
 https://github.com/lsalzman/enet
 
+### zlib-1.2.8
+
+http://zlib.net/zlib-1.2.8.tar.gz
+
 ### websocketpp-0.7.0 and no-boost-asio-1.10.8
 
 http://think-async.com/Asio

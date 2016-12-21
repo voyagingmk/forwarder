@@ -9,11 +9,14 @@ namespace forwarder {
 		virtual uint8_t* getHeaderPtr() const = 0;
 		virtual uint8_t* getDataPtr() const = 0;
 		virtual void* getRawPtr() const = 0;
+		virtual ForwardHeader* getHeader() const {
+			return (ForwardHeader*)getHeaderPtr();
+		}
 		size_t getTotalLength() const {
 			return length;
 		}
 		size_t getDataLength() const {
-			return length - sizeof(ForwardHeader);
+			return length - getHeader()->getHeaderLength();
 		}
 		virtual void setHeader(ForwardHeader* header) = 0;
 		virtual void setData(uint8_t* data, size_t len) = 0;
@@ -54,7 +57,7 @@ namespace forwarder {
 		}		
 
 		virtual uint8_t* getDataPtr() const {
-			return static_cast<uint8_t*>(packet->data + sizeof(ForwardHeader));
+			return static_cast<uint8_t*>(packet->data + getHeader()->getHeaderLength());
 		}
 
 		virtual void* getRawPtr() const {
@@ -62,17 +65,18 @@ namespace forwarder {
 		}
 
 		virtual void setHeader(ForwardHeader* header) {
-			memcpy(packet->data, header, sizeof(ForwardHeader));
+			memcpy(packet->data, header, header->getHeaderLength());
 		}
 
-		virtual void setData(uint8_t* data, size_t len) {
-			if ((len + sizeof(ForwardHeader)) > packet->dataLength) {
-				printf("err");
+		virtual void setData(uint8_t* data, size_t dataLength) {
+			size_t headerLength = getHeader()->getHeaderLength();
+			if ((dataLength + headerLength) > packet->dataLength) {
+				printf("[error] setData");
 				return;
 			}
-			memcpy(packet->data + sizeof(ForwardHeader), data, len);
+			memcpy(packet->data + headerLength, data, dataLength);
 			if (!length) {
-				length = sizeof(ForwardHeader) + len;
+				length = headerLength + dataLength;
 			}
 		}
 	public:
@@ -82,6 +86,14 @@ namespace forwarder {
 
 	class ForwardPacketWS : public ForwardPacket {
 	public:
+		ForwardPacketWS(const std::string& packet) :
+			owned(false),
+			packetString(packet)
+		{
+			length = packet.size();
+			packetData = (uint8_t*)(packetString.c_str());
+		}
+	
 		ForwardPacketWS(void* p_data) :
 			owned(false),
 			packetData(static_cast<uint8_t*>(p_data))
@@ -111,7 +123,7 @@ namespace forwarder {
 		}
 
 		virtual uint8_t* getDataPtr() const {
-			return packetData + sizeof(ForwardHeader);
+			return packetData + getHeader()->getHeaderLength();
 		}
 
 		virtual void* getRawPtr() const {
@@ -119,18 +131,19 @@ namespace forwarder {
 		}
 
 		virtual void setHeader(ForwardHeader* header) {
-			memcpy(packetData, header, sizeof(ForwardHeader));
+			memcpy(packetData, header, header->getHeaderLength());
 		}
 
 		virtual void setData(uint8_t* data, size_t len) {
-			memcpy(packetData + sizeof(ForwardHeader), data, len);
+			memcpy(packetData + getHeader()->getHeaderLength(), data, len);
 			if (!length) {
-				length = sizeof(ForwardHeader) + len;
+				length = getHeader()->getHeaderLength() + len;
 			}
 		}
 	public:
 		bool owned = false;
 		uint8_t* packetData = nullptr;
+		std::string packetString;
 	};
 }
 

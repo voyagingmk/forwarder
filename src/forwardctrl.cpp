@@ -8,30 +8,82 @@ using namespace std;
 using namespace rapidjson;
 using namespace forwarder;
 
+
+size_t ForwardCtrl::bufferNum = 4;
+UniqID ForwardCtrl::ForwardCtrlCount = 0;
+
 ForwardCtrl::ForwardCtrl() :
 	poolForwardServerENet(sizeof(ForwardServerENet)),
 	poolForwardClientENet(sizeof(ForwardClientENet)),
 	poolForwardServerWS(sizeof(ForwardServerWS)),
 	poolForwardClientWS(sizeof(ForwardClientWS)),
 	serverNum(0),
-	buffer(nullptr),
 	debug(false),
+	released(false),
 	base64Codec(Base64Codec::get()),
 	isExit(false),
 	curProcessServer(nullptr),
 	curProcessClient(nullptr),
-	curProcessPacket(nullptr)
-{	//default
+	curProcessHeader(nullptr),
+	curProcessData(nullptr),
+	curProcessDataLength(0),
+	logger(nullptr),
+	id(0)
+{
+#ifdef DEBUG_MODE
+	printf("[forwarder] ForwardCtrl created.\n");
+#endif
+	buffers = new uint8_t*[bufferNum];
+	bufferSize = new size_t[bufferNum];
+	for (size_t i = 0; i < bufferNum; i++) {
+		bufferSize[i] = 0xff;
+		buffers[i] = new uint8_t[bufferSize[i]]{ 0 };
+	}
+	//default
 	handleFuncs[0] = &ForwardCtrl::handlePacket_SysCmd;
 	handleFuncs[2] = &ForwardCtrl::handlePacket_Forward;
 	handleFuncs[3] = &ForwardCtrl::handlePacket_Process;
+	id = ++ForwardCtrlCount;
 }
 
-
 ForwardCtrl::~ForwardCtrl() {
+	release();
+}
+
+void ForwardCtrl::release() {
+	if (released) {
+		return;
+	}
+	released = true;
+#ifdef DEBUG_MODE
+	printf("[forwarder] ForwardCtrl released\n");
+#endif
+	for (size_t i = 0; i < bufferNum; i++) {
+		if (buffers[i]) {
+			delete[] buffers[i];
+		}
+	}
+	delete[] buffers;
+	delete[] bufferSize;
 	while (servers.size() > 0) {
 		ForwardServer* server = servers.back();
 		servers.pop_back();
+		if (!server->isClientMode) {
+			for (auto it = server->clients.begin(); it != server->clients.end(); it++) {
+				auto client = it->second;
+				if (server->netType == NetType::WS) {
+					poolForwardClientWS.del(dynamic_cast<ForwardClientWS*>(client));
+				}
+				else if (server->netType == NetType::ENet) {
+					poolForwardClientENet.del(dynamic_cast<ForwardClientENet*>(client));
+				}
+			}
+		}
+		if (server->netType == NetType::WS) {
+			poolForwardServerWS.del(dynamic_cast<ForwardServerWS*>(server));
+		}else if (server->netType == NetType::ENet) {
+			poolForwardServerENet.del(dynamic_cast<ForwardServerENet*>(server));
+		}
 	}
 	poolForwardServerENet.clear();
 	poolForwardClientENet.clear();
@@ -40,8 +92,33 @@ ForwardCtrl::~ForwardCtrl() {
 	handleFuncs.clear();
 }
 
+
+void ForwardCtrl::setupLogger(const char* filename) {
+	std::vector<spdlog::sink_ptr> sinks;
+	if (filename) {
+		sinks.push_back(make_shared<spdlog::sinks::rotating_file_sink_st>(filename, "txt", 1048576 * 5, 3));
+	}
+	//sinks.push_back(make_shared<spdlog::sinks::daily_file_sink_st>(filename, "txt", 0, 0));
+#ifdef _MSC_VER
+	sinks.push_back(make_shared<spdlog::sinks::wincolor_stdout_sink_st>());
+#else
+	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
+#endif
+	std::string name("ctrl" + std::to_string(id));
+	logger = make_shared<spdlog::logger>(name, begin(sinks), end(sinks));
+	if (spdlog::get(name)) {
+		spdlog::drop(name);
+	}
+	spdlog::register_logger(logger);
+	logger->flush_on(spdlog::level::err);
+	spdlog::set_pattern("[%D %H:%M:%S:%e][%l] %v");
+	spdlog::set_level(spdlog::level::info);
+	logInfo("logger created successfully.");
+}
+
 void ForwardCtrl::setDebug(bool enabled) {
 	debug = enabled;
+	if(logger) logger->set_level(spdlog::level::debug);
 }
 
 ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
@@ -63,45 +140,46 @@ ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
 	return ReturnCode::Ok;
 }
 
-ReturnCode ForwardCtrl::sendBinary(UniqID serverId, uint8_t* data, size_t dataLength) {
-	ForwardServer * server = getServerByID(serverId);
-	if (!server) {
+ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
+	ForwardServer* outServer = getServerByID(serverId);
+	if (!outServer) {
 		return ReturnCode::Err;
 	}
-	ForwardPacketPtr packet = encodeData(server, data, dataLength);
+	ForwardClient* outClient = nullptr;
+	if (clientId) {
+		auto it_client = outServer->clients.find(clientId);
+		if (it_client != outServer->clients.end())
+			outClient = it_client->second;
+	}
+	ForwardHeader outHeader;
+	outHeader.setProtocol(2);
+	outHeader.cleanFlag();
+	if (outServer->base64)
+		outHeader.setFlag(HeaderFlag::Base64, true);
+	if (outServer->encrypt)
+		outHeader.setFlag(HeaderFlag::Encrypt, true);
+	if (outServer->compress)
+		outHeader.setFlag(HeaderFlag::Compress, true);
+	outHeader.resetHeaderLength();
+	ForwardPacketPtr packet = encodeData(outServer, &outHeader, data, dataLength);
 	if (!packet)
 		return ReturnCode::Err;
-	ForwardHeader outHeader;
-	outHeader.protocol = 2;
-	packet->setHeader(&outHeader);
 	ForwardParam param;
 	param.header = nullptr;
 	param.packet = packet;
-	param.client = nullptr;
-	param.server = server;
-
-	broadcastPacket(param);
+	param.client = outClient;
+	param.server = outServer;
+	if (outClient) {
+		sendPacket(param);
+	}
+	else {
+		broadcastPacket(param);
+	}
 	return ReturnCode::Ok;
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, std::string data) {
-	ForwardServer * server = getServerByID(serverId);
-	if (!server) {
-		return ReturnCode::Err;
-	}ForwardPacketPtr packet = encodeData(server, (uint8_t*)data.c_str(), data.size());
-	if (!packet)
-		return ReturnCode::Err;
-	ForwardHeader outHeader;
-	outHeader.protocol = 2;
-	packet->setHeader(&outHeader);
-	ForwardParam param;
-	param.header = nullptr;
-	param.packet = packet;
-	param.client = nullptr;
-	param.server = server;
-
-	broadcastPacket(param);
-	return ReturnCode::Ok;
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string data) {
+	return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size());
 }
 
 ForwardServer* ForwardCtrl::createServerByNetType(NetType netType) {
@@ -135,25 +213,24 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		ForwardServer* server = *it;
 		int destId = server->destId;
 		if (!destId){
-			if (debug) getLogger()->info("Server[{0}] has no destId");
+			logDebug("Server[{0}] has no destId");
 			continue;
 		}
 		for (auto it2 = servers.begin(); it2 != servers.end(); it2++) {
 			ForwardServer* _server = *it2;
 			if (_server->id == destId) {
 				server->dest = _server;
-				if (debug) getLogger()->info("Server[{0}] -> Server[{1}]", server->id, _server->id);
+				logDebug("Server[{0}] -> Server[{1}]", server->id, _server->id);
 				break;
 			}
 		}
 		if (!server->dest){
-			if (debug) getLogger()->info("Server[{0}] has no dest server", server->id);
+			logDebug("Server[{0}] has no dest server", server->id);
 		}
 	}
 }
 
 uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
-	auto logger = getLogger();
 	NetType netType = strcmp(serverConfig["netType"].GetString(), "enet") == 0 ? NetType::ENet : NetType::WS;
 	ForwardServer* server = createServerByNetType(netType);
 	ReturnCode code = server->initCommon(serverConfig);
@@ -166,22 +243,47 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 
 	if (server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
-		wsServer->server.set_message_handler(websocketpp::lib::bind(
-			&ForwardCtrl::onWSReceived,
-			this,
-			wsServer,
-			websocketpp::lib::placeholders::_1,
-			websocketpp::lib::placeholders::_2));
-		wsServer->server.set_open_handler(websocketpp::lib::bind(
-			&ForwardCtrl::onWSConnected,
-			this,
-			wsServer,
-			websocketpp::lib::placeholders::_1));
-		wsServer->server.set_close_handler(websocketpp::lib::bind(
-			&ForwardCtrl::onWSDisconnected,
-			this,
-			wsServer,
-			websocketpp::lib::placeholders::_1));
+		if (!wsServer->isClientMode) {
+			wsServer->server.set_message_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSReceived,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1,
+				websocketpp::lib::placeholders::_2));
+			wsServer->server.set_open_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSConnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+			wsServer->server.set_close_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSDisconnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+		}
+		else {
+			wsServer->serverAsClient.set_message_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSReceived,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1,
+				websocketpp::lib::placeholders::_2));
+			wsServer->serverAsClient.set_open_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSConnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+			wsServer->serverAsClient.set_close_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSDisconnected,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+			wsServer->serverAsClient.set_fail_handler(websocketpp::lib::bind(
+				&ForwardCtrl::onWSError,
+				this,
+				wsServer,
+				websocketpp::lib::placeholders::_1));
+		}
 	}
 	server->init(serverConfig);
 
@@ -226,7 +328,8 @@ void ForwardCtrl::sendPacket(ForwardParam& param) {
 		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(param.client);
 		ForwardPacketPtr outPacket = param.packet;
 		ENetPacket* packet = static_cast<ENetPacket*>(outPacket->getRawPtr());
-		enet_peer_send(client->peer, param.channelID, packet);
+		uint8_t channelID = 0;
+		enet_peer_send(client->peer, channelID, packet);
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
@@ -245,9 +348,10 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 		ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
 		for (auto it : enetServer->clients) {
 			ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it.second);
-			enet_peer_send(client->peer, param.channelID, enetPacket);
+			uint8_t channelID = 0;
+			enet_peer_send(client->peer, channelID, enetPacket);
 		}
-		if (debug) getLogger()->info("broadcast, len:{0}", enetPacket->dataLength);
+		logDebug("enet.broadcast, len:{0}, clientNum:{1}", enetPacket->dataLength, enetServer->clients.size());
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
@@ -258,6 +362,7 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 				param.packet->getTotalLength(),
 				websocketpp::frame::opcode::value::BINARY);
 		}
+		logDebug("ws.broadcast, len:{0}, clientNum:{1}", param.packet->getTotalLength(), wsServer->clients.size());
 	}
 }
 
@@ -270,33 +375,61 @@ ForwardPacketPtr ForwardCtrl::createPacket(NetType netType, size_t len) {
 	return nullptr;
 }
 
+ForwardPacketPtr ForwardCtrl::createPacket(const std::string& packet) {
+	return std::make_shared<ForwardPacketWS>(packet);
+}
+
 ForwardPacketPtr ForwardCtrl::createPacket(ENetPacket* packet) {
 	return std::make_shared<ForwardPacketENet>(packet);
 }
 
-ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, uint8_t* data, size_t dataLength) {
-	uint8_t* allocData = nullptr;
+ForwardPacketPtr ForwardCtrl::encodeData(
+	ForwardServer* outServer, ForwardHeader* outHeader, 
+	uint8_t* data, size_t dataLength) 
+{
+	if (debug) debugBytes("encodeData, raw Data", data, dataLength);
+	if (outServer->compress) {
+		size_t bufferLen = compressBound(dataLength);
+		logDebug("encodeData, compressBound={0}", bufferLen);
+		uint8_t* newData = getBuffer(0, bufferLen);
+		uLongf realLen = bufferLen;
+		outHeader->setUncompressedSize(dataLength);// used for uncompression
+		int ret = compress((Bytef*)newData, &realLen, data, dataLength);
+		if (ret == Z_OK) {
+			data = newData;
+			dataLength = realLen;
+			if (debug) debugBytes("encodeData, compressed", data, dataLength);
+		}
+		else {
+			logError("compress failed");
+			if (ret == Z_MEM_ERROR)
+				logError("Z_MEM_ERROR");
+			else if (ret == Z_BUF_ERROR)
+				logError("Z_BUF_ERROR");
+			else if (ret == Z_DATA_ERROR)
+				logError("Z_DATA_ERROR");
+			return nullptr;
+		}
+	}
+
 	if (outServer->encrypt) {
 		static std::random_device rd;
 		static std::mt19937 gen(rd());
-		static std::uniform_int_distribution<> dis(0, std::pow(2, 8) - 1);
-		if (debug) debugBytes("encodeData, originData", data, dataLength);
-		allocData = new uint8_t[dataLength + ivSize];
-		uint8_t* newData = allocData;
+		static std::uniform_int_distribution<> dis(0, int(std::pow(2, 8)) - 1);
+		uint8_t* newData = getBuffer(1, dataLength + ivSize);
 		uint8_t* iv = newData;
 		uint8_t ivTmp[ivSize];
 		for (int i = 0; i < ivSize; i++) {
 			iv[i] = dis(gen);
 		}
 		memcpy(ivTmp, iv, ivSize);
-		if (debug) debugBytes("encodeData, iv", iv, ivSize);
 		uint8_t* encryptedData = newData + ivSize;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
-		if (debug) debugBytes("encodeData, encryptedData", encryptedData, dataLength);
 		data = newData;
 		dataLength = dataLength + ivSize;
+		if (debug) debugBytes("encodeData, encrypted", data, dataLength);
 	}
 
 	std::string b64("");
@@ -308,74 +441,82 @@ ForwardPacketPtr ForwardCtrl::encodeData(ForwardServer* outServer, uint8_t* data
 	}
 
 	//3. make packet
-	ForwardPacketPtr newPacket = createPacket(outServer->netType, dataLength + sizeof(ForwardHeader));
+	ForwardPacketPtr newPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + dataLength);
 	// copy
+	newPacket->setHeader(outHeader);
 	newPacket->setData(data, dataLength);
-
-	if (allocData) {
-		delete allocData;
-	}
+	if (debug) debugBytes("encodeData, final", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
 	return newPacket;
 }
 
-ForwardPacketPtr ForwardCtrl::decodeData(ForwardServer* inServer, uint8_t* data, size_t dataLength) {
-	uint8_t* allocData1 = nullptr;
-	uint8_t* allocData2 = nullptr;
-
-	//1. convert to raw
-	//1.1 Base64
-	if (inServer->base64) {
+void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength) {
+	outData = data;
+	outDataLength = dataLength;
+	logDebug("inHeader,ver={0},len={1},ip={2}", inHeader->getVersion(), inHeader->getHeaderLength(), inHeader->getIP());
+	if (debug) debugBytes("decodeData, inHeader'data", inHeader->data, inHeader->getHeaderLength() - HeaderBaseLength);
+	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
 		if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
-		uint8_t* allocData1 = new uint8_t[newDataLength];
-		uint8_t* newData = allocData1;
+		uint8_t* newData = getBuffer(0, newDataLength);
 		base64Codec.toByteArray((const char*)data, dataLength, newData, &newDataLength);
-		data = newData;
-		dataLength = newDataLength;
-		if (debug) debugBytes("decodeData, base64decoded Data", data, dataLength);
+		outData = newData;
+		outDataLength = newDataLength;
+		if (debug) debugBytes("decodeData, base64decoded Data", outData, outDataLength);
 	}
 
-	//1.2 now data is raw or encrypted
-	if (inServer->encrypt) { // DO decrypt
-		size_t newDataLength = dataLength - ivSize;
-		uint8_t* encryptedData = data + ivSize;
-		allocData2 = new uint8_t[newDataLength];
-		uint8_t* newData = allocData2;
-		uint8_t* iv = data;
+	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
+		size_t newDataLength = outDataLength - ivSize;
+		uint8_t* encryptedData = outData + ivSize;
+		uint8_t* newData = getBuffer(1, newDataLength);
+		uint8_t* iv = outData;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;
 		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
-		data = newData;
-		dataLength = newDataLength;
-		if (debug) debugBytes("decodeData, decrypt Data", data, dataLength);
+		outData = newData;
+		outDataLength = newDataLength;
+		if (debug) debugBytes("decodeData, decrypted Data", outData, outDataLength);
 	}
 
-	//3. make packet
-	ForwardPacketPtr newPacket = createPacket(inServer->netType, dataLength + sizeof(ForwardHeader));
-	// copy
-	newPacket->setData(data, dataLength);
 
-	if (allocData1) {
-		delete allocData1;
-		allocData1 = nullptr;
+	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
+		uLongf bufferLen = inHeader->getUncompressedSize();
+		uint8_t* newData = getBuffer(2, bufferLen);
+		uLongf realLen = bufferLen;
+		int ret = uncompress((Bytef*)newData, &realLen, outData, outDataLength);
+		logInfo("uncompress, bufferLen={0},realLen={1},outDataLength={2}",
+			bufferLen, realLen, outDataLength);
+		if (ret == Z_OK) {
+			outData = newData;
+			outDataLength = realLen;
+			if (debug) debugBytes("decodeData, uncompressed Data", outData, outDataLength);
+		}
+		else {
+			logError("uncompress failed");
+			if (ret == Z_MEM_ERROR)
+				logError("Z_MEM_ERROR");
+			else if (ret == Z_BUF_ERROR)
+				logError("Z_BUF_ERROR");
+			else if (ret == Z_DATA_ERROR)
+				logError("Z_DATA_ERROR");
+			outData = nullptr;
+			outDataLength = 0;
+		}
 	}
-	if (allocData2) {
-		delete allocData2;
-		allocData1 = nullptr;
-	}
-	return newPacket;
-	// now data pointer is raw
+
 }
 
-ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer) {
-	if (inServer->hasConsistConfig(outServer)) {
-		return packet;
+ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, ForwardHeader* outHeader) {
+	uint8_t* rawData;
+	size_t rawDataLength;
+	decodeData(
+		inServer, packet->getHeader(),
+		packet->getDataPtr(), packet->getDataLength(),
+		rawData, rawDataLength);
+	logDebug("raw data:{0}", rawData);
+	if (!rawData || rawDataLength <= 0) {
+		return nullptr;
 	}
-	uint8_t * data = packet->getDataPtr();
-	size_t dataLength = packet->getDataLength();
-	ForwardPacketPtr rawPacket = decodeData(inServer, data, dataLength);
-	if (debug) getLogger()->info("raw data:{0}", rawPacket->getDataPtr());
-	ForwardPacketPtr outPacket = encodeData(outServer, rawPacket->getDataPtr(), rawPacket->getDataLength());
+	ForwardPacketPtr outPacket = encodeData(outServer, outHeader, rawData, rawDataLength);
 	return outPacket;
 }
 
@@ -383,8 +524,8 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 	if(!param.server->admin)
 		return ReturnCode::Err;
 	ForwardHeader outHeader;
-	outHeader.protocol = 1;
-	int subID = param.header->subID;
+	outHeader.setProtocol(1);
+	int subID = param.header->getSubID();
 	if (subID == 1) {
 		//stat
 		const rapidjson::Document& d = stat();
@@ -393,13 +534,13 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 		d.Accept(writer);
 		const char* statJson = buffer.GetString();
 		int statJsonLength = strlen(statJson);
-		int totalLength = sizeof(ForwardHeader) + statJsonLength + 1;
+		int totalLength = outHeader.getHeaderLength() + statJsonLength + 1;
 		ForwardPacketPtr packet = createPacket(param.server->netType, totalLength);
 		packet->setHeader(&outHeader);
 		packet->setData((uint8_t*)(statJson), statJsonLength);
 		param.packet = packet;
 		sendPacket(param);
-		if(debug) getLogger()->info("SysCmd finish");
+		logInfo("SysCmd finish");
 	}
 	else if (subID == 2){
 		//force disconnect
@@ -408,8 +549,8 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 }
 
 ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
-	if (debug) getLogger()->info("forward begin");
-	auto logger = getLogger();
+	logDebug("forward begin");
+
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
@@ -417,32 +558,46 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 
 	ForwardServer* outServer = getOutServer(inHeader, inServer);
 	if (!outServer) {
-		logger->warn("[forward] no outServer");
+		logWarn("[forward] no outServer");
 		return ReturnCode::Err;
 	}
 
 	ForwardClient* outClient = getOutClient(inHeader, inServer, outServer);
 
+	ForwardHeader outHeader;
+	outHeader.setProtocol(2);
+	outHeader.cleanFlag();
+	// outServer's flag
+	if (outServer->base64)
+		outHeader.setFlag(HeaderFlag::Base64, true);
+	if (outServer->encrypt)
+		outHeader.setFlag(HeaderFlag::Encrypt, true);
+	if (outServer->compress)
+		outHeader.setFlag(HeaderFlag::Compress, true);
+	// Default flag
+	outHeader.setFlag(HeaderFlag::IP, true);
+	outHeader.setFlag(HeaderFlag::HostID, true);
+	outHeader.setFlag(HeaderFlag::ClientID, true);
+	if (outHeader.isFlagOn(HeaderFlag::IP)) {
+		outHeader.setIP(inClient->ip);
+	}
+	if (outHeader.isFlagOn(HeaderFlag::HostID)) {
+		outHeader.setHostID(param.server->id);
+	}
+	if (outHeader.isFlagOn(HeaderFlag::ClientID)) {
+		outHeader.setClientID(param.client->id);
+	}
+
+	outHeader.resetHeaderLength();
+
 	ForwardPacketPtr outPacket;
 
-	outPacket = convertPacket(inPacket, inServer, outServer);
+	outPacket = convertPacket(inPacket, inServer, outServer, &outHeader);
 
 	if (!outPacket) {
-		logger->warn("[forward] no outPacket");
+		logWarn("[forward] convertPacket failed.");
 		return ReturnCode::Err;
 	}
-
-	ForwardHeader outHeader;
-	outHeader.ip = inClient->ip;
-	outHeader.protocol = 2;
-
-	if (inHeader->getProtocolFlag(ProtocolFlag::WithAddress)) {
-		// add src address to out packet
-		outHeader.hostID = param.server->id;
-		outHeader.clientID = param.client->id;
-	}
-	outPacket->setHeader(&outHeader);
-
 	param.header = nullptr;
 	param.packet = outPacket;
 	param.client = outClient;
@@ -456,7 +611,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		// broadcast the incoming packet to dest host's peers
 		broadcastPacket(param);
 	}
-	if (debug) getLogger()->info("forward finish");
+	logDebug("forward finish");
 	return ReturnCode::Ok;
 }
 
@@ -464,18 +619,18 @@ ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
+	ForwardHeader* inHeader = inPacket->getHeader();
 	uint8_t * data = inPacket->getDataPtr();
 	size_t dataLength = inPacket->getDataLength();
-	ForwardPacketPtr rawPacket = decodeData(inServer, data, dataLength);
+	decodeData(inServer, inHeader, data, dataLength, curProcessData, curProcessDataLength);
 	curProcessServer = inServer;
 	curProcessClient = inClient;
-	curProcessPacket = rawPacket;
+	curProcessHeader = inHeader;
 	curEvent = Event::Message;
 	return ReturnCode::Ok;
 }
 
 void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
-	auto logger = getLogger();
 	ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
 	UniqID id = wsServer->idGenerator.getNewID();
 	ForwardClientWS* client = poolForwardClientWS.add();
@@ -489,92 +644,175 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	memcpy(&client->ip, ip.data(), 4);
 	wsServer->clients[id] = static_cast<ForwardClient*>(client);
 	wsServer->hdlToClientId[hdl] = id;
-	if (debug) logger->info("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
-	if (debug) logger->info("ip = {0}", client->ip);
-	curEvent = Event::Connected;
+	logDebug("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
+	logDebug("ip = {0}", client->ip);
+	curEvent = Event::Connected; 
+	curProcessServer = wsServer;
+	curProcessClient = client;
+	// sendText(wsServer->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+			aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 }
 
 void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
-	auto logger = getLogger();
 	auto it = wsServer->hdlToClientId.find(hdl);
 	if (it != wsServer->hdlToClientId.end()) {
 		UniqID id = it->second;
-		if (debug) logger->info("[WS,c:{0}] disconnected.", id);
+		logDebug("[WS,c:{0}] disconnected.", id);
 		wsServer->hdlToClientId.erase(it);
 		auto it = wsServer->clients.find(id);
 		if (it != wsServer->clients.end()) {
 			ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
 			wsServer->clients.erase(it);
 			poolForwardClientWS.del(client);
+			curProcessClient = client;
 		}
 	}
+	if (wsServer->isClientMode) {
+		wsServer->clientID = 0;
+	}
+	if (wsServer->isClientMode && wsServer->reconnect) {
+		wsServer->serverAsClient.set_timer(wsServer->reconnectdelay, websocketpp::lib::bind(
+			&ForwardCtrl::onWSReconnectTimeOut,
+			this,
+			websocketpp::lib::placeholders::_1,
+			wsServer
+			));
+	}
+	curProcessServer = wsServer;
 	curEvent = Event::Disconnected;
 }
 
+void ForwardCtrl::onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer) {
+	logDebug("[onWSReconnectTimeOut]");
+	if (ec) {
+		logError("[onWSReconnectTimeOut] err: {0}", ec.message());
+		return;
+	}
+	wsServer->doReconnect();
+}
+
+void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
+	auto con = wsServer->server.get_con_from_hdl(hdl);
+	logDebug("[forwarder] onWSError:");
+	logDebug("get_state:{0}", con->get_state());
+	logDebug("local_close_code:{0}", con->get_local_close_code());
+	logDebug("local_close_reason:{0}", con->get_local_close_reason());
+	logDebug("remote_close_code:{0}", con->get_remote_close_code());
+	logDebug("remote_close_reason:{0}", con->get_remote_close_reason());
+	logDebug("get_ec:{0} ,msg:{1}", con->get_ec().value(), con->get_ec().message());
+	onWSDisconnected(wsServer, hdl);
+}
+
 void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
-	auto logger = getLogger(); 
 	auto it1 = wsServer->hdlToClientId.find(hdl);
 	if (it1 == wsServer->hdlToClientId.end()) {
-		if (debug) logger->error("[onWSReceived] no such hdl");
+		logError("[onWSReceived] no such hdl");
 		return;
 	}
 	UniqID clientID = it1->second;
 	auto it2 = wsServer->clients.find(clientID);
 	if (it2 == wsServer->clients.end()) {
-		if (debug) logger->error("[onWSReceived] no such clientID:{0}",
+		logError("[onWSReceived] no such clientID:{0}",
 			clientID);
 		return;
 	}
 	ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it2->second);
-	if (debug) logger->info("[WS,cli:{0}][len:{1}]",
+	logDebug("[WS,cli:{0}][len:{1}]",
 								clientID,
 								msg->get_payload().size());
 	ForwardHeader header;
-	std::string const & payload = msg->get_payload();
+	const std::string& payload = msg->get_payload();
 	ReturnCode code = getHeader(&header, payload);
 	if (code == ReturnCode::Err) {
-		if (debug) getLogger()->warn("[onWSReceived] getHeader err");
+		logWarn("[onWSReceived] getHeader err");
 		return;
 	}
-	//getLogger()->info("[data]{0}", content);
-	auto it = handleFuncs.find(header.getProtocolType());
+	auto it = handleFuncs.find(header.getProtocol());
 	if (it == handleFuncs.end()) {
-		if (debug) getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocolType());
+		logWarn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
 	ForwardParam param;
 	param.header = &header;
-	param.packet = createPacket(NetType::WS, msg->get_payload().size());
-	const char * content = payload.data() + sizeof(ForwardHeader);
-	param.packet->setData((uint8_t*)content, msg->get_payload().size() - sizeof(ForwardHeader));
+	param.packet = createPacket(payload);
 	param.client = client;
 	param.server = static_cast<ForwardServer*>(wsServer);
 	handlePacketFunc handleFunc = it->second;
 	(this->*handleFunc)(param);
 }
 
-void ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID) {
-	if (debug) getLogger()->info("[cli:{0}][c:{1}][len:{2}]",
-									client->id,
-									channelID,
-									inPacket->dataLength);
+void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
+	UniqID id = server->idGenerator.getNewID();
+	ForwardClientENet* client = poolForwardClientENet.add();
+
+	client->id = id;
+	client->peer = peer;
+	client->ip = peer->address.host;
+	peer->data = client;
+	server->clients[id] = static_cast<ForwardClient*>(client);
+	char str[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, &peer->address.host, str, INET_ADDRSTRLEN);
+	curEvent = Event::Connected;
+	if (server->isClientMode) {
+		server->clientID = id;
+	}
+	logDebug("[ENet,c:{0}] connected, from {1}:{2}.",
+		client->id,
+		str,
+		peer->address.port);
+	logDebug("ip = {0}", client->ip);
+	curProcessClient = client;
+	//sendText(server->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
+		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+}
+
+void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
+	ForwardClientENet* client = peer->data ? (ForwardClientENet*)peer->data : nullptr;
+	if (client) {
+		logDebug("[ENet,c:{0}] disconnected.", client->id);
+		peer->data = nullptr;
+		auto it = server->clients.find(client->id);
+		if (it != server->clients.end())
+			server->clients.erase(it);
+		poolForwardClientENet.del(client);
+	}
+	if (server->isClientMode && server->reconnect) {
+		server->doReconnect();
+	}
+	if (server->isClientMode) {
+		server->clientID = 0;
+	}
+	curEvent = Event::Disconnected;
+	curProcessClient = client;
+}
+
+void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket) {
+	ForwardClient* client = (ForwardClient*)peer->data;
+	logDebug("[cli:{0}][len:{1}]", client->id, inPacket->dataLength);
 	ForwardHeader header;
 	ReturnCode err = getHeader(&header, inPacket);
 	if (err == ReturnCode::Err) {
-		if (debug) getLogger()->warn("[onENetReceived] getHeader err");
+		logWarn("[onENetReceived] getHeader err");
 		return;
 	}
-	const char * content = (const char*)(inPacket->data) + sizeof(header);
-	if (debug) getLogger()->info("[onENetReceived] data:{0}", content);
-	auto it = handleFuncs.find(header.getProtocolType());
-	if (debug) getLogger()->info("[onENetReceived] protocol:{0}", header.getProtocolType());
+	auto it = handleFuncs.find(header.getProtocol());
+	logDebug("[onENetReceived] protocol:{0}", header.getProtocol());
 	if (it == handleFuncs.end()) {
-		if (debug) getLogger()->warn("[onENetReceived] wrong protocol:{0}", header.getProtocolType());
+		logWarn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
 	ForwardParam param;
 	param.header = &header;
-	param.channelID = channelID;
 	param.packet = createPacket(inPacket);
 	param.client = client;
 	param.server = server;
@@ -583,24 +821,24 @@ void ForwardCtrl::onENetReceived(ForwardServer* server, ForwardClient* client, E
 }
 
 ReturnCode ForwardCtrl::validHeader(ForwardHeader* header) {
-	if (header->version != Version) {
-		if (debug) getLogger()->warn("[validHeader] wrong version {0} != {1}", header->version, Version);
-		return ReturnCode::Err;
-	}
-	if (header->length != sizeof(ForwardHeader)) {
-		if (debug) getLogger()->warn("[validHeader] wrong length {0} != {1}", header->length, sizeof(ForwardHeader));
+	if (header->getVersion() != HeaderVersion) {
+		logWarn("[validHeader] wrong version {0} != {1}", header->getVersion(), HeaderVersion);
 		return ReturnCode::Err;
 	}
 	return ReturnCode::Ok;
 }
 
 ReturnCode ForwardCtrl::getHeader(ForwardHeader* header, const std::string& packet) {
-	memcpy(header, (void*)packet.c_str(), sizeof(ForwardHeader));
+	uint8_t* data = (uint8_t*)packet.c_str();
+	memcpy(header, data, HeaderBaseLength);
+	memcpy(header->data, data + HeaderBaseLength, header->getHeaderLength() - HeaderBaseLength);
 	return validHeader(header);
 }
 
 ReturnCode ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
-	memcpy(header, packet->data, sizeof(ForwardHeader));
+	uint8_t* data = packet->data;
+	memcpy(header, data, HeaderBaseLength);
+	memcpy(header->data, data + HeaderBaseLength, header->getHeaderLength() - HeaderBaseLength);
 	return validHeader(header);
 }
 
@@ -608,7 +846,7 @@ ForwardClient* ForwardCtrl::getOutClient(ForwardHeader* inHeader, ForwardServer*
 	ForwardClient* outClient = nullptr;
 	if (!inServer->dest) {
 		// only use inHeader->clientID when inServer has no destServer
-		int clientID = inHeader->clientID;
+		int clientID = inHeader->getClientID();
 		auto it_client = outServer->clients.find(clientID);
 		if (it_client == outServer->clients.end())
 			return nullptr;
@@ -623,7 +861,7 @@ ForwardServer* ForwardCtrl::getOutServer(ForwardHeader* inHeader, ForwardServer*
 		outServer = inServer->dest;
 	}
 	else {
-		int destHostID = inHeader->hostID;
+		int destHostID = inHeader->getHostID();
 		if (!destHostID)
 			return nullptr;
 		outServer = getServerByID(destHostID);
@@ -641,63 +879,29 @@ void ForwardCtrl::pollOnceByServerID(UniqID serverId) {
 
 void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 	ENetEvent event;
-	auto logger = getLogger();
 	curEvent = Event::Nothing;
 	curProcessServer = nullptr;
 	curProcessClient = nullptr;
-	curProcessPacket = nullptr;
+	curProcessHeader = nullptr;
+	curProcessData = nullptr;
+	curProcessDataLength = 0;
 	if (pServer->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
 		int ret = enet_host_service(server->host, &event, 5);
 		if (ret > 0) {
-			if (debug) logger->info("event.type = {}", event.type);
+			logDebug("event.type = {}", event.type);
+			curProcessServer = pServer;
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
-				UniqID id = server->idGenerator.getNewID();
-				ForwardClientENet* client = poolForwardClientENet.add();
-				client->id = id;
-				client->peer = event.peer;
-				client->ip = event.peer->address.host;
-				event.peer->data = client;
-				server->clients[id] = static_cast<ForwardClient*>(client);
-				char str[INET_ADDRSTRLEN];
-				inet_ntop(AF_INET, &event.peer->address.host, str, INET_ADDRSTRLEN);
-				curEvent = Event::Connected;
-				if (server->isClientMode) {
-					server->clientID = id;
-				}
-				if (debug) logger->info("[ENet,c:{0}] connected, from {1}:{2}.",
-					client->id,
-					str,
-					event.peer->address.port);
-				if (debug) logger->info("ip = {0}", client->ip);
-				//sendText(server->id, "hello");
+				onENetConnected(server, event.peer);
 				break;
 			}
 			case ENET_EVENT_TYPE_RECEIVE: {
-				ForwardClient* client = (ForwardClient*)event.peer->data;
-				ENetPacket * inPacket = event.packet;
-				onENetReceived(server, client, inPacket, event.channelID);
+				onENetReceived(server, event.peer, event.packet);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT: {
-				ForwardClientENet* client = event.peer->data ? (ForwardClientENet*)event.peer->data : nullptr;
-				if (client) {
-					if (debug) getLogger()->info("[ENet,c:{0}] disconnected.", client->id);
-					event.peer->data = nullptr;
-					auto it = server->clients.find(client->id);
-					if (it != server->clients.end())
-						server->clients.erase(it);
-					poolForwardClientENet.del(client);
-				}
-				if (server->isClientMode && server->reconnect) {
-					server->doReconnect();
-				}
-				curEvent = Event::Disconnected;				
-				
-				if (server->isClientMode) {
-					server->clientID = 0;
-				}
+				onENetDisconnected(server, event.peer);
 				break;
 			}
 			case ENET_EVENT_TYPE_NONE:
@@ -713,7 +917,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 		else if (ret < 0) {
 			// error
 #ifdef _MSC_VER
-			getLogger()->error("WSAGetLastError(): {0}\n", WSAGetLastError());
+			logError("WSAGetLastError(): {0}\n", WSAGetLastError());
 #endif
 		}
 		//std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -724,13 +928,11 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 	}
 }
 
-
 void ForwardCtrl::pollAllOnce() {
 	for (ForwardServer* pServer : servers) {
 		pollOnce(pServer);
 	}
 }
-
 
 void ForwardCtrl::loop() {
 	while (!isExit) {

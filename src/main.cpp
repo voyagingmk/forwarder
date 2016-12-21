@@ -18,15 +18,21 @@ void onSIGINT(int n)
 int main(int argc, char ** argv)
 {
 	printf("forwarder started.\n");
-	const char * logfilename = argv[1];
-	setupLogger(logfilename);
-
-	auto logger = spdlog::get("my_logger");
-	
-	char * configPath = argv[2];
-	logger->info("config path:{0}", configPath);
+	/*
+	Bytef* dest = nullptr;
+	uLongf destLen = 0;
+	Bytef* data = (Bytef*)"hello";
+	destLen = compressBound(5);
+	dest = new Bytef[destLen];
+	compress(dest, &destLen, data, 5);
+	uLongf origintLen = compressBound(destLen);
+	Bytef* origin = new Bytef[origintLen];
+	uncompress(origin, &origintLen, dest, destLen);
+	*/
+	char * configPath = argv[1];
+	printf("config path:%s\n", configPath);
 	if(!isFileExist(configPath)){	
-		logger->error("config.json not found!");
+		printf("[error] config.json not found!");
 		return EXIT_FAILURE;
 	}
 
@@ -34,11 +40,17 @@ int main(int argc, char ** argv)
 	config.Parse(readFile(configPath).c_str());
 
 	if (enet_initialize() != 0){
-		logger->error("An error occurred while initializing ENet");
+		printf("[error] An error occurred while initializing ENet");
 		return EXIT_FAILURE;
 	}
 
 	ForwardCtrl ctrl;
+	if (argv[2]) {
+		ctrl.setupLogger(argv[2]);
+	}
+	else {
+		ctrl.setupLogger("debug");
+	}
 	ctrl.setDebug(true);
 
 	RegisterSystemSignal(SIGINT, [&](int nSig)->void { ctrl.exist(); });

@@ -7,10 +7,19 @@ namespace forwarder {
 		auto logger = getLogger();
 		desc = serverConfig["desc"].GetString();
 		peerLimit = serverConfig["peers"].GetInt();
+		port = serverConfig["port"].GetInt();
 		admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
 		encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
+		compress = serverConfig.HasMember("compress") && serverConfig["compress"].GetBool();
 		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
 		isClientMode = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
+		reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
+		if (serverConfig.HasMember("reconnectdelay")) {
+			reconnectdelay = serverConfig["reconnectdelay"].GetUint();
+		}
+		if (serverConfig.HasMember("address")) {
+			address = serverConfig["address"].GetString();
+		}
 		if (encrypt) {
 			if (serverConfig.HasMember("encryptkey")) {
 				initCipherKey(serverConfig["encryptkey"].GetString());
@@ -53,10 +62,6 @@ namespace forwarder {
 
 	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
 		ENetAddress enetAddress;
-		port = serverConfig["port"].GetInt();
-		if (serverConfig.HasMember("address")) {
-			address = serverConfig["address"].GetString();
-		}
 		if (!isClientMode) {
 			enet_address_set_host(&enetAddress, "0.0.0.0");
 			enetAddress.port = port;
@@ -78,9 +83,7 @@ namespace forwarder {
 			return;
 		}
 		if (isClientMode) {
-			reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
 			enet_host_connect(host, &enetAddress, channelLimit, 0);
-
 		}
 	}
 
@@ -93,6 +96,7 @@ namespace forwarder {
 	};
 
 	void ForwardServerENet::doDisconnect() {
+		printf("doDisconnect ENet\n");
 		auto it = clients.find(clientID);
 		if (it == clients.end()) {
 			return;
@@ -121,18 +125,81 @@ namespace forwarder {
 	}
 
 	void ForwardServerWS::init(rapidjson::Value& serverConfig) {
-		server.set_error_channels(websocketpp::log::elevel::all);
-		server.set_access_channels(websocketpp::log::alevel::none);
-		server.init_asio();
-		server.listen(serverConfig["port"].GetInt());
-		server.start_accept();
+		if (!isClientMode) {
+			server.set_error_channels(websocketpp::log::elevel::all);
+			server.set_access_channels(websocketpp::log::alevel::none);
+			server.init_asio();
+			server.listen(port);
+			server.start_accept();
+		}
+		else {
+			serverAsClient.set_error_channels(websocketpp::log::elevel::all);
+			serverAsClient.set_access_channels(websocketpp::log::alevel::none);
+			serverAsClient.init_asio();
+			doReconnect();
+		}
 	}
 
 	void  ForwardServerWS::release() {
+		if (!isClientMode) {
+			server.stop();
+		}
+		else {
+			doDisconnect();
+			serverAsClient.stop();
+		}
 		hdlToClientId.clear();
 	}
 
 	void ForwardServerWS::poll() {
-		server.poll_one();
+		if (!isClientMode) {
+			server.poll_one();
+		}
+		else {
+			serverAsClient.poll_one();
+		}
+	}	
+
+	void ForwardServerWS::doReconnect() {
+		std::cout << "[forwarder] [info] [forwarder.WS] doReconnect" << std::endl;
+		if (isConnected()) {
+			return;
+		}
+		std::string uri = getUri();
+		websocketpp::lib::error_code ec;
+		WebsocketClient::connection_ptr con = serverAsClient.get_connection(uri, ec);
+		if (ec) {
+			std::cout << "[forwarder] [error] [forwarder.WS] could not create connection because: " << ec.message() << std::endl;
+			return;
+		}
+		serverAsClient.connect(con);
+	}
+
+	void ForwardServerWS::doDisconnect() {
+		printf("doDisconnect WS\n");
+		auto it = clients.find(clientID);
+		if (it == clients.end()) {
+			return;
+		}
+		ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
+		auto hdl = client->hdl;
+		websocketpp::lib::error_code ec;
+		websocketpp::close::status::value code = websocketpp::close::status::normal;
+		std::string reason = "";
+		serverAsClient.close(hdl, code, reason, ec);
+		if (ec) {
+			std::cout << "[error][forwarder.WS] Error initiating close: " << ec.message() << std::endl;
+		}
+	}
+
+
+	bool ForwardServerWS::isConnected() {
+		auto it = clients.find(clientID);
+		if (it == clients.end()) {
+			return false;
+		}
+		ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
+		auto hdl = client->hdl;
+		return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
 	}
 }

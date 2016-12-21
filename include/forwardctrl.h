@@ -18,7 +18,6 @@ namespace forwarder {
 		ForwardServer* server = nullptr;
 		ForwardClient* client = nullptr;
 		ForwardPacketPtr packet = nullptr;
-		int channelID = 0;
 	};
 	
 
@@ -27,6 +26,14 @@ namespace forwarder {
 		ForwardCtrl();
 
 		virtual ~ForwardCtrl();
+
+		void release();
+	
+		int version() {
+			return ForwarderVersion;
+		}
+
+		void setupLogger(const char* filename = nullptr);
 
 		void setDebug(bool enabled);
 
@@ -40,9 +47,9 @@ namespace forwarder {
 
 		ForwardServer* getServerByID(UniqID serverId) const;
 
-		ReturnCode sendBinary(UniqID serverId, uint8_t* data, size_t dataLength);
+		ReturnCode sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength);
 
-		ReturnCode sendText(UniqID serverId, std::string data);
+		ReturnCode sendText(UniqID serverId, UniqID clientId, std::string data);
 
 		typedef void(*eventCallback)();
 
@@ -64,8 +71,16 @@ namespace forwarder {
 			return curProcessClient;
 		}
 
-		inline ForwardPacketPtr getCurProcessPacket() const {
-			return curProcessPacket;
+		inline ForwardHeader* getCurProcessHeader() const {
+			return curProcessHeader;
+		}
+
+		inline uint8_t* getCurProcessData() const {
+			return curProcessData;
+		}
+
+		inline size_t getCurProcessDataLength() const {
+			return curProcessDataLength;
 		}
 
 		void pollOnceByServerID(UniqID serverId);
@@ -79,29 +94,43 @@ namespace forwarder {
 		rapidjson::Document stat() const;
 
 	private:
-		void onENetReceived(ForwardServer* server, ForwardClient* client, ENetPacket * inPacket, int channelID);
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		void onENetConnected(ForwardServer* server, ENetPeer* peer);
 
+		void onENetDisconnected(ForwardServer* server, ENetPeer* peer);
+
+		void onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket);
+
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		
 		void onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
 
 		void onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
 
+		void onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
+
 		void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
+		
+		void onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer);
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 		ForwardPacketPtr createPacket(NetType netType, size_t len);
 
+		ForwardPacketPtr createPacket(const std::string& packet);
+
 		ForwardPacketPtr createPacket(ENetPacket* packet);
 
-		ForwardPacketPtr encodeData(ForwardServer* outServer, uint8_t* data, size_t dataLength);
+		ForwardPacketPtr encodeData(ForwardServer* outServer, ForwardHeader* outHeader, uint8_t* data, size_t dataLength);
 
-		ForwardPacketPtr decodeData(ForwardServer* outServer, uint8_t* data, size_t dataLength);
+		void decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength);
+		
+		ReturnCode validHeader(ForwardHeader* header);
 
-		ReturnCode validHeader(ForwardHeader * header);
-
-		ReturnCode getHeader(ForwardHeader * header, const std::string& packet);
+		ReturnCode getHeader(ForwardHeader* header, const std::string& packet);
 
 		ReturnCode getHeader(ForwardHeader* header, ENetPacket * packet);
 
-		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer);
+		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, ForwardHeader* outHeader);
 
 		/* ----  protocol   ----- */
 		// System Cmd
@@ -123,8 +152,40 @@ namespace forwarder {
 
 		void broadcastPacket(ForwardParam& param);
 
-		uint8_t* getBuffer() const {
+		uint8_t* getBuffer(uint8_t bufferID, size_t n) {
+			uint8_t* buffer = buffers[bufferID];
+			size_t size = bufferSize[bufferID];
+			if (!buffer || n > size) {
+				while (n > size) {
+					size = size << 1;
+				}
+				if (buffer) {
+					delete buffer;
+				}
+				buffer = new uint8_t[size]{ 0 };
+				buffers[bufferID] = buffer;
+			}
 			return buffer;
+		}
+
+		template <typename... Args>
+		inline void logDebug(const char* fmt, const Args&... args) {
+			if (debug && logger) logger->info(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logInfo(const char* fmt, const Args&... args) {
+			if (debug && logger) logger->info(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logWarn(const char* fmt, const Args&... args) {
+			if (logger) logger->warn(fmt, args...);
+		}
+
+		template <typename... Args>
+		inline void logError(const char* fmt, const Args&... args) {
+			if (logger) logger->error(fmt, args...);
 		}
 
 	private:
@@ -137,18 +198,27 @@ namespace forwarder {
 		std::map<UniqID, ForwardServer*> serverDict;
 		std::map<int, handlePacketFunc> handleFuncs;
 		UniqIDGenerator idGenerator;
-		uint8_t* buffer;
+		uint8_t** buffers;
+		size_t* bufferSize;
 		int serverNum;
 		bool debug;
+		bool released;
 		bool isExit;
 		Base64Codec& base64Codec;
 		Event curEvent;
 		ForwardServer* curProcessServer;
 		ForwardClient* curProcessClient;
-		ForwardPacketPtr curProcessPacket;
+		ForwardHeader* curProcessHeader;
+		uint8_t* curProcessData;
+		size_t curProcessDataLength;
 		static const size_t ivSize = 16;
-	};
+		std::shared_ptr<spdlog::logger> logger;
+		UniqID id;
 
+		// static members
+		static size_t bufferNum;
+		static UniqID ForwardCtrlCount;
+	};
 }
 
 #endif
