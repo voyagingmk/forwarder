@@ -97,6 +97,7 @@ namespace forwarder {
 	}
 
 	void ForwardServerENet::doReconnect() {
+		std::cout << "[forwarder] ENet doReconnect" << std::endl;
 		ENetAddress enetAddress; 
 		enet_address_set_host(&enetAddress, address.c_str());
 		enetAddress.port = port;
@@ -105,7 +106,7 @@ namespace forwarder {
 	};
 
 	void ForwardServerENet::doDisconnect() {
-		printf("doDisconnect ENet\n");
+		std::cout << "[forwarder] ENet doDisconnect" << std::endl;
 		ForwardClient* client = getClient(clientID);
 		if (!client) {
 			return;
@@ -170,7 +171,7 @@ namespace forwarder {
 	}	
 
 	void ForwardServerWS::doReconnect() {
-		std::cout << "[forwarder] [info] [forwarder.WS] doReconnect" << std::endl;
+		std::cout << "[forwarder] WS doReconnect" << std::endl;
 		if (isConnected()) {
 			return;
 		}
@@ -178,14 +179,14 @@ namespace forwarder {
 		websocketpp::lib::error_code ec;
 		WebsocketClient::connection_ptr con = serverAsClient.get_connection(uri, ec);
 		if (ec) {
-			std::cout << "[forwarder] [error] [forwarder.WS] could not create connection because: " << ec.message() << std::endl;
+			std::cout << "[forwarder] WS error, could not create connection because: " << ec.message() << std::endl;
 			return;
 		}
 		serverAsClient.connect(con);
 	}
 
 	void ForwardServerWS::doDisconnect() {
-		printf("doDisconnect WS\n");
+		std::cout << "[forwarder] WS doDisconnect" << std::endl;
 		auto client = getClient(clientID);
 		if (!client) {
 			return;
@@ -197,7 +198,7 @@ namespace forwarder {
 		std::string reason = "";
 		serverAsClient.close(hdl, code, reason, ec);
 		if (ec) {
-			std::cout << "[error][forwarder.WS] Error initiating close: " << ec.message() << std::endl;
+			std::cout << "[forwarder] WS error, initiating close: " << ec.message() << std::endl;
 		}
 	}
 
