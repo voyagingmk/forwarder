@@ -1000,8 +1000,8 @@ Document ForwardCtrl::stat() const {
 			auto add = [&](Value::StringRefType k, Value& v) {
 				dIdGenerator.AddMember(k, v, d.GetAllocator());
 			}; 
-			Value maxCount(server->idGenerator.getCount());
-			Value recyled(server->idGenerator.getPecycledLength());
+			Value maxCount((int)server->idGenerator.getCount());
+			Value recyled((int)server->idGenerator.getPecycledLength());
 			add("max", maxCount);
 			add("recyled", recyled);
 			addToServer("idGenerator", dIdGenerator);
