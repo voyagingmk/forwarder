@@ -39,6 +39,15 @@ namespace forwarder {
 		return spdlog::get(name);
 	}
 
+	template <typename T>
+	std::string to_string(T value)
+	{
+		std::ostringstream os;
+		os << value;
+		return os.str();
+	}
+
+
 	void debugBytes(const char * msg, uint8_t* data, size_t len);
 
 }
