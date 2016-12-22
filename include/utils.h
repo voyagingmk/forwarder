@@ -47,6 +47,13 @@ namespace forwarder {
 		return os.str();
 	}
 
+	template <typename T>
+	T from_string(const std::string& s) {
+		std::stringstream ss(s);
+		T result;
+		ss >> result;
+		return result;
+	}
 
 	void debugBytes(const char * msg, uint8_t* data, size_t len);
 

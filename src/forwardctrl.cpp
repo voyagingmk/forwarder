@@ -126,8 +126,8 @@ ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
 		return ReturnCode::Err;
 	}
 	for (Value::ConstMemberIterator it = protocolConfig.MemberBegin(); it != protocolConfig.MemberEnd(); ++it){
-		std::string protocolID = it->name.GetString();
-		int protocol = std::stoi(protocolID);
+		const std::string protocolID = it->name.GetString();
+		int protocol = from_string<int>(protocolID);
 		std::string name = it->value.GetString();
 		if (name == "SysCmd") {
 			handleFuncs[protocol] = &ForwardCtrl::handlePacket_SysCmd;
