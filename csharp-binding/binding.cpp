@@ -1,11 +1,7 @@
 #include "binding.h"
 #include "forwardctrl.h"
 
-char buffer[256];
 
-forwarder::DebugFuncPtr Debug;
-
-static bool IsENetInited = false;
 
 static forwarder::ForwardCtrl* getForwarder() {
 	static forwarder::ForwardCtrl fwd;
@@ -13,6 +9,7 @@ static forwarder::ForwardCtrl* getForwarder() {
 }
 
 int initENet() {
+	static bool IsENetInited = false;
 	if (!IsENetInited) {
 		int ret = enet_initialize();
 		IsENetInited = true;
@@ -34,7 +31,6 @@ int version() {
 
 void SetDebugFunction(forwarder::DebugFuncPtr fp) {
 	getForwarder()->SetDebugFunction(fp);
-	Debug = fp;
 }
 
 
@@ -59,7 +55,6 @@ void initServers(const char* sConfig) {
 }
 
 uint32_t createServer(const char* sConfig) {
-	Debug(sConfig);
 	rapidjson::Document config;
 	config.Parse(sConfig);
 	return getForwarder()->createServer(config);
