@@ -4,7 +4,6 @@
 namespace forwarder {
 
 	ReturnCode ForwardServer::initCommon(rapidjson::Value& serverConfig) {
-		auto logger = getLogger();
 		desc = serverConfig["desc"].GetString();
 		peerLimit = serverConfig["peers"].GetInt();
 		port = serverConfig["port"].GetInt();
@@ -25,7 +24,7 @@ namespace forwarder {
 				initCipherKey(serverConfig["encryptkey"].GetString());
 			}
 			else {
-				logger->error("no encryptkey");
+				std::cout << "[forwarder] no encryptkey" << std::endl;
 				return ReturnCode::Err;
 			}
 		}
@@ -81,13 +80,21 @@ namespace forwarder {
 		}
 		size_t channelLimit = 1;
 		//address.host = ENET_HOST_ANY;
+		enet_uint32 incomingBandwidth = 0;  /* assume any amount of incoming bandwidth */
+		enet_uint32 outgoingBandwidth = 0;	/* assume any amount of outgoing bandwidth */
+		if (serverConfig.HasMember("bandwidth")) {
+			incomingBandwidth = serverConfig["bandwidth"]["incoming"].GetUint();
+			outgoingBandwidth = serverConfig["bandwidth"]["outgoing"].GetUint();
+			std::cout << "[forwarder] incomingBandwidth:" << incomingBandwidth << ", outgoingBandwidth:" << outgoingBandwidth << std::endl;
+		}
+
 		host = enet_host_create(isClientMode? nullptr: &enetAddress,
 			peerLimit,
 			channelLimit,
-			0      /* assume any amount of incoming bandwidth */,
-			0      /* assume any amount of outgoing bandwidth */);
+			incomingBandwidth,
+			outgoingBandwidth);
 		if (!host) {
-			getLogger()->error("An error occurred while trying to create an ENet server host.");
+			std::cout << "[forwarder] An error occurred while trying to create an ENet server host." << std::endl;
 			exit(1);
 			return;
 		}
