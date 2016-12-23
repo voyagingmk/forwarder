@@ -26,6 +26,7 @@ ForwardCtrl::ForwardCtrl() :
 	curProcessClient(nullptr),
 	curProcessHeader(nullptr),
 	curProcessData(nullptr),
+	debugFunc(nullptr),
 	curProcessDataLength(0),
 	logger(nullptr),
 	id(0)
@@ -180,7 +181,7 @@ ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string d
 	return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size());
 }
 
-ForwardServer* ForwardCtrl::createServerByNetType(NetType netType) {
+ForwardServer* ForwardCtrl::createServerByNetType(NetType& netType) {
 	if (netType == NetType::ENet) {
 		return static_cast<ForwardServer*>(poolForwardServerENet.add());
 	}
@@ -1012,4 +1013,8 @@ Document ForwardCtrl::stat() const {
 	}
 	d.AddMember("servers", lstServers.Move(), d.GetAllocator());
 	return d;
+}
+
+void ForwardCtrl::SetDebugFunction(DebugFuncPtr fp) {
+	debugFunc = fp;
 }

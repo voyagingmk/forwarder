@@ -19,7 +19,8 @@ namespace forwarder {
 		ForwardClient* client = nullptr;
 		ForwardPacketPtr packet = nullptr;
 	};
-	
+
+	typedef void(*DebugFuncPtr)(const char *);
 
 	class ForwardCtrl {
 	public:
@@ -93,6 +94,8 @@ namespace forwarder {
 
 		rapidjson::Document stat() const;
 
+		void SetDebugFunction(DebugFuncPtr fp);
+
 	private:
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		void onENetConnected(ForwardServer* server, ENetPeer* peer);
@@ -140,7 +143,7 @@ namespace forwarder {
 		// process the packet locally
 		ReturnCode handlePacket_Process(ForwardParam& param);
 
-		ForwardServer* createServerByNetType(NetType netType);
+		ForwardServer* createServerByNetType(NetType& netType);
 
 		ForwardClient* createClientByNetType(NetType netType);
 
@@ -171,21 +174,33 @@ namespace forwarder {
 		template <typename... Args>
 		inline void logDebug(const char* fmt, const Args&... args) {
 			if (debug && logger) logger->info(fmt, args...);
+			if (debugFunc) {
+				debugFunc(fmt);
+			}
 		}
 
 		template <typename... Args>
 		inline void logInfo(const char* fmt, const Args&... args) {
 			if (debug && logger) logger->info(fmt, args...);
+			if (debugFunc) {
+				debugFunc(fmt);
+			}
 		}
 
 		template <typename... Args>
 		inline void logWarn(const char* fmt, const Args&... args) {
 			if (logger) logger->warn(fmt, args...);
+			if (debugFunc) {
+				debugFunc(fmt);
+			}
 		}
 
 		template <typename... Args>
 		inline void logError(const char* fmt, const Args&... args) {
 			if (logger) logger->error(fmt, args...);
+			if (debugFunc) {
+				debugFunc(fmt);
+			}
 		}
 
 	private:
@@ -214,6 +229,7 @@ namespace forwarder {
 		static const size_t ivSize = 16;
 		std::shared_ptr<spdlog::logger> logger;
 		UniqID id;
+		DebugFuncPtr debugFunc;
 
 		// static members
 		static size_t bufferNum;
