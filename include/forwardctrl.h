@@ -51,6 +51,8 @@ namespace forwarder {
 		ReturnCode sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength);
 
 		ReturnCode sendText(UniqID serverId, UniqID clientId, std::string data);
+	
+		ReturnCode sendText(UniqID serverId, UniqID clientId, const char* data);
 
 		typedef void(*eventCallback)();
 
@@ -170,7 +172,7 @@ namespace forwarder {
 			}
 			return buffer;
 		}
-
+	public:
 		template <typename... Args>
 		inline void logDebug(const char* fmt, const Args&... args) {
 			if (debug && logger) logger->info(fmt, args...);

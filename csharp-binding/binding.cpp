@@ -138,8 +138,11 @@ uint32_t getCurProcessClientID() {
 	return 0;
 }
 
-uint8_t* getCurProcessPacket() {
-	return nullptr;
+void getCurProcessPacket(uint8_t** data, int* len) {
+	size_t l = getForwarder()->getCurProcessDataLength();
+	*len = l;	
+	uint8_t* d = getForwarder()->getCurProcessData();
+	*data = d;
 }
 
 void pollOnceByServerID(int serverId) {

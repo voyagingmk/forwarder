@@ -181,6 +181,10 @@ ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string d
 	return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size());
 }
 
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data) {
+	return sendBinary(serverId, clientId, (uint8_t*)data, strlen(data));
+}
+
 ForwardServer* ForwardCtrl::createServerByNetType(NetType& netType) {
 	if (netType == NetType::ENet) {
 		return static_cast<ForwardServer*>(poolForwardServerENet.add());
@@ -884,7 +888,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
 		int ret = enet_host_service(server->host, &event, 5);
 		if (ret > 0) {
-			logDebug("event.type = {}", event.type);
+			logDebug("event.type = {0}", event.type);
 			curProcessServer = pServer;
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {

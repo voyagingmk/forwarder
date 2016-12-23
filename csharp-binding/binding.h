@@ -45,7 +45,7 @@ DLL_EXPORT uint32_t getCurProcessServerID();
 
 DLL_EXPORT uint32_t getCurProcessClientID();
 
-DLL_EXPORT uint8_t* getCurProcessPacket();
+DLL_EXPORT void getCurProcessPacket(uint8_t** data, int* len);
 
 DLL_EXPORT void pollOnceByServerID(int serverId);
 
