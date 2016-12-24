@@ -30,6 +30,9 @@ namespace forwarder {
 #ifdef DEBUG_MODE
 			printf("[forwarder] ForwardServer created, netType:%d\n", int(netType));
 #endif
+			ruleDict[0] = HandleRule::SysCmd;
+			ruleDict[2] = HandleRule::Forward;
+			ruleDict[3] = HandleRule::Process;
 		}
 
 		~ForwardServer() {
@@ -48,6 +51,8 @@ namespace forwarder {
 		void initCipherKey(const char* key);
 		bool hasConsistConfig(ForwardServer*);
 		ForwardClient* getClient(UniqID clientId);
+		void setRule(ProtocolID id, HandleRule rule);
+		HandleRule getRule(ProtocolID id);
 
 		// used for client mode
 		virtual void doReconnect() {};
@@ -69,6 +74,7 @@ namespace forwarder {
 		std::map<UniqID, ForwardClient*> clients;
 		std::string desc;
 		uint16_t port;
+		std::map<ProtocolID, HandleRule> ruleDict;
 
 		// used for client mode
 		bool isClientMode;

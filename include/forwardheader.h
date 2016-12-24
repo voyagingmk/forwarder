@@ -141,7 +141,7 @@ dynamic data sequence by flag
 			*((uint32_t*)(data + getFlagPos(HeaderFlag::IP))) = ip;
 		}
 
-		inline uint32_t getUncompressedSize() {
+		inline size_t getUncompressedSize() {
 			return *((size_t*)(data + getFlagPos(HeaderFlag::Compress)));
 		}
 

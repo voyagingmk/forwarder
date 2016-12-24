@@ -18,7 +18,7 @@ DLL_EXPORT void setupLogger(const char* filename);
 
 DLL_EXPORT void setDebug(bool debug);
 
-DLL_EXPORT int initProtocolMap(const char* config);
+DLL_EXPORT void setProtocolRule(int serverId, int protocolId, const char* rule);
 
 DLL_EXPORT void initServers(const char* sConfig);
 

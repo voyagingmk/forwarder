@@ -41,9 +41,9 @@ ForwardCtrl::ForwardCtrl() :
 		buffers[i] = new uint8_t[bufferSize[i]]{ 0 };
 	}
 	//default
-	handleFuncs[0] = &ForwardCtrl::handlePacket_SysCmd;
-	handleFuncs[2] = &ForwardCtrl::handlePacket_Forward;
-	handleFuncs[3] = &ForwardCtrl::handlePacket_Process;
+	handleFuncs[HandleRule::SysCmd] = &ForwardCtrl::handlePacket_SysCmd;
+	handleFuncs[HandleRule::Forward] = &ForwardCtrl::handlePacket_Forward;
+	handleFuncs[HandleRule::Process] = &ForwardCtrl::handlePacket_Process;
 	id = ++ForwardCtrlCount;
 }
 
@@ -122,24 +122,6 @@ void ForwardCtrl::setDebug(bool enabled) {
 	if(logger) logger->set_level(spdlog::level::debug);
 }
 
-ReturnCode ForwardCtrl::initProtocolMap(rapidjson::Value& protocolConfig) {
-	if (protocolConfig.IsNull()) {
-		return ReturnCode::Err;
-	}
-	for (Value::ConstMemberIterator it = protocolConfig.MemberBegin(); it != protocolConfig.MemberEnd(); ++it){
-		const std::string protocolID = it->name.GetString();
-		int protocol = from_string<int>(protocolID);
-		std::string name = it->value.GetString();
-		if (name == "SysCmd") {
-			handleFuncs[protocol] = &ForwardCtrl::handlePacket_SysCmd;
-		} else if (name == "Forward") {
-			handleFuncs[protocol] = &ForwardCtrl::handlePacket_Forward;
-		} else if (name == "Process") {
-			handleFuncs[protocol] = &ForwardCtrl::handlePacket_Process;
-		}
-	}
-	return ReturnCode::Ok;
-}
 
 ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
 	ForwardServer* outServer = getServerByID(serverId);
@@ -238,7 +220,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	ForwardServer* server = createServerByNetType(netType);
 	ReturnCode code = server->initCommon(serverConfig);
 	if (code == ReturnCode::Err) {
-		return code;
+		return  static_cast<uint32_t>(code);
 	}
 	server->id = serverConfig["id"].GetInt();
 	servers.push_back(server);
@@ -536,8 +518,8 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		d.Accept(writer);
 		const char* statJson = buffer.GetString();
-		int statJsonLength = strlen(statJson);
-		int totalLength = outHeader.getHeaderLength() + statJsonLength + 1;
+		size_t statJsonLength = strlen(statJson);
+		size_t totalLength = outHeader.getHeaderLength() + statJsonLength + 1;
 		ForwardPacketPtr packet = createPacket(param.server->netType, totalLength);
 		packet->setHeader(&outHeader);
 		packet->setData((uint8_t*)(statJson), statJsonLength);
@@ -734,17 +716,17 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 		logWarn("[onWSReceived] getHeader err");
 		return;
 	}
-	auto it = handleFuncs.find(header.getProtocol());
-	if (it == handleFuncs.end()) {
-		logWarn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
+	HandleRule rule = wsServer->getRule(header.getProtocol());
+	if (rule == HandleRule::Unknown) {
+		logWarn("[onWSReceived] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
+	handlePacketFunc handleFunc = handleFuncs[rule];
 	ForwardParam param;
 	param.header = &header;
 	param.packet = createPacket(payload);
 	param.client = client;
 	param.server = static_cast<ForwardServer*>(wsServer);
-	handlePacketFunc handleFunc = it->second;
 	(this->*handleFunc)(param);
 }
 
@@ -807,18 +789,17 @@ void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPack
 		logWarn("[onENetReceived] getHeader err");
 		return;
 	}
-	auto it = handleFuncs.find(header.getProtocol());
-	logDebug("[onENetReceived] protocol:{0}", header.getProtocol());
-	if (it == handleFuncs.end()) {
+	HandleRule rule = server->getRule(header.getProtocol());
+	if (rule == HandleRule::Unknown) {
 		logWarn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
+	handlePacketFunc handleFunc = handleFuncs[rule];
 	ForwardParam param;
 	param.header = &header;
 	param.packet = createPacket(inPacket);
 	param.client = client;
 	param.server = server;
-	handlePacketFunc handleFunc = it->second;
 	(this->*handleFunc)(param);
 }
 

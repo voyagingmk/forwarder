@@ -42,10 +42,25 @@ void setDebug(bool debug) {
 	getForwarder()->setDebug(debug);
 }
 
-int initProtocolMap(const char* sConfig) {
-	rapidjson::Document config;
-	config.Parse(sConfig);
-	return getForwarder()->initProtocolMap(config);
+void setProtocolRule(int serverId, int protocolId, const char* sRule) {
+	forwarder::ForwardServer* server = getForwarder()->getServerByID(serverId);
+	if (!server) {
+		return;
+	}
+	forwarder::HandleRule rule = forwarder::HandleRule::Unknown;
+	if (strcmp(sRule, "SysCmd") == 0) {
+		rule = forwarder::HandleRule::SysCmd;
+	}
+	else if (strcmp(sRule, "Forward") == 0) {
+		rule = forwarder::HandleRule::Forward;
+	}
+	else if (strcmp(sRule, "Process") == 0) {
+		rule = forwarder::HandleRule::Process;
+	}
+	else {
+		return;
+	}
+	server->setRule(protocolId, rule);
 }
 
 void initServers(const char* sConfig) {
@@ -61,7 +76,7 @@ uint32_t createServer(const char* sConfig) {
 }
 
 uint32_t removeServerByID(int serverId) {
-	return getForwarder()->removeServerByID(serverId);
+	return  static_cast<uint32_t>(getForwarder()->removeServerByID(serverId));
 }
 
 bool disconnect(int serverId) {
@@ -109,16 +124,16 @@ void setPingInterval(int serverId, int interval) {
 
 uint32_t sendText(int serverId, int clientId, const char* data) {
 	auto ret = getForwarder()->sendText(serverId, clientId, data);
-	return ret;
+	return static_cast<uint32_t>(ret);
 }
 
 uint32_t sendBinary(int serverId, int clientId, void* data, int length) {
 	auto ret = getForwarder()->sendBinary(serverId, clientId, (uint8_t*)data, length);
-	return ret;
+	return  static_cast<uint32_t>(ret);
 }
 
 uint32_t getCurEvent() {
-	return getForwarder()->getCurEvent();
+	return static_cast<uint32_t>(getForwarder()->getCurEvent());
 }
 
 // inline ForwardServer* getCurProcessServer();

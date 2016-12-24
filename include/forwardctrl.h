@@ -38,8 +38,6 @@ namespace forwarder {
 
 		void setDebug(bool enabled);
 
-		ReturnCode initProtocolMap(rapidjson::Value& protocolConfig);
-
 		void initServers(rapidjson::Value& serversConfig);
 
 		uint32_t createServer(rapidjson::Value& serverConfig);
@@ -213,7 +211,7 @@ namespace forwarder {
 		Pool<ForwardClientWS> poolForwardClientWS;
 		std::vector<ForwardServer*> servers;
 		std::map<UniqID, ForwardServer*> serverDict;
-		std::map<int, handlePacketFunc> handleFuncs;
+		std::map<HandleRule, handlePacketFunc> handleFuncs;
 		UniqIDGenerator idGenerator;
 		uint8_t** buffers;
 		size_t* bufferSize;

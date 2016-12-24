@@ -68,6 +68,20 @@ namespace forwarder {
 		AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
 	}
 
+	void ForwardServer::setRule(ProtocolID id, HandleRule rule) {
+		ruleDict[id] = rule;
+	}
+
+	HandleRule ForwardServer::getRule(ProtocolID id) {
+		auto it = ruleDict.find(id);
+		if (it == ruleDict.end()) {
+			return HandleRule::Unknown;
+		}
+		return it->second;
+	}
+
+
+
 	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
 		ENetAddress enetAddress;
 		if (!isClientMode) {
