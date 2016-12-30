@@ -867,7 +867,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 	curProcessDataLength = 0;
 	if (pServer->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
-		int ret = enet_host_service(server->host, &event, 5);
+		int ret = enet_host_service(server->host, &event, 0);
 		if (ret > 0) {
 			logDebug("event.type = {0}", event.type);
 			curProcessServer = pServer;
