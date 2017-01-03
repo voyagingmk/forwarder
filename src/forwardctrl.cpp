@@ -123,7 +123,7 @@ void ForwardCtrl::setDebug(bool enabled) {
 }
 
 
-ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
+ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, UniqID headerClientId) {
 	ForwardServer* outServer = getServerByID(serverId);
 	if (!outServer) {
 		return ReturnCode::Err;
@@ -141,6 +141,10 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 		outHeader.setFlag(HeaderFlag::Encrypt, true);
 	if (outServer->compress)
 		outHeader.setFlag(HeaderFlag::Compress, true);
+	if (headerClientId > 0) {
+		outHeader.setFlag(HeaderFlag::ClientID, true); 
+		outHeader.setClientID(headerClientId);
+	}
 	outHeader.resetHeaderLength();
 	ForwardPacketPtr packet = encodeData(outServer, &outHeader, data, dataLength);
 	if (!packet)
@@ -159,12 +163,12 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 	return ReturnCode::Ok;
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string data) {
-	return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size());
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string data, UniqID headerClientId) {
+	return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size(), headerClientId);
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data) {
-	return sendBinary(serverId, clientId, (uint8_t*)data, strlen(data));
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data, UniqID headerClientId) {
+	return sendBinary(serverId, clientId, (uint8_t*)data, strlen(data), headerClientId);
 }
 
 ForwardServer* ForwardCtrl::createServerByNetType(NetType& netType) {
