@@ -41,4 +41,10 @@ namespace forwarder {
 		std::cout << std::endl;
 	}
 
+	std::string transIP(uint32_t ip) {
+		char str[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &ip, str, INET_ADDRSTRLEN);
+		return std::string(str);
+	}
+
 }

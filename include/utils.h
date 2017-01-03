@@ -57,6 +57,7 @@ namespace forwarder {
 
 	void debugBytes(const char * msg, uint8_t* data, size_t len);
 
+	std::string transIP(uint32_t ip);
 }
 
 #endif
