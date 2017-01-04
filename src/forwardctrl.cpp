@@ -853,15 +853,15 @@ ForwardServer* ForwardCtrl::getOutServer(ForwardHeader* inHeader, ForwardServer*
 	return outServer;
 }
 
-void ForwardCtrl::pollOnceByServerID(UniqID serverId) {
+void ForwardCtrl::pollOnceByServerID(UniqID serverId, int ms) {
 	ForwardServer* pServer = getServerByID(serverId);
 	if (!pServer) {
 		return;
 	}
-	pollOnce(pServer);
+	pollOnce(pServer, ms);
 }
 
-void ForwardCtrl::pollOnce(ForwardServer* pServer) {
+void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 	ENetEvent event;
 	curEvent = Event::Nothing;
 	curProcessServer = nullptr;
@@ -871,7 +871,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer) {
 	curProcessDataLength = 0;
 	if (pServer->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
-		int ret = enet_host_service(server->host, &event, 0);
+		int ret = enet_host_service(server->host, &event, ms);
 		if (ret > 0) {
 			logDebug("event.type = {0}", event.type);
 			curProcessServer = pServer;

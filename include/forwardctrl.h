@@ -84,9 +84,9 @@ namespace forwarder {
 			return curProcessDataLength;
 		}
 
-		void pollOnceByServerID(UniqID serverId);
+		void pollOnceByServerID(UniqID serverId, int ms = 0);
 		
-		void pollOnce(ForwardServer* server);
+		void pollOnce(ForwardServer* server, int ms = 0);
 
 		void pollAllOnce();
 
