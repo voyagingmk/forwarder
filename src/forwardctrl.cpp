@@ -831,11 +831,8 @@ ReturnCode ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
 
 ForwardClient* ForwardCtrl::getOutClient(ForwardHeader* inHeader, ForwardServer* inServer, ForwardServer* outServer) const {
 	ForwardClient* outClient = nullptr;
-	if (!inServer->dest) {
-		// only use inHeader->clientID when inServer has no destServer
-		int clientID = inHeader->getClientID();
-		outClient = outServer->getClient(clientID);
-	}
+	int clientID = inHeader->getClientID();
+	outClient = outServer->getClient(clientID);
 	return outClient;
 }
 
