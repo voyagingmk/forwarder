@@ -543,8 +543,9 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 		inServer, packet->getHeader(),
 		packet->getDataPtr(), packet->getDataLength(),
 		rawData, rawDataLength);
-	logDebug("raw data:{0}", rawData);
+	//logDebug("raw data:{0}", rawData);
 	if (!rawData || rawDataLength <= 0) {
+		logError("[convertPacket] no raw data");
 		return nullptr;
 	}
 	ForwardPacketPtr outPacket = encodeData(outServer, outHeader, rawData, rawDataLength);
