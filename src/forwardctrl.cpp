@@ -111,7 +111,7 @@ void ForwardCtrl::setupLogger(const char* filename) {
 		spdlog::drop(name);
 	}
 	spdlog::register_logger(logger);
-	logger->flush_on(spdlog::level::err);
+    logger->flush_on(spdlog::level::debug);
 	spdlog::set_pattern("[%D %H:%M:%S:%e][%l] %v");
 	spdlog::set_level(spdlog::level::info);
 	logInfo("logger created successfully.");
