@@ -166,6 +166,7 @@ namespace forwarder {
 					delete buffer;
 				}
 				buffer = new uint8_t[size]{ 0 };
+                bufferSize[bufferID] = size;
 				buffers[bufferID] = buffer;
 			}
 			return buffer;

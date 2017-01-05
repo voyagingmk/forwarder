@@ -376,21 +376,26 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	ForwardServer* outServer, ForwardHeader* outHeader, 
 	uint8_t* data, size_t dataLength) 
 {
-	if (debug) debugBytes("encodeData, raw Data", data, dataLength);
+	//if (debug) debugBytes("encodeData, raw Data", data, dataLength);
 	if (outServer->compress) {
 		size_t bufferLen = compressBound(dataLength);
-		logDebug("encodeData, compressBound={0}", bufferLen);
+		//logDebug("encodeData, compressBound={0}", bufferLen);
 		uint8_t* newData = getBuffer(0, bufferLen);
+        if(!newData) {
+            logError("[encodeData] step_Compress no newData");
+            return nullptr;
+        }
 		uLongf realLen = bufferLen;
 		outHeader->setUncompressedSize(dataLength);// used for uncompression
 		int ret = compress((Bytef*)newData, &realLen, data, dataLength);
 		if (ret == Z_OK) {
 			data = newData;
-			dataLength = realLen;
-			if (debug) debugBytes("encodeData, compressed", data, dataLength);
+            dataLength = realLen;
+            logDebug("[encodeData] after step_Compress dataLength:{0}", dataLength);
+			//if (debug) debugBytes("encodeData, compressed", data, dataLength);
 		}
 		else {
-			logError("compress failed");
+            logError("[encodeData] step_Compress, compress failed.");
 			if (ret == Z_MEM_ERROR)
 				logError("Z_MEM_ERROR");
 			else if (ret == Z_BUF_ERROR)
@@ -406,7 +411,11 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		static std::mt19937 gen(rd());
 		static std::uniform_int_distribution<> dis(0, int(std::pow(2, 8)) - 1);
 		uint8_t* newData = getBuffer(1, dataLength + ivSize);
-		uint8_t* iv = newData;
+        if(!newData) {
+            logError("[encodeData] step_Encrypt no newData");
+            return nullptr;
+        }
+        uint8_t* iv = newData;
 		uint8_t ivTmp[ivSize];
 		for (int i = 0; i < ivSize; i++) {
 			iv[i] = dis(gen);
@@ -417,78 +426,111 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		unsigned int num = 0;
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
 		data = newData;
-		dataLength = dataLength + ivSize;
-		if (debug) debugBytes("encodeData, encrypted", data, dataLength);
+        dataLength = dataLength + ivSize;
+        logDebug("[encodeData] after step_Encrypt dataLength:{0}", dataLength);
+		//if (debug) debugBytes("encodeData, encrypted", data, dataLength);
 	}
 
 	std::string b64("");
 	if (outServer->base64) {
 		b64 = base64Codec.fromByteArray(data, dataLength);
 		data = (uint8_t*)b64.c_str();
-		dataLength = b64.size();
-		if (debug) debugBytes("encodeData, b64", data, dataLength);
+        dataLength = b64.size();
+        logDebug("[encodeData] after step_Base64 dataLength:{0}", dataLength);
+		//if (debug) debugBytes("encodeData, b64", data, dataLength);
 	}
-
+    if(!data || !dataLength){
+        logError("[encodeData] final, no data");
+        return nullptr;
+    }
 	//3. make packet
 	ForwardPacketPtr newPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + dataLength);
 	// copy
 	newPacket->setHeader(outHeader);
 	newPacket->setData(data, dataLength);
-	if (debug) debugBytes("encodeData, final", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
+	//if (debug) debugBytes("encodeData, final", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
 	return newPacket;
 }
 
 void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength) {
 	outData = data;
 	outDataLength = dataLength;
-	logDebug("inHeader,ver={0},len={1},ip={2}", inHeader->getVersion(), inHeader->getHeaderLength(), inHeader->getIP());
-	if (debug) debugBytes("decodeData, inHeader'data", inHeader->data, inHeader->getHeaderLength() - HeaderBaseLength);
+    if(!outData || !outDataLength) {
+        return;
+    }
+	//logDebug("inHeader,ver={0},len={1},ip={2}",
+    //    inHeader->getVersion(), inHeader->getHeaderLength(), inHeader->getIP());
+	//if (debug) debugBytes("decodeData, inHeader'data", inHeader->data, inHeader->getHeaderLength() - HeaderBaseLength);
 	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
-		if (debug) debugBytes("decodeData, originData", data, dataLength);
+		//if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
 		uint8_t* newData = getBuffer(0, newDataLength);
+        if(!newData) {
+            logError("[decodeData] step_Base64 no newData");
+            outData = nullptr;
+            outDataLength = 0;
+            return;
+        }
 		base64Codec.toByteArray((const char*)data, dataLength, newData, &newDataLength);
 		outData = newData;
 		outDataLength = newDataLength;
-		if (debug) debugBytes("decodeData, base64decoded Data", outData, outDataLength);
+		//if (debug) debugBytes("decodeData, base64decoded Data", outData, outDataLength);
+        logDebug("[decodeData] after step_Base64 outDataLength:{0}", outDataLength);
 	}
-
+    if(!outData || !outDataLength) {
+        return;
+    }
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
 		size_t newDataLength = outDataLength - ivSize;
 		uint8_t* encryptedData = outData + ivSize;
 		uint8_t* newData = getBuffer(1, newDataLength);
+        if(!newData) {
+            logError("[decodeData] step_Encrypt no newData");
+            outData = nullptr;
+            outDataLength = 0;
+            return;
+        }
 		uint8_t* iv = outData;
 		unsigned char ecount_buf[AES_BLOCK_SIZE];
 		unsigned int num = 0;
 		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
 		outData = newData;
 		outDataLength = newDataLength;
-		if (debug) debugBytes("decodeData, decrypted Data", outData, outDataLength);
+        logDebug("[decodeData] after step_Encrypt outDataLength:{0}", outDataLength);
+		//if (debug) debugBytes("decodeData, decrypted Data", outData, outDataLength);
 	}
-
-
+    if(!outData || !outDataLength) {
+        return;
+    }
 	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
 		uLongf bufferLen = inHeader->getUncompressedSize();
 		uint8_t* newData = getBuffer(2, bufferLen);
+        if(!newData) {
+            logError("[decodeData] step_Compress, no newData");
+            outData = nullptr;
+            outDataLength = 0;
+            return;
+        }
 		uLongf realLen = bufferLen;
 		int ret = uncompress((Bytef*)newData, &realLen, outData, outDataLength);
-		logInfo("uncompress, bufferLen={0},realLen={1},outDataLength={2}",
-			bufferLen, realLen, outDataLength);
+		//logInfo("uncompress, bufferLen={0},realLen={1},outDataLength={2}",
+		//	bufferLen, realLen, outDataLength);
 		if (ret == Z_OK) {
 			outData = newData;
-			outDataLength = realLen;
-			if (debug) debugBytes("decodeData, uncompressed Data", outData, outDataLength);
+            outDataLength = realLen;
+            logDebug("[decodeData] after step_Compress outDataLength:{0}", outDataLength);
+			//if (debug) debugBytes("decodeData, uncompressed Data", outData, outDataLength);
 		}
-		else {
-			logError("uncompress failed");
+        else {
+            outData = nullptr;
+            outDataLength = 0;
+			logError("[decodeData] step_Compress, uncompress failed");
 			if (ret == Z_MEM_ERROR)
 				logError("Z_MEM_ERROR");
 			else if (ret == Z_BUF_ERROR)
 				logError("Z_BUF_ERROR");
 			else if (ret == Z_DATA_ERROR)
 				logError("Z_DATA_ERROR");
-			outData = nullptr;
-			outDataLength = 0;
 		}
 	}
 
