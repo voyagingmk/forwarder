@@ -143,13 +143,13 @@ dynamic data sequence by flag
 			*((uint32_t*)(data + getFlagPos(HeaderFlag::IP))) = ip;
 		}
 
-		inline size_t getUncompressedSize() {
-			return *((size_t*)(data + getFlagPos(HeaderFlag::Compress)));
-		}
-
-		inline void setUncompressedSize(size_t size) {
-			*((size_t*)(data + getFlagPos(HeaderFlag::Compress))) = size;
-		}
+        inline uint32_t getUncompressedSize() {
+            return ntohl(*((uint32_t*)(data + getFlagPos(HeaderFlag::Compress))));
+        }
+        
+        inline void setUncompressedSize(uint32_t size) {
+            *((uint32_t*)(data + getFlagPos(HeaderFlag::Compress))) = htonl(size);
+        }
 	public:
 		uint8_t version = HeaderVersion;
 		uint8_t length = 0;

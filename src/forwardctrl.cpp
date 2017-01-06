@@ -472,7 +472,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
             return nullptr;
         }
 		uLongf realLen = bufferLen;
-		outHeader->setUncompressedSize(dataLength);// used for uncompression
+        outHeader->setUncompressedSize(static_cast<uint32_t>(dataLength));// used for uncompression
 		int ret = compress((Bytef*)newData, &realLen, data, dataLength);
 		if (ret == Z_OK) {
 			data = newData;
