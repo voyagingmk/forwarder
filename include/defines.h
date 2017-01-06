@@ -5,7 +5,8 @@ namespace forwarder {
 
 	constexpr int ForwarderVersion = 1;
 	constexpr int HeaderVersion = 1;
-
+	constexpr int MaxBufferSize = 1024 * 1024 * 256; // 256 MB
+    
 	enum class ReturnCode {
 		Ok = 1,
 		Err = 2

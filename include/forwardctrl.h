@@ -185,23 +185,7 @@ namespace forwarder {
 
 		void broadcastPacket(ForwardParam& param);
 
-		uint8_t* getBuffer(uint8_t bufferID, size_t n) {
-			uint8_t* buffer = buffers[bufferID];
-			size_t size = bufferSize[bufferID];
-			if (!buffer || n > size) {
-				while (n > size) {
-					size = size << 1;
-				}
-				if (buffer) {
-					delete buffer;
-				}
-				buffer = new uint8_t[size]{ 0 };
-                logDebug("[forwarder] change buffer[{0}] size: {1}=>{2} success.", bufferID, bufferSize[bufferID], size);
-                bufferSize[bufferID] = size;
-				buffers[bufferID] = buffer;
-			}
-			return buffer;
-		}
+        uint8_t* getBuffer(uint8_t bufferID, size_t n);
 	public:
 		template <typename... Args>
 		inline void logDebug(const char* fmt, const Args&... args) {

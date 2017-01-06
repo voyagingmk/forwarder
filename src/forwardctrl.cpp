@@ -307,6 +307,27 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 	}
 }
 
+uint8_t* ForwardCtrl::getBuffer(uint8_t bufferID, size_t n) {
+    if(n > MaxBufferSize) {
+        logError("[forwarder] getBuffer[{0}], exceed max size: {1}", bufferID, n);
+        return nullptr;
+    }
+    uint8_t* buffer = buffers[bufferID];
+    size_t size = bufferSize[bufferID];
+    if (!buffer || n > size) {
+        while (n > size) {
+            size = size << 1;
+        }
+        if (buffer) {
+            delete buffer;
+        }
+        buffer = new uint8_t[size]{ 0 };
+        logDebug("[forwarder] change buffer[{0}] size: {1}=>{2} success.", bufferID, bufferSize[bufferID], size);
+        bufferSize[bufferID] = size;
+        buffers[bufferID] = buffer;
+    }
+    return buffer;
+}
 
 
 ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
