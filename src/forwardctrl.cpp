@@ -582,7 +582,6 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 
 ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	logDebug("forward begin");
-
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
@@ -593,8 +592,15 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		logWarn("[forward] no outServer");
 		return ReturnCode::Err;
 	}
-
-	ForwardClient* outClient = getOutClient(inHeader, inServer, outServer);
+	int clientID = inHeader->getClientID();
+    ForwardClient* outClient;
+    if(clientID) {
+        outClient = getOutClient(inHeader, inServer, outServer);
+        if(!outClient) {
+            logWarn("[forward] outClient[{0}] not found.", clientID);
+            return;
+        }
+    }
 
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
@@ -638,12 +644,12 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	if (outClient) {
 		//single send
 		sendPacket(param);
-	}
-	else {
-		// broadcast the incoming packet to dest host's peers
-		broadcastPacket(param);
-	}
-	logDebug("forward finish");
+    }
+    else {
+        // broadcast the incoming packet to dest host's peers
+        broadcastPacket(param);
+    }
+    logDebug("forward finish");
 	return ReturnCode::Ok;
 }
 
@@ -677,7 +683,6 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	wsServer->clients[id] = static_cast<ForwardClient*>(client);
 	wsServer->hdlToClientId[hdl] = id;
 	logDebug("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
-	logDebug("ip = {0}", client->ip);
 	curEvent = Event::Connected; 
 	curProcessServer = wsServer;
 	curProcessClient = client;
@@ -743,29 +748,26 @@ void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_h
 void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
 	auto it1 = wsServer->hdlToClientId.find(hdl);
 	if (it1 == wsServer->hdlToClientId.end()) {
-		logError("[onWSReceived] no such hdl");
+		logError("[forwarder][ws.recv] no such hdl");
 		return;
 	}
 	UniqID clientID = it1->second;
 	ForwardClient* client = wsServer->getClient(clientID);
 	if (!client) {
-		logError("[onWSReceived] no such clientID:{0}",
-			clientID);
+		logError("[forwarder][ws.recv] no such cli:{0}", clientID);
 		return;
 	}
-	logDebug("[WS,cli:{0}][len:{1}]",
-								clientID,
-								msg->get_payload().size());
+	logDebug("[forwarder][ws.recv][{0}][cli:{1}][len:{2}]", wsServer->desc, clientID, msg->get_payload().size());
 	ForwardHeader header;
 	const std::string& payload = msg->get_payload();
 	ReturnCode code = getHeader(&header, payload);
 	if (code == ReturnCode::Err) {
-		logWarn("[onWSReceived] getHeader err");
+		logWarn("[forwarder][ws.recv] getHeader err");
 		return;
 	}
 	HandleRule rule = wsServer->getRule(header.getProtocol());
 	if (rule == HandleRule::Unknown) {
-		logWarn("[onWSReceived] wrong protocol:{0}", header.getProtocol());
+		logWarn("[forwarder][ws.recv] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
 	handlePacketFunc handleFunc = handleFuncs[rule];
@@ -792,11 +794,10 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 	if (server->isClientMode) {
 		server->clientID = id;
 	}
-	logDebug("[ENet,c:{0}] connected, from {1}:{2}.",
+	logDebug("[forwarder][enet][c:{0}] connected, from {1}:{2}.",
 		client->id,
 		str,
 		peer->address.port);
-	logDebug("ip = {0}", client->ip);
 	curProcessClient = client;
 	//sendText(server->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
 		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
@@ -810,7 +811,7 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
 	ForwardClientENet* client = peer->data ? (ForwardClientENet*)peer->data : nullptr;
 	if (client) {
-		logDebug("[ENet,c:{0}] disconnected.", client->id);
+		logDebug("[forwarder][enet][c:{0}] disconnected.", client->id);
 		peer->data = nullptr;
 		auto it = server->clients.find(client->id);
 		if (it != server->clients.end())
@@ -829,16 +830,16 @@ void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
 
 void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket) {
 	ForwardClient* client = (ForwardClient*)peer->data;
-	logDebug("[cli:{0}][len:{1}]", client->id, inPacket->dataLength);
+	logDebug("[forwarder][enet.recv][{0}][cli:{1}][len:{2}]", server->desc, client->id, inPacket->dataLength);
 	ForwardHeader header;
 	ReturnCode err = getHeader(&header, inPacket);
 	if (err == ReturnCode::Err) {
-		logWarn("[onENetReceived] getHeader err");
+		logWarn("[forwarder][enet.recv] getHeader err");
 		return;
 	}
 	HandleRule rule = server->getRule(header.getProtocol());
 	if (rule == HandleRule::Unknown) {
-		logWarn("[onENetReceived] wrong protocol:{0}", header.getProtocol());
+		logWarn("[forwarder][enet.recv] wrong protocol:{0}", header.getProtocol());
 		return;
 	}
 	handlePacketFunc handleFunc = handleFuncs[rule];
@@ -913,10 +914,11 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
 		int ret = enet_host_service(server->host, &event, ms);
 		if (ret > 0) {
-			logDebug("event.type = {0}", event.type);
+			//logDebug("event.type = {0}", event.type);
 			curProcessServer = pServer;
 			switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
+                logDebug("[forwarder] enet.evt = connected");
 				onENetConnected(server, event.peer);
 				break;
 			}
@@ -925,6 +927,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT: {
+                logDebug("[forwarder] enet.evt = disconnected");
 				onENetDisconnected(server, event.peer);
 				break;
 			}
@@ -941,7 +944,9 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 		else if (ret < 0) {
 			// error
 #ifdef _MSC_VER
-			logError("WSAGetLastError(): {0}\n", WSAGetLastError());
+			logError("[forwarder] WSAGetLastError(): {0}\n", WSAGetLastError());
+#else
+            logError("[forwarder] enet.evt = error");
 #endif
 		}
 		//std::this_thread::sleep_for(std::chrono::milliseconds(20));

@@ -166,6 +166,7 @@ namespace forwarder {
 					delete buffer;
 				}
 				buffer = new uint8_t[size]{ 0 };
+                logDebug("[forwarder] change buffer[{0}] size: {1}=>{2} success.", bufferID, bufferSize[bufferID], size);
                 bufferSize[bufferID] = size;
 				buffers[bufferID] = buffer;
 			}
