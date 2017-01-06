@@ -435,7 +435,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
     param.packet = packet;
     param.client = outClient;
     param.server = outServer;
-    if (!outClient) {
+    if (outClient) {
         sendPacket(param);
     }
     else {
