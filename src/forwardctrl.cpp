@@ -598,7 +598,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
         outClient = getOutClient(inHeader, inServer, outServer);
         if(!outClient) {
             logWarn("[forward] outClient[{0}] not found.", clientID);
-            return;
+            return ReturnCode::Err;
         }
     }
 
