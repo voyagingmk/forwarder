@@ -392,6 +392,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                                     bool forwardBroadcast) {
     ForwardServer* outServer = getServerByID(serverId);
     if (!outServer) {
+        logError("[forwarder][sendBinary] outServer not found, serverId={0}", serverId);
         return ReturnCode::Err;
     }
     ForwardClient* outClient = nullptr;
@@ -421,6 +422,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                 outHeader.setFlag(HeaderFlag::ClientID, true);
                 outHeader.setClientID((UniqID)(forwardClientId));
             } else {
+                logError("[forwarder][sendBinary] forward single but no forwardClientId");
                 return ReturnCode::Err;
             }
         }
