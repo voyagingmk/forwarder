@@ -123,7 +123,10 @@ void ForwardCtrl::setDebug(bool enabled) {
 }
 
 
-ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, UniqID headerClientId) {
+// headerClientId:
+//  -1 :  broadcast
+//  >0 :  single send
+ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, int headerClientId) {
 	ForwardServer* outServer = getServerByID(serverId);
 	if (!outServer) {
 		return ReturnCode::Err;
@@ -141,10 +144,14 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 		outHeader.setFlag(HeaderFlag::Encrypt, true);
 	if (outServer->compress)
 		outHeader.setFlag(HeaderFlag::Compress, true);
-	if (headerClientId > 0) {
+    if (headerClientId == -1) {
+        outHeader.setFlag(HeaderFlag::Broadcast, true);
+    } else if (headerClientId > 0) {
 		outHeader.setFlag(HeaderFlag::ClientID, true); 
-		outHeader.setClientID(headerClientId);
-	}
+		outHeader.setClientID((UniqID)(headerClientId));
+    } else {
+        return ReturnCode::Err;
+    }
 	outHeader.resetHeaderLength();
 	ForwardPacketPtr packet = encodeData(outServer, &outHeader, data, dataLength);
 	if (!packet)
@@ -163,13 +170,26 @@ ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* da
 	return ReturnCode::Ok;
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string data, UniqID headerClientId) {
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string data, int headerClientId) {
 	return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size(), headerClientId);
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data, UniqID headerClientId) {
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data, int headerClientId) {
 	return sendBinary(serverId, clientId, (uint8_t*)data, strlen(data), headerClientId);
 }
+
+ReturnCode ForwardCtrl::broadcastBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
+    return sendBinary(serverId, clientId, data, dataLength, -1);
+}
+
+ReturnCode ForwardCtrl::broadcastText(UniqID serverId, UniqID clientId, std::string data) {
+    return sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size(), -1);
+}
+
+ReturnCode ForwardCtrl::broadcastText(UniqID serverId, UniqID clientId, const char* data) {
+    return sendBinary(serverId, clientId, (uint8_t*)data, strlen(data), -1);
+}
+
 
 ForwardServer* ForwardCtrl::createServerByNetType(NetType& netType) {
 	if (netType == NetType::ENet) {
@@ -592,12 +612,19 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		logWarn("[forward] no outServer");
 		return ReturnCode::Err;
 	}
-	int clientID = inHeader->getClientID();
     ForwardClient* outClient;
-    if(clientID) {
+    if(inHeader->isFlagOn(HeaderFlag::Broadcast)) {
+        outClient = nullptr; // no outClient means Broadcast
+    } else {
+        // check if outClient exists
+        int clientID = inHeader->getClientID();
+        if(clientID <= 0) {
+            logWarn("[forward.single] wrong clientID.");
+            return ReturnCode::Err;
+        }
         outClient = getOutClient(inHeader, inServer, outServer);
         if(!outClient) {
-            logWarn("[forward] outClient[{0}] not found.", clientID);
+            logWarn("[forward.single] outClient[{0}] not found.", clientID);
             return ReturnCode::Err;
         }
     }

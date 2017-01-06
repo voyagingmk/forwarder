@@ -23,7 +23,8 @@ dynamic data sequence by flag
 		// type flag
 		Base64		= 1 << 4,
 		Encrypt		= 1 << 5,
-		Compress	= 1 << 6
+        Compress	= 1 << 6,
+        Broadcast	= 1 << 7
 	};
 
 	constexpr size_t HeaderBaseLength = 8;
@@ -35,7 +36,8 @@ dynamic data sequence by flag
 		{ HeaderFlag::SubID,		1 },
 		{ HeaderFlag::Base64,		0 },
 		{ HeaderFlag::Encrypt,		0 },
-		{ HeaderFlag::Compress,		4 },
+        { HeaderFlag::Compress,		4 },
+        { HeaderFlag::Broadcast,	0 },
 	};
 
 	// small endian
