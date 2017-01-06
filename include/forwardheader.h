@@ -44,7 +44,11 @@ dynamic data sequence by flag
 	class ForwardHeader
 	{
 	public:
-		inline uint8_t getVersion() {
+        ForwardHeader() {
+            memset(data, 0, HeaderDataLength);
+        }
+        
+        inline uint8_t getVersion() {
 			return version;
 		}
 
