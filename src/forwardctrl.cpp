@@ -397,6 +397,10 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
     ForwardClient* outClient = nullptr;
     if (clientId) {
         outClient = outServer->getClient(clientId);
+        if(!outClient) {
+            logError("[forwarder][sendBinary] outClient not found, clientId={0}", clientId);
+            return ReturnCode::Err;
+        }
     }
     ForwardHeader outHeader;
     outHeader.setProtocol(2);
