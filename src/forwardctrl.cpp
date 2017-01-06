@@ -268,9 +268,9 @@ void ForwardCtrl::sendPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
 		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(param.client);
 		ForwardPacketPtr outPacket = param.packet;
-		ENetPacket* packet = static_cast<ENetPacket*>(outPacket->getRawPtr());
+		ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
 		uint8_t channelID = 0;
-		enet_peer_send(client->peer, channelID, packet);
+		enet_peer_send(client->peer, channelID, enetPacket);
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);

@@ -32,7 +32,7 @@ dynamic data sequence by flag
 	static std::map<HeaderFlag, size_t> FlagToBytes {
 		{ HeaderFlag::IP,			4 },
 		{ HeaderFlag::HostID,		1 },
-		{ HeaderFlag::ClientID,		2 },
+		{ HeaderFlag::ClientID,		4 },
 		{ HeaderFlag::SubID,		1 },
 		{ HeaderFlag::Base64,		0 },
 		{ HeaderFlag::Encrypt,		0 },
@@ -118,14 +118,23 @@ dynamic data sequence by flag
 		inline void setHostID(uint8_t hostID) {
 			*(data + getFlagPos(HeaderFlag::HostID)) = hostID;
 		}
-
+        /*
 		inline uint16_t getClientID() {
-			return *(data + getFlagPos(HeaderFlag::ClientID));
+			return *((uint16_t*)(data + getFlagPos(HeaderFlag::ClientID)));
 		}
 
-		inline void setClientID(uint8_t clientID) {
+		inline void setClientID(uint16_t clientID) {
 			*(data + getFlagPos(HeaderFlag::ClientID)) = clientID;
 		}
+        */
+
+        inline uint32_t getClientID() {
+            return ntohs(*((uint32_t*)(data + getFlagPos(HeaderFlag::ClientID))));
+        }
+        
+        inline void setClientID(uint32_t clientID) {
+            *((uint32_t*)(data + getFlagPos(HeaderFlag::ClientID))) = htons(clientID);
+        }
 
 		inline uint8_t getSubID() {
 			return *(data + getFlagPos(HeaderFlag::SubID));
