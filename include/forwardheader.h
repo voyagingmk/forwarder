@@ -129,11 +129,11 @@ dynamic data sequence by flag
         */
 
         inline uint32_t getClientID() {
-            return ntohs(*((uint32_t*)(data + getFlagPos(HeaderFlag::ClientID))));
+            return ntohl(*((uint32_t*)(data + getFlagPos(HeaderFlag::ClientID))));
         }
         
         inline void setClientID(uint32_t clientID) {
-            *((uint32_t*)(data + getFlagPos(HeaderFlag::ClientID))) = htons(clientID);
+            *((uint32_t*)(data + getFlagPos(HeaderFlag::ClientID))) = ntohl(clientID);
         }
 
 		inline uint8_t getSubID() {
