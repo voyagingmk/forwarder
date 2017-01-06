@@ -45,18 +45,27 @@ namespace forwarder {
 		ReturnCode removeServerByID(UniqID serverId);
 
 		ForwardServer* getServerByID(UniqID serverId) const;
+        
+        // single send
+		ReturnCode sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength);
 
-		ReturnCode sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, int headerClientId = 0);
-
-		ReturnCode sendText(UniqID serverId, UniqID clientId, std::string data, int headerClientId = 0);
+		ReturnCode sendText(UniqID serverId, UniqID clientId, std::string& data);
 	
-		ReturnCode sendText(UniqID serverId, UniqID clientId, const char* data, int headerClientId = 0);
+		ReturnCode sendText(UniqID serverId, UniqID clientId, const char* data);
         
-        ReturnCode broadcastBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength);
+        // broadcast send
+        ReturnCode broadcastBinary(UniqID serverId, uint8_t* data, size_t dataLength);
         
-        ReturnCode broadcastText(UniqID serverId, UniqID clientId, std::string data);
+        ReturnCode broadcastText(UniqID serverId, std::string& data);
 
-        ReturnCode broadcastText(UniqID serverId, UniqID clientId, const char* data);
+        ReturnCode broadcastText(UniqID serverId, const char* data);
+        
+        // forward send
+        ReturnCode forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, int forwardClientId, bool isBroadcast);
+        
+        ReturnCode forwardText(UniqID serverId, UniqID clientId, std::string& data, int forwardClientId, bool isBroadcast);
+        
+        ReturnCode forwardText(UniqID serverId, UniqID clientId, const char* data, int forwardClientId, bool isBroadcast);
    
 		typedef void(*eventCallback)();
 
@@ -123,6 +132,21 @@ namespace forwarder {
 		void onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer);
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        ReturnCode _sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
+                               bool forwardMode = false,
+                               int forwardClientId = 0,
+                               bool forwardBroadcast = false);
+        
+        ReturnCode _sendText(UniqID serverId, UniqID clientId, std::string& data,
+                             bool forwardMode = false,
+                             int forwardClientId = 0,
+                             bool forwardBroadcast = false);
+        
+        ReturnCode _sendText(UniqID serverId, UniqID clientId, const char* data,
+                             bool forwardMode = false,
+                             int forwardClientId = 0,
+                             bool forwardBroadcast = false);
+        
 		ForwardPacketPtr createPacket(NetType netType, size_t len);
 
 		ForwardPacketPtr createPacket(const std::string& packet);
