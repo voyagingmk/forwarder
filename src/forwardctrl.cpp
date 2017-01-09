@@ -357,28 +357,37 @@ ReturnCode ForwardCtrl::broadcastText(UniqID serverId, const char* data) {
     return _sendText(serverId, clientId, data);
 }
 
-ReturnCode ForwardCtrl::forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, int forwardClientId, bool isBroadcast) {
+ReturnCode ForwardCtrl::forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
+                                      int forwardClientId,
+                                      bool isBroadcast,
+                                      bool isForceRaw) {
     const bool forwardMode = true;
     return _sendBinary(serverId, clientId, data, dataLength,
                      forwardMode,
                      forwardClientId,
-                     isBroadcast);
+                     isBroadcast, isForceRaw);
 }
 
-ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, std::string& data, int forwardClientId, bool isBroadcast) {
+ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, std::string& data,
+                                    int forwardClientId,
+                                    bool isBroadcast,
+                                    bool isForceRaw) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
                        forwardClientId,
-                       isBroadcast);
+                       isBroadcast, isForceRaw);
 }
 
-ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, const char* data, int forwardClientId, bool isBroadcast) {
+ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, const char* data,
+                                    int forwardClientId,
+                                    bool isBroadcast,
+                                    bool isForceRaw) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
                        forwardClientId,
-                       isBroadcast);
+                       isBroadcast, isForceRaw);
 }
 
 
@@ -389,7 +398,8 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                                     size_t dataLength,
                                     bool forwardMode,
                                     int forwardClientId,
-                                    bool forwardBroadcast) {
+                                    bool forwardBroadcast,
+                                    bool isForceRaw) {
     ForwardServer* outServer = getServerByID(serverId);
     if (!outServer) {
         logError("[forwarder][sendBinary] outServer not found, serverId={0}", serverId);
@@ -426,6 +436,9 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                 return ReturnCode::Err;
             }
         }
+        if(isForceRaw) {
+            outHeader.setFlag(HeaderFlag::ForceRaw, true);
+        }
     }
 
     outHeader.resetHeaderLength();
@@ -449,21 +462,25 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
 ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, std::string& data,
                                   bool forwardMode,
                                   int forwardClientId,
-                                  bool forwardBroadcast) {
+                                  bool forwardBroadcast,
+                                  bool isForceRaw) {
     return _sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size(),
                        forwardMode,
                        forwardClientId,
-                       forwardBroadcast);
+                       forwardBroadcast,
+                       isForceRaw);
 }
 
 ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, const char* data,
                                   bool forwardMode,
                                   int forwardClientId,
-                                  bool forwardBroadcast) {
+                                  bool forwardBroadcast,
+                                  bool isForceRaw) {
     return _sendBinary(serverId, clientId, (uint8_t*)data, strlen(data),
                        forwardMode,
                        forwardClientId,
-                       forwardBroadcast);
+                       forwardBroadcast,
+                       isForceRaw);
 }
 
 
@@ -725,13 +742,15 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
 	outHeader.cleanFlag();
-	// outServer's flag
-	if (outServer->base64)
-		outHeader.setFlag(HeaderFlag::Base64, true);
-	if (outServer->encrypt)
-		outHeader.setFlag(HeaderFlag::Encrypt, true);
-	if (outServer->compress)
-		outHeader.setFlag(HeaderFlag::Compress, true);
+    if(!outHeader.isFlagOn(HeaderFlag::ForceRaw)) {
+        // outServer's flag
+        if (outServer->base64)
+            outHeader.setFlag(HeaderFlag::Base64, true);
+        if (outServer->encrypt)
+            outHeader.setFlag(HeaderFlag::Encrypt, true);
+        if (outServer->compress)
+            outHeader.setFlag(HeaderFlag::Compress, true);
+    }
 	// Default flag
 	outHeader.setFlag(HeaderFlag::IP, true);
 	outHeader.setFlag(HeaderFlag::HostID, true);

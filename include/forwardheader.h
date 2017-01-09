@@ -24,10 +24,12 @@ dynamic data sequence by flag
 		Base64		= 1 << 4,
 		Encrypt		= 1 << 5,
         Compress	= 1 << 6,
-        Broadcast	= 1 << 7
+        Broadcast	= 1 << 7,
+        ForceRaw	= 1 << 8  // No Base64、Encrypt、Compress
 	};
 
 	constexpr size_t HeaderBaseLength = 8;
+    constexpr size_t HeaderDataLength = 0xff;
 
 	static std::map<HeaderFlag, size_t> FlagToBytes {
 		{ HeaderFlag::IP,			4 },
@@ -38,6 +40,7 @@ dynamic data sequence by flag
 		{ HeaderFlag::Encrypt,		0 },
         { HeaderFlag::Compress,		4 },
         { HeaderFlag::Broadcast,	0 },
+        { HeaderFlag::ForceRaw,     0 },
 	};
 
 	// small endian
@@ -169,7 +172,7 @@ dynamic data sequence by flag
 		uint8_t protocol = 0;
 		uint8_t hash = 0;
 		uint32_t flag = 0;
-		uint8_t data[0xff];
+		uint8_t data[HeaderDataLength];
 	};
 }
 #endif
