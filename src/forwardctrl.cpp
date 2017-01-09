@@ -608,6 +608,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
         logDebug("[decodeData] after step_Base64 outDataLength:{0}", outDataLength);
 	}
     if(!outData || !outDataLength) {
+        logError("[decodeData] err");
         return;
     }
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
@@ -630,6 +631,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 		//if (debug) debugBytes("decodeData, decrypted Data", outData, outDataLength);
 	}
     if(!outData || !outDataLength) {
+        logError("[decodeData] err");
         return;
     }
 	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
@@ -742,7 +744,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	ForwardHeader outHeader;
 	outHeader.setProtocol(2);
 	outHeader.cleanFlag();
-    if(!outHeader.isFlagOn(HeaderFlag::ForceRaw)) {
+    if(!inHeader->isFlagOn(HeaderFlag::ForceRaw)) {
         // outServer's flag
         if (outServer->base64)
             outHeader.setFlag(HeaderFlag::Base64, true);
