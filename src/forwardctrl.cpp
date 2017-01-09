@@ -507,7 +507,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	uint8_t* data, size_t dataLength) 
 {
 	//if (debug) debugBytes("encodeData, raw Data", data, dataLength);
-	if (outServer->compress) {
+    if (outHeader->isFlagOn(HeaderFlag::Compress)) {
 		size_t bufferLen = compressBound(dataLength);
 		//logDebug("encodeData, compressBound={0}", bufferLen);
 		uint8_t* newData = getBuffer(0, bufferLen);
@@ -536,7 +536,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		}
 	}
 
-	if (outServer->encrypt) {
+    if (outHeader->isFlagOn(HeaderFlag::Encrypt)) {
 		static std::random_device rd;
 		static std::mt19937 gen(rd());
 		static std::uniform_int_distribution<> dis(0, int(std::pow(2, 8)) - 1);
@@ -562,7 +562,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	}
 
 	std::string b64("");
-	if (outServer->base64) {
+    if (outHeader->isFlagOn(HeaderFlag::Base64)) {
 		b64 = base64Codec.fromByteArray(data, dataLength);
 		data = (uint8_t*)b64.c_str();
         dataLength = b64.size();
