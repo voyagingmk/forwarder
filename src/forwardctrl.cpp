@@ -113,13 +113,16 @@ void ForwardCtrl::setupLogger(const char* filename) {
 	spdlog::register_logger(logger);
     logger->flush_on(spdlog::level::debug);
 	spdlog::set_pattern("[%D %H:%M:%S:%e][%l] %v");
-	spdlog::set_level(spdlog::level::info);
+    spdlog::set_level(spdlog::level::err); // Default
 	logInfo("logger created successfully.");
 }
 
 void ForwardCtrl::setDebug(bool enabled) {
 	debug = enabled;
-	if(logger) logger->set_level(spdlog::level::debug);
+}
+
+void ForwardCtrl::setLogLevel(spdlog::level::level_enum lv) {
+    if(logger) logger->set_level(lv);
 }
 
 

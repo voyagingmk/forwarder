@@ -36,7 +36,9 @@ namespace forwarder {
 
 		void setupLogger(const char* filename = nullptr);
 
-		void setDebug(bool enabled);
+        void setDebug(bool enabled);
+        
+        void setLogLevel(spdlog::level::level_enum lv);
 
 		void initServers(rapidjson::Value& serversConfig);
 
