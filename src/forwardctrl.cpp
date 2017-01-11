@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "aes_ctr.h"
 #include "aes.h"
+#include <errno.h>
 
 namespace spd = spdlog;
 using namespace std;
@@ -1088,9 +1089,9 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 		else if (ret < 0) {
 			// error
 #ifdef _MSC_VER
-			logError("[forwarder] WSAGetLastError(): {0}\n", WSAGetLastError());
+			logError("[forwarder] WSAGetLastError(): {0}", WSAGetLastError());
 #else
-            logError("[forwarder] enet.evt = error");
+            logError("[forwarder] enet.evt = error, errno:{0}", errno);
 #endif
 		}
 		//std::this_thread::sleep_for(std::chrono::milliseconds(20));

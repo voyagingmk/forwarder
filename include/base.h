@@ -58,4 +58,11 @@
 
 #define DEBUG_MODE 1
 
+#ifdef DEBUG_MODE
+
+#define ENET_DEBUG 1
+
+#endif
+
+
 #endif
