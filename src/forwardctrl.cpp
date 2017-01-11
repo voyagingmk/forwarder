@@ -1089,9 +1089,9 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 		else if (ret < 0) {
 			// error
 #ifdef _MSC_VER
-			logError("[forwarder] WSAGetLastError(): {0}", WSAGetLastError());
+			logError("[forwarder][server {0} {1}] WSAGetLastError(): {2}", server->id, server->desc, WSAGetLastError());
 #else
-            logError("[forwarder] enet.evt = error, errno:{0}", errno);
+            logError("[forwarder][server {0} {1}] enet.evt = error, errno:{2}", server->id, server->desc, errno);
 #endif
 		}
 		//std::this_thread::sleep_for(std::chrono::milliseconds(20));
