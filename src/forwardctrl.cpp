@@ -275,6 +275,8 @@ void ForwardCtrl::sendPacket(ForwardParam& param) {
 		ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
 		uint8_t channelID = 0;
 		enet_peer_send(client->peer, channelID, enetPacket);
+        if (enetPacket->referenceCount == 0)
+            enet_packet_destroy(enetPacket);
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
@@ -294,9 +296,13 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
 		for (auto it : enetServer->clients) {
 			ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it.second);
 			uint8_t channelID = 0;
-			enet_peer_send(client->peer, channelID, enetPacket);
+            if (client->peer->state != ENET_PEER_STATE_CONNECTED)
+                continue;
+            enet_peer_send(client->peer, channelID, enetPacket);
 		}
-		logDebug("enet.broadcast, len:{0}, clientNum:{1}", enetPacket->dataLength, enetServer->clients.size());
+        if (enetPacket->referenceCount == 0)
+            enet_packet_destroy(enetPacket);
+        logDebug("enet.broadcast, len:{0}, clientNum:{1}", enetPacket->dataLength, enetServer->clients.size());
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
@@ -1006,14 +1012,26 @@ ReturnCode ForwardCtrl::validHeader(ForwardHeader* header) {
 
 ReturnCode ForwardCtrl::getHeader(ForwardHeader* header, const std::string& packet) {
 	uint8_t* data = (uint8_t*)packet.c_str();
+    if(packet.size() < HeaderBaseLength) {
+        return ReturnCode::Err;
+    }
 	memcpy(header, data, HeaderBaseLength);
+    if(header->getHeaderLength() <= 0 || header->getHeaderLength() > HeaderDataLength) {
+        return ReturnCode::Err;
+    }
 	memcpy(header->data, data + HeaderBaseLength, header->getHeaderLength() - HeaderBaseLength);
 	return validHeader(header);
 }
 
 ReturnCode ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
+    if(packet->dataLength < HeaderBaseLength) {
+        return ReturnCode::Err;
+    }
 	uint8_t* data = packet->data;
-	memcpy(header, data, HeaderBaseLength);
+    memcpy(header, data, HeaderBaseLength);
+    if(header->getHeaderLength() <= 0 || header->getHeaderLength() > HeaderDataLength) {
+        return ReturnCode::Err;
+    }
 	memcpy(header->data, data + HeaderBaseLength, header->getHeaderLength() - HeaderBaseLength);
 	return validHeader(header);
 }

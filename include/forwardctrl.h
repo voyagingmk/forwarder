@@ -13,6 +13,13 @@
 
 namespace forwarder {
 	class ForwardParam {
+    public:
+        ~ForwardParam() {
+            header = nullptr;
+            server = nullptr;
+            client = nullptr;
+            packet = nullptr;
+        }
 	public:
 		ForwardHeader* header = nullptr;
 		ForwardServer* server = nullptr;
