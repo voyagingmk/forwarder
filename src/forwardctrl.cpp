@@ -274,8 +274,8 @@ void ForwardCtrl::sendPacket(ForwardParam& param) {
 		ForwardPacketPtr outPacket = param.packet;
 		ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
 		uint8_t channelID = 0;
-		enet_peer_send(client->peer, channelID, enetPacket);
-        if (enetPacket->referenceCount == 0)
+		int ret = enet_peer_send(client->peer, channelID, enetPacket);
+        if (ret < 0 || enetPacket->referenceCount == 0)
             enet_packet_destroy(enetPacket);
 	}
 	else if (param.server->netType == NetType::WS) {
@@ -1087,6 +1087,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 			}
 			case ENET_EVENT_TYPE_RECEIVE: {
 				onENetReceived(server, event.peer, event.packet);
+                enet_packet_destroy(event.packet);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT: {
