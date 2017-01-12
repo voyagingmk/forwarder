@@ -27,6 +27,7 @@ ForwardCtrl::ForwardCtrl() :
 	curProcessClient(nullptr),
 	curProcessHeader(nullptr),
 	curProcessData(nullptr),
+    curProcessPacket(nullptr),
 	debugFunc(nullptr),
 	curProcessDataLength(0),
 	logger(nullptr),
@@ -999,6 +1000,7 @@ void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPack
 	param.packet = createPacket(inPacket);
 	param.client = client;
 	param.server = server;
+    curProcessPacket = param.packet;
 	(this->*handleFunc)(param);
 }
 
@@ -1073,6 +1075,11 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 	curProcessHeader = nullptr;
 	curProcessData = nullptr;
 	curProcessDataLength = 0;
+    if(curProcessPacket) {
+        ENetPacket* enetPacket = static_cast<ENetPacket*>(curProcessPacket->getRawPtr());
+        enet_packet_destroy(enetPacket);
+        curProcessPacket = nullptr;
+    }
 	if (pServer->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
 		int ret = enet_host_service(server->host, &event, ms);
@@ -1087,7 +1094,6 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 			}
 			case ENET_EVENT_TYPE_RECEIVE: {
 				onENetReceived(server, event.peer, event.packet);
-                enet_packet_destroy(event.packet);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT: {

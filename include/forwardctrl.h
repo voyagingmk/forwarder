@@ -260,7 +260,8 @@ namespace forwarder {
 		Event curEvent;
 		ForwardServer* curProcessServer;
 		ForwardClient* curProcessClient;
-		ForwardHeader* curProcessHeader;
+        ForwardHeader* curProcessHeader;
+        ForwardPacketPtr curProcessPacket; // will be destroyed after process!
 		uint8_t* curProcessData;
 		size_t curProcessDataLength;
 		static const size_t ivSize = 16;
