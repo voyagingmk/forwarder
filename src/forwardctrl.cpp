@@ -999,20 +999,20 @@ void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
 void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket) {
 	ForwardClient* client = (ForwardClient*)peer->data;
 	logDebug("[forwarder][enet.recv][{0}][cli:{1}][len:{2}]", server->desc, client->id, inPacket->dataLength);
-	ForwardHeader header;
-	ReturnCode err = getHeader(&header, inPacket);
+	ForwardHeader* header;
+	ReturnCode err = getHeader(header, inPacket);
 	if (err == ReturnCode::Err) {
 		logWarn("[forwarder][enet.recv] getHeader err");
 		return;
 	}
-	HandleRule rule = server->getRule(header.getProtocol());
+	HandleRule rule = server->getRule(header->getProtocol());
 	if (rule == HandleRule::Unknown) {
-		logWarn("[forwarder][enet.recv] wrong protocol:{0}", header.getProtocol());
+		logWarn("[forwarder][enet.recv] wrong protocol:{0}", header->getProtocol());
 		return;
 	}
 	handlePacketFunc handleFunc = handleFuncs[rule];
 	ForwardParam param;
-	param.header = &header;
+	param.header = header;
 	param.packet = createPacket(inPacket);
 	param.client = client;
 	param.server = server;
@@ -1041,16 +1041,16 @@ ReturnCode ForwardCtrl::getHeader(ForwardHeader* header, const std::string& pack
 	return validHeader(header);
 }
 
-ReturnCode ForwardCtrl::getHeader(ForwardHeader * header, ENetPacket * packet) {
+ReturnCode ForwardCtrl::getHeader(ForwardHeader* &header, ENetPacket* packet) {
     if(packet->dataLength < HeaderBaseLength) {
         return ReturnCode::Err;
     }
-	uint8_t* data = packet->data;
-    memcpy(header, data, HeaderBaseLength);
+    uint8_t* data = packet->data;
+    header = (ForwardHeader*)data;
     if(header->getHeaderLength() <= 0 || header->getHeaderLength() > HeaderDataLength) {
         return ReturnCode::Err;
     }
-	memcpy(header->data, data + HeaderBaseLength, header->getHeaderLength() - HeaderBaseLength);
+	// memcpy(header->data, data + HeaderBaseLength, header->getHeaderLength() - HeaderBaseLength);
 	return validHeader(header);
 }
 
