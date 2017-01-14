@@ -48,9 +48,22 @@ namespace forwarder {
 			length = len;
 		}
 
-		~ForwardPacketENet() {
+        ~ForwardPacketENet() {
+            if(owned) {
+                if (packet->referenceCount == 0) {
+                    enet_packet_destroy(packet);
+                }
+            }
 			packet = nullptr;
 		}
+        
+        ENetPacket* getENetPacket() {
+            return packet;
+        }
+        
+        size_t referenceCount() const {
+            return packet->referenceCount;
+        }
 
 		virtual uint8_t* getHeaderPtr() const {
 			return static_cast<uint8_t*>(packet->data);

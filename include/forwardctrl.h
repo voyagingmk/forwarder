@@ -202,9 +202,9 @@ namespace forwarder {
 
 		ForwardServer* getOutServer(ForwardHeader* inHeader, ForwardServer* inServer) const;
 
-		void sendPacket(ForwardParam& param);
+		ReturnCode sendPacket(ForwardParam& param);
 
-		void broadcastPacket(ForwardParam& param);
+		ReturnCode broadcastPacket(ForwardParam& param);
 
         uint8_t* getBuffer(uint8_t bufferID, size_t n);
 	public:

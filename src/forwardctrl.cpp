@@ -269,27 +269,39 @@ void ForwardCtrl::registerCallback(Event evt, eventCallback callback) {
 
 }
 
-void ForwardCtrl::sendPacket(ForwardParam& param) {
+ReturnCode ForwardCtrl::sendPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
 		ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(param.client);
 		ForwardPacketPtr outPacket = param.packet;
 		ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
-		uint8_t channelID = 0;
-		int ret = enet_peer_send(client->peer, channelID, enetPacket);
-        if (ret < 0 || enetPacket->referenceCount == 0)
+        uint8_t channelID = 0;
+        int ret = enet_peer_send(client->peer, channelID, enetPacket);
+        if (ret < 0 || enetPacket->referenceCount == 0) {
+            logError("[sendPacket] enet, err: {0}", ret);
             enet_packet_destroy(enetPacket);
+        }
+        return ret == 0 ? ReturnCode::Ok : ReturnCode::Err;
+        
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
 		ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(param.client);
+        websocketpp::lib::error_code ec;
 		wsServer->server.send(client->hdl,
 			param.packet->getRawPtr(),
 			param.packet->getTotalLength(),
-			websocketpp::frame::opcode::value::BINARY);
-	}
+			websocketpp::frame::opcode::value::BINARY,
+            ec);
+        if (ec) {
+            logError("[sendPacket] ws, err: {0}", ec.message());
+            return ReturnCode::Err;
+        }
+        return ReturnCode::Ok;
+    }
+    return ReturnCode::Err;
 }
 
-void ForwardCtrl::broadcastPacket(ForwardParam& param) {
+ReturnCode ForwardCtrl::broadcastPacket(ForwardParam& param) {
 	if (param.server->netType == NetType::ENet) {
 		ForwardServerENet* enetServer = dynamic_cast<ForwardServerENet*>(param.server);
 		ForwardPacketPtr outPacket = param.packet;
@@ -304,18 +316,23 @@ void ForwardCtrl::broadcastPacket(ForwardParam& param) {
         if (enetPacket->referenceCount == 0)
             enet_packet_destroy(enetPacket);
         logDebug("enet.broadcast, len:{0}, clientNum:{1}", enetPacket->dataLength, enetServer->clients.size());
+        return ReturnCode::Ok;
 	}
 	else if (param.server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(param.server);
 		for (auto it : wsServer->clients) {
 			ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it.second);
-			wsServer->server.send(client->hdl,
+			websocketpp::lib::error_code ec;
+            wsServer->server.send(client->hdl,
 				param.packet->getRawPtr(),
 				param.packet->getTotalLength(),
-				websocketpp::frame::opcode::value::BINARY);
+                websocketpp::frame::opcode::value::BINARY,
+                ec);
 		}
 		logDebug("ws.broadcast, len:{0}, clientNum:{1}", param.packet->getTotalLength(), wsServer->clients.size());
+        return ReturnCode::Ok;
 	}
+    return ReturnCode::Ok;
 }
 
 uint8_t* ForwardCtrl::getBuffer(uint8_t bufferID, size_t n) {
@@ -462,12 +479,11 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
     param.client = outClient;
     param.server = outServer;
     if (outClient) {
-        sendPacket(param);
+        return sendPacket(param);
     }
     else {
-        broadcastPacket(param);
+        return broadcastPacket(param);
     }
-    return ReturnCode::Ok;
 }
 
 ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, std::string& data,
