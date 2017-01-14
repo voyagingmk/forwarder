@@ -25,7 +25,8 @@ namespace forwarder {
 		Nothing = 0,
 		Connected = 1,
 		Disconnected = 2,
-		Message = 3
+        Message = 3,
+        Forward = 4
 	};
 
 	enum class Convert {

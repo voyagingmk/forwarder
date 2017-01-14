@@ -740,12 +740,17 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 }
 
 ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
-	logDebug("forward begin");
+    logDebug("forward begin");
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
 	ForwardHeader* inHeader = param.header;
-
+    
+    curProcessServer = inServer;
+    curProcessClient = inClient;
+    curProcessHeader = inHeader;
+    curEvent = Event::Forward;
+    
 	ForwardServer* outServer = getOutServer(inHeader, inServer);
 	if (!outServer) {
 		logWarn("[forward] no outServer");
