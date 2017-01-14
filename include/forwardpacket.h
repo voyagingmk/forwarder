@@ -49,11 +49,6 @@ namespace forwarder {
 		}
 
         ~ForwardPacketENet() {
-            if(owned) {
-                if (packet->referenceCount == 0) {
-                    enet_packet_destroy(packet);
-                }
-            }
 			packet = nullptr;
 		}
         
