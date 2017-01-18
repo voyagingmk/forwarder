@@ -55,12 +55,12 @@ dynamic data sequence by flag
 			return version;
 		}
 
-		inline uint8_t getProtocol() {
-			return protocol;
+		inline Protocol getProtocol() {
+			return static_cast<Protocol>(protocol);
 		}
 
-		inline void setProtocol(uint8_t p) {
-			protocol = p;
+		inline void setProtocol(Protocol p) {
+			protocol = static_cast<uint8_t>(p);
 		}
 
 		inline uint8_t getHeaderLength() {

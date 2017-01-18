@@ -40,17 +40,22 @@ namespace forwarder {
 	};
 
 	typedef uint32_t ProtocolID;
-	/* protocol -> rule
-	Default:
-		0: SysCmd
-		2: Forward
-		3: Process
-	*/ 
+	
+    // protocol -> rule
+    enum class Protocol {
+        Unknown = 0,
+        SysCmd = 1,
+        Forward = 2,
+        Process = 3,
+        BatchForward = 4
+    };
+    
 	enum class HandleRule {
 		Unknown,
 		SysCmd,
 		Forward,
 		Process,
+        BatchForward
 	};
 }
 

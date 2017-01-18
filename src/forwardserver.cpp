@@ -68,12 +68,12 @@ namespace forwarder {
 		AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
 	}
 
-	void ForwardServer::setRule(ProtocolID id, HandleRule rule) {
-		ruleDict[id] = rule;
+	void ForwardServer::setRule(Protocol p, HandleRule rule) {
+		ruleDict[p] = rule;
 	}
 
-	HandleRule ForwardServer::getRule(ProtocolID id) {
-		auto it = ruleDict.find(id);
+	HandleRule ForwardServer::getRule(Protocol p) {
+		auto it = ruleDict.find(p);
 		if (it == ruleDict.end()) {
 			return HandleRule::Unknown;
 		}

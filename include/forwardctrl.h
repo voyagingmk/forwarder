@@ -191,6 +191,8 @@ namespace forwarder {
 		ReturnCode handlePacket_SysCmd(ForwardParam& param);
 		// Auto Forward to next server
 		ReturnCode handlePacket_Forward(ForwardParam& param);
+        // Auto Forward to next servers (Batch mode)
+        ReturnCode handlePacket_BatchForward(ForwardParam& param);
 		// process the packet locally
 		ReturnCode handlePacket_Process(ForwardParam& param);
 
@@ -257,6 +259,8 @@ namespace forwarder {
 		bool released;
 		bool isExit;
 		Base64Codec& base64Codec;
+        
+        // theses vars need to be checked after pollOnce
 		Event curEvent;
 		ForwardServer* curProcessServer;
 		ForwardClient* curProcessClient;
@@ -264,6 +268,8 @@ namespace forwarder {
         ForwardPacketPtr curProcessPacket; // will be destroyed after process!
 		uint8_t* curProcessData;
 		size_t curProcessDataLength;
+    
+
 		static const size_t ivSize = 16;
 		std::shared_ptr<spdlog::logger> logger;
 		UniqID id;

@@ -44,8 +44,9 @@ ForwardCtrl::ForwardCtrl() :
 	}
 	//default
 	handleFuncs[HandleRule::SysCmd] = &ForwardCtrl::handlePacket_SysCmd;
-	handleFuncs[HandleRule::Forward] = &ForwardCtrl::handlePacket_Forward;
-	handleFuncs[HandleRule::Process] = &ForwardCtrl::handlePacket_Process;
+    handleFuncs[HandleRule::Forward] = &ForwardCtrl::handlePacket_Forward;
+    handleFuncs[HandleRule::BatchForward] = &ForwardCtrl::handlePacket_BatchForward;
+    handleFuncs[HandleRule::Process] = &ForwardCtrl::handlePacket_Process;
 	id = ++ForwardCtrlCount;
 }
 
@@ -442,7 +443,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
         }
     }
     ForwardHeader outHeader;
-    outHeader.setProtocol(2);
+    outHeader.setProtocol(Protocol::Forward);
     outHeader.cleanFlag();
     if (outServer->base64)
         outHeader.setFlag(HeaderFlag::Base64, true);
@@ -715,7 +716,7 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 	if(!param.server->admin)
 		return ReturnCode::Err;
 	ForwardHeader outHeader;
-	outHeader.setProtocol(1);
+    outHeader.setProtocol(Protocol::SysCmd);
 	int subID = param.header->getSubID();
 	if (subID == 1) {
 		//stat
@@ -774,7 +775,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
     }
 
 	ForwardHeader outHeader;
-	outHeader.setProtocol(2);
+    outHeader.setProtocol(Protocol::Forward);
 	outHeader.cleanFlag();
     if(!inHeader->isFlagOn(HeaderFlag::ForceRaw)) {
         // outServer's flag
@@ -826,6 +827,12 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	return ReturnCode::Ok;
 }
 
+
+ReturnCode ForwardCtrl::handlePacket_BatchForward(ForwardParam& param) {
+    
+    
+}
+
 ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
@@ -859,13 +866,6 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	curEvent = Event::Connected; 
 	curProcessServer = wsServer;
 	curProcessClient = client;
-	// sendText(wsServer->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-			aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 }
 
 void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
@@ -940,7 +940,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	}
 	HandleRule rule = wsServer->getRule(header.getProtocol());
 	if (rule == HandleRule::Unknown) {
-		logWarn("[forwarder][ws.recv] wrong protocol:{0}", header.getProtocol());
+		logWarn("[forwarder][ws.recv] wrong protocol:{0}", (int)header.getProtocol());
 		return;
 	}
 	handlePacketFunc handleFunc = handleFuncs[rule];
@@ -968,17 +968,10 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 		server->clientID = id;
 	}
 	logDebug("[forwarder][enet][c:{0}] connected, from {1}:{2}.",
-		client->id,
-		str,
-		peer->address.port);
+             client->id,
+             str,
+             peer->address.port);
 	curProcessClient = client;
-	//sendText(server->id, 0, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
-		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 }
 
 void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
@@ -1012,7 +1005,7 @@ void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPack
 	}
 	HandleRule rule = server->getRule(header->getProtocol());
 	if (rule == HandleRule::Unknown) {
-		logWarn("[forwarder][enet.recv] wrong protocol:{0}", header->getProtocol());
+		logWarn("[forwarder][enet.recv] wrong protocol:{0}", (int)header->getProtocol());
 		return;
 	}
 	handlePacketFunc handleFunc = handleFuncs[rule];
