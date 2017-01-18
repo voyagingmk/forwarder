@@ -18,8 +18,11 @@ namespace forwarder {
 		size_t getDataLength() const {
 			return length - getHeader()->getHeaderLength();
 		}
-		virtual void setHeader(ForwardHeader* header) = 0;
-		virtual void setData(uint8_t* data, size_t len) = 0;
+        virtual void setHeader(ForwardHeader* header) = 0;
+        virtual void setHeader(uint8_t* p, size_t len) {
+            
+        }
+		virtual void setData(uint8_t* p, size_t len) = 0;
 		ForwardPacket() {
 		}
 		~ForwardPacket() {
@@ -30,6 +33,59 @@ namespace forwarder {
 
 	typedef std::shared_ptr<ForwardPacket> ForwardPacketPtr;
 
+    
+    class ForwardPacketConst: public ForwardPacket {
+    public:
+        ForwardPacketConst(uint8_t* pH = nullptr, size_t lenH = 0, uint8_t* pD = nullptr, size_t lenD = 0):
+            headerPtr(pH),
+            headerLen(lenH),
+            dataPtr(pD),
+            dataLen(lenD)
+        {
+            length = lenH + lenD;
+        }
+        
+        ~ForwardPacketConst() {
+            headerPtr = nullptr;
+            headerLen = 0;
+            dataPtr = nullptr;
+            dataLen = 0;
+        }
+        
+        virtual uint8_t* getHeaderPtr() const {
+            return headerPtr;
+        }
+        
+        virtual uint8_t* getDataPtr() const {
+            return dataPtr;
+        }
+        
+        virtual void* getRawPtr() const {
+            return static_cast<void*>(headerPtr);
+        }
+        
+        virtual void setHeader(ForwardHeader* header) {
+
+        }
+        
+        virtual void setHeader(uint8_t* p, size_t len) {
+            headerPtr = p;
+            headerLen = len;
+        }
+        
+        virtual void setData(uint8_t* p, size_t len) {
+            dataPtr = p;
+            dataLen = len;
+        }
+
+    public:
+        uint8_t* headerPtr;
+        size_t headerLen;
+        uint8_t* dataPtr;
+        size_t dataLen;
+    };
+
+    
 
 	class ForwardPacketENet : public ForwardPacket {
 	public:

@@ -25,7 +25,8 @@ dynamic data sequence by flag
 		Encrypt		= 1 << 5,
         Compress	= 1 << 6,
         Broadcast	= 1 << 7,
-        ForceRaw	= 1 << 8  // No Base64、Encrypt、Compress
+        ForceRaw	= 1 << 8,  // No Base64、Encrypt、Compress
+        PacketLen   = 1 << 9
 	};
 
 	constexpr size_t HeaderBaseLength = 8;
@@ -38,9 +39,10 @@ dynamic data sequence by flag
 		{ HeaderFlag::SubID,		1 },
 		{ HeaderFlag::Base64,		0 },
 		{ HeaderFlag::Encrypt,		0 },
-        { HeaderFlag::Compress,		4 },
+        { HeaderFlag::Compress,		4 }, // record the uncompressed size
         { HeaderFlag::Broadcast,	0 },
         { HeaderFlag::ForceRaw,     0 },
+        { HeaderFlag::PacketLen,    4 }, // record packet size ( slice )
 	};
 
 	// small endian
@@ -165,6 +167,14 @@ dynamic data sequence by flag
         
         inline void setUncompressedSize(uint32_t size) {
             *((uint32_t*)(data + getFlagPos(HeaderFlag::Compress))) = htonl(size);
+        }
+        
+        inline uint32_t getPacketLength() {
+            return ntohl(*((uint32_t*)(data + getFlagPos(HeaderFlag::PacketLen))));
+        }
+        
+        inline void setPacketLength(uint32_t len) {
+            *((uint32_t*)(data + getFlagPos(HeaderFlag::PacketLen))) = htonl(len);
         }
 	public:
 		uint8_t version = HeaderVersion;

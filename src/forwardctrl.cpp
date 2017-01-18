@@ -829,8 +829,24 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 
 
 ReturnCode ForwardCtrl::handlePacket_BatchForward(ForwardParam& param) {
-    
-    
+    size_t offset = 0;
+    ForwardPacketPtr batchPacket = param.packet;
+    ForwardPacketPtr subPacket = std::make_shared<ForwardPacketConst>();
+    ForwardParam sub_param;
+    sub_param.client = param.client;
+    sub_param.server = param.server;
+    while(offset < param.packet->getTotalLength()) {
+        uint8_t* pCur = (uint8_t*)batchPacket->getRawPtr() + offset;
+        subPacket->setHeader((ForwardHeader*)pCur);
+        uint8_t* pData = pCur + subPacket->getHeader()->getHeaderLength();
+        size_t dataLen = subPacket->getHeader()->getPacketLength() - subPacket->getHeader()->getHeaderLength();
+        subPacket->setData(pData, dataLen);
+        sub_param.header = subPacket->getHeader();
+        sub_param.packet = subPacket;
+        offset += subPacket->getHeader()->getPacketLength();
+        handlePacket_Forward(sub_param);
+    }
+    return ReturnCode::Ok;
 }
 
 ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
