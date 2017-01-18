@@ -73,18 +73,25 @@ namespace forwarder {
         ReturnCode forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
                                 int forwardClientId,
                                 bool isBroadcast,
-                                bool isForceRaw = false);
+                                bool isForceRaw = false,
+                                bool isBatchMode = false);
         
         ReturnCode forwardText(UniqID serverId, UniqID clientId, std::string& data,
                                 int forwardClientId,
                                 bool isBroadcast,
-                                bool isForceRaw = false);
+                                bool isForceRaw = false,
+                                bool isBatchMode = false);
         
         ReturnCode forwardText(UniqID serverId, UniqID clientId, const char* data,
                                 int forwardClientId,
                                 bool isBroadcast,
-                                bool isForceRaw = false);
-   
+                                bool isForceRaw = false,
+                                bool isBatchMode = false);
+        
+        void beginBatchForward();
+        
+        ReturnCode endBatchForward(UniqID serverId, UniqID clientId);
+        
 		typedef void(*eventCallback)();
 
 		void registerCallback(Event evt, eventCallback callback);
@@ -154,19 +161,22 @@ namespace forwarder {
                                bool forwardMode = false,
                                int forwardClientId = 0,
                                bool forwardBroadcast = false,
-                               bool isForceRaw = false);
+                               bool isForceRaw = false,
+                               bool batch = false);
         
         ReturnCode _sendText(UniqID serverId, UniqID clientId, std::string& data,
                              bool forwardMode = false,
                              int forwardClientId = 0,
                              bool forwardBroadcast = false,
-                             bool isForceRaw = false);
+                             bool isForceRaw = false,
+                             bool batch = false);
         
         ReturnCode _sendText(UniqID serverId, UniqID clientId, const char* data,
                              bool forwardMode = false,
                              int forwardClientId = 0,
                              bool forwardBroadcast = false,
-                             bool isForceRaw = false);
+                             bool isForceRaw = false,
+                             bool batch = false);
         
 		ForwardPacketPtr createPacket(NetType netType, size_t len);
 
@@ -211,6 +221,16 @@ namespace forwarder {
 		ReturnCode broadcastPacket(ForwardParam& param);
 
         uint8_t* getBuffer(uint8_t bufferID, size_t n);
+        
+        inline size_t getBufferSize(uint8_t bufferID) {
+            return bufferSize[bufferID];
+        }
+        
+        // use buffer as a cache list
+        // will auto realloc when there's no enough room for push,
+        // and rewrite the prev data into new buffer memory
+        void pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len);
+        
 	public:
 		template <typename... Args>
 		inline void logDebug(const char* fmt, const Args&... args) {
@@ -256,6 +276,7 @@ namespace forwarder {
 		UniqIDGenerator idGenerator;
 		uint8_t** buffers;
 		size_t* bufferSize;
+        size_t* bufferOffset;
 		int serverNum;
 		bool debug;
 		bool released;

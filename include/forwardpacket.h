@@ -23,6 +23,7 @@ namespace forwarder {
             
         }
 		virtual void setData(uint8_t* p, size_t len) = 0;
+        virtual void setRaw(uint8_t* p, size_t len) = 0;
 		ForwardPacket() {
 		}
 		~ForwardPacket() {
@@ -76,6 +77,10 @@ namespace forwarder {
         virtual void setData(uint8_t* p, size_t len) {
             dataPtr = p;
             dataLen = len;
+        }
+        
+        virtual void setRaw(uint8_t* p, size_t len) {
+            
         }
 
     public:
@@ -143,6 +148,11 @@ namespace forwarder {
 				length = headerLength + dataLength;
 			}
 		}
+        
+        virtual void setRaw(uint8_t* p, size_t len) {
+            memcpy(packet->data, p, len);
+        }
+        
 	public:
 		bool owned;
 		ENetPacket* packet = nullptr;
@@ -204,6 +214,11 @@ namespace forwarder {
 				length = getHeader()->getHeaderLength() + len;
 			}
 		}
+        
+        virtual void setRaw(uint8_t* p, size_t len) {
+            memcpy(packetData, p, len);
+        }
+        
 	public:
 		bool owned = false;
 		uint8_t* packetData = nullptr;

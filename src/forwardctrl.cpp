@@ -10,7 +10,7 @@ using namespace rapidjson;
 using namespace forwarder;
 
 
-size_t ForwardCtrl::bufferNum = 4;
+size_t ForwardCtrl::bufferNum = 8;
 UniqID ForwardCtrl::ForwardCtrlCount = 0;
 
 ForwardCtrl::ForwardCtrl() :
@@ -37,7 +37,8 @@ ForwardCtrl::ForwardCtrl() :
 	printf("[forwarder] ForwardCtrl created.\n");
 #endif
 	buffers = new uint8_t*[bufferNum];
-	bufferSize = new size_t[bufferNum];
+    bufferSize = new size_t[bufferNum];
+    bufferOffset = new size_t[bufferNum];
 	for (size_t i = 0; i < bufferNum; i++) {
 		bufferSize[i] = 0xff;
 		buffers[i] = new uint8_t[bufferSize[i]]{ 0 };
@@ -358,6 +359,67 @@ uint8_t* ForwardCtrl::getBuffer(uint8_t bufferID, size_t n) {
     return buffer;
 }
 
+void ForwardCtrl::pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len) {
+    uint8_t* buffer = buffers[bufferID];
+    size_t size = bufferSize[bufferID];
+    size_t offset = bufferOffset[bufferID];
+    size_t n = offset + len;
+    if (!buffer || n > size) {
+        size_t newSize = size;
+        while (n > newSize) {
+            newSize = newSize << 1;
+        }
+        uint8_t* oldData = nullptr;
+        if (buffer) {
+            // keep the old data
+            oldData = buffer;
+        }
+        buffer = new uint8_t[newSize]{ 0 };
+        if(oldData) {
+            memcpy(buffer, oldData, offset);
+        }
+    }
+    memcpy(buffer + offset, data, len);
+    offset += len;
+}
+
+void ForwardCtrl::beginBatchForward() {
+    bufferOffset[3] = 0;
+}
+
+ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
+    ForwardServer* outServer = getServerByID(serverId);
+    if (!outServer) {
+        logError("[forwarder][endBatchForward] outServer not found, serverId={0}", serverId);
+        return ReturnCode::Err;
+    }
+    ForwardClient* outClient = nullptr;
+    if (clientId) {
+        outClient = outServer->getClient(clientId);
+        if(!outClient) {
+            logError("[forwarder][endBatchForward] outClient not found, clientId={0}", clientId);
+            return ReturnCode::Err;
+        }
+    }
+    size_t packetLength = bufferOffset[3];
+    uint8_t* buffer = buffers[3];
+    ForwardPacketPtr outPacket = createPacket(outServer->netType, packetLength);
+    outPacket->setRaw(buffer, packetLength);
+    ForwardParam param;
+    param.header = nullptr;
+    param.packet = outPacket;
+    param.client = outClient;
+    param.server = outServer;
+    if (outClient) {
+        return sendPacket(param);
+    }
+    else {
+        return broadcastPacket(param);
+    }
+
+    
+}
+
 
 ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
     return _sendBinary(serverId, clientId, data, dataLength);
@@ -389,34 +451,43 @@ ReturnCode ForwardCtrl::broadcastText(UniqID serverId, const char* data) {
 ReturnCode ForwardCtrl::forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
                                       int forwardClientId,
                                       bool isBroadcast,
-                                      bool isForceRaw) {
+                                      bool isForceRaw,
+                                      bool isBatchMode) {
     const bool forwardMode = true;
     return _sendBinary(serverId, clientId, data, dataLength,
-                     forwardMode,
-                     forwardClientId,
-                     isBroadcast, isForceRaw);
+                       forwardMode,
+                       forwardClientId,
+                       isBroadcast,
+                       isForceRaw,
+                       isBatchMode);
 }
 
 ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, std::string& data,
                                     int forwardClientId,
                                     bool isBroadcast,
-                                    bool isForceRaw) {
+                                    bool isForceRaw,
+                                    bool isBatchMode) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
                        forwardClientId,
-                       isBroadcast, isForceRaw);
+                       isBroadcast,
+                       isForceRaw,
+                       isBatchMode);
 }
 
 ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, const char* data,
                                     int forwardClientId,
                                     bool isBroadcast,
-                                    bool isForceRaw) {
+                                    bool isForceRaw,
+                                    bool isBatchMode) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
                        forwardClientId,
-                       isBroadcast, isForceRaw);
+                       isBroadcast,
+                       isForceRaw,
+                       isBatchMode);
 }
 
 
@@ -428,7 +499,8 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                                     bool forwardMode,
                                     int forwardClientId,
                                     bool forwardBroadcast,
-                                    bool isForceRaw) {
+                                    bool isForceRaw,
+                                    bool batch) {
     ForwardServer* outServer = getServerByID(serverId);
     if (!outServer) {
         logError("[forwarder][sendBinary] outServer not found, serverId={0}", serverId);
@@ -451,7 +523,10 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
         outHeader.setFlag(HeaderFlag::Encrypt, true);
     if (outServer->compress)
         outHeader.setFlag(HeaderFlag::Compress, true);
-    
+    if (batch) {
+        outHeader.setProtocol(Protocol::BatchForward);
+        outHeader.setFlag(HeaderFlag::PacketLen, true);
+    }
     // forward config
     if(forwardMode) {
         if (forwardBroadcast) {
@@ -477,19 +552,27 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
     if(!encodedData || encodedDataLength <= 0) {
         return ReturnCode::Err;
     }
-    ForwardPacketPtr outPacket = createPacket(outServer->netType, outHeader.getHeaderLength() + encodedDataLength);
-    outPacket->setHeader(&outHeader);
-    outPacket->setData(encodedData, encodedDataLength);
-    ForwardParam param;
-    param.header = nullptr;
-    param.packet = outPacket;
-    param.client = outClient;
-    param.server = outServer;
-    if (outClient) {
-        return sendPacket(param);
-    }
-    else {
-        return broadcastPacket(param);
+    size_t packetLength = outHeader.getHeaderLength() + encodedDataLength;
+    if (batch) {
+        outHeader.setPacketLength(packetLength);
+        pushToBuffer(3, (uint8_t*)(&outHeader), outHeader.getHeaderLength());
+        pushToBuffer(3, encodedData, encodedDataLength);
+        return ReturnCode::Ok;
+    } else {
+        ForwardPacketPtr outPacket = createPacket(outServer->netType, packetLength);
+        outPacket->setHeader(&outHeader);
+        outPacket->setData(encodedData, encodedDataLength);
+        ForwardParam param;
+        param.header = nullptr;
+        param.packet = outPacket;
+        param.client = outClient;
+        param.server = outServer;
+        if (outClient) {
+            return sendPacket(param);
+        }
+        else {
+            return broadcastPacket(param);
+        }
     }
 }
 
@@ -497,24 +580,28 @@ ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, std::string&
                                   bool forwardMode,
                                   int forwardClientId,
                                   bool forwardBroadcast,
-                                  bool isForceRaw) {
+                                  bool isForceRaw,
+                                  bool batch) {
     return _sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size(),
                        forwardMode,
                        forwardClientId,
                        forwardBroadcast,
-                       isForceRaw);
+                       isForceRaw,
+                       batch);
 }
 
 ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, const char* data,
                                   bool forwardMode,
                                   int forwardClientId,
                                   bool forwardBroadcast,
-                                  bool isForceRaw) {
+                                  bool isForceRaw,
+                                  bool batch) {
     return _sendBinary(serverId, clientId, (uint8_t*)data, strlen(data),
                        forwardMode,
                        forwardClientId,
                        forwardBroadcast,
-                       isForceRaw);
+                       isForceRaw,
+                       batch);
 }
 
 
