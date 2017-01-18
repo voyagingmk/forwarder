@@ -174,9 +174,11 @@ namespace forwarder {
 
 		ForwardPacketPtr createPacket(ENetPacket* packet);
 
-		ForwardPacketPtr encodeData(ForwardServer* outServer, ForwardHeader* outHeader, uint8_t* data, size_t dataLength);
+		void encodeData(ForwardServer* outServer, ForwardHeader* outHeader, uint8_t* data, size_t dataLength,
+                        uint8_t* &outData, size_t& outDataLength);
 
-		void decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength);
+		void decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength,
+                        uint8_t* &outData, size_t& outDataLength);
 		
 		ReturnCode validHeader(ForwardHeader* header);
 

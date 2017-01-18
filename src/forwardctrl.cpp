@@ -471,12 +471,18 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
     }
 
     outHeader.resetHeaderLength();
-    ForwardPacketPtr packet = encodeData(outServer, &outHeader, data, dataLength);
-    if (!packet)
+    uint8_t* encodedData;
+    size_t encodedDataLength;
+    encodeData(outServer, &outHeader, data, dataLength, encodedData, encodedDataLength);
+    if(!encodedData || encodedDataLength <= 0) {
         return ReturnCode::Err;
+    }
+    ForwardPacketPtr outPacket = createPacket(outServer->netType, outHeader.getHeaderLength() + encodedDataLength);
+    outPacket->setHeader(&outHeader);
+    outPacket->setData(encodedData, encodedDataLength);
     ForwardParam param;
     param.header = nullptr;
-    param.packet = packet;
+    param.packet = outPacket;
     param.client = outClient;
     param.server = outServer;
     if (outClient) {
@@ -530,9 +536,9 @@ ForwardPacketPtr ForwardCtrl::createPacket(ENetPacket* packet) {
 	return std::make_shared<ForwardPacketENet>(packet);
 }
 
-ForwardPacketPtr ForwardCtrl::encodeData(
+void ForwardCtrl::encodeData(
 	ForwardServer* outServer, ForwardHeader* outHeader, 
-	uint8_t* data, size_t dataLength) 
+	uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength) 
 {
 	//if (debug) debugBytes("encodeData, raw Data", data, dataLength);
     if (outHeader->isFlagOn(HeaderFlag::Compress)) {
@@ -541,7 +547,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		uint8_t* newData = getBuffer(0, bufferLen);
         if(!newData) {
             logError("[encodeData] step_Compress no newData");
-            return nullptr;
+            return;
         }
 		uLongf realLen = bufferLen;
         outHeader->setUncompressedSize(static_cast<uint32_t>(dataLength));// used for uncompression
@@ -560,7 +566,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 				logError("Z_BUF_ERROR");
 			else if (ret == Z_DATA_ERROR)
 				logError("Z_DATA_ERROR");
-			return nullptr;
+			return;
 		}
 	}
 
@@ -571,7 +577,7 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		uint8_t* newData = getBuffer(1, dataLength + ivSize);
         if(!newData) {
             logError("[encodeData] step_Encrypt no newData");
-            return nullptr;
+            return;
         }
         uint8_t* iv = newData;
 		uint8_t ivTmp[ivSize];
@@ -589,9 +595,9 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 		//if (debug) debugBytes("encodeData, encrypted", data, dataLength);
 	}
 
-	std::string b64("");
     if (outHeader->isFlagOn(HeaderFlag::Base64)) {
-		b64 = base64Codec.fromByteArray(data, dataLength);
+		base64Codec.fromByteArray(data, dataLength);
+        const std::string& b64 = base64Codec.getLastB64();
 		data = (uint8_t*)b64.c_str();
         dataLength = b64.size();
         logDebug("[encodeData] after step_Base64 dataLength:{0}", dataLength);
@@ -599,15 +605,10 @@ ForwardPacketPtr ForwardCtrl::encodeData(
 	}
     if(!data || !dataLength){
         logError("[encodeData] final, no data");
-        return nullptr;
+        return;
     }
-	//3. make packet
-	ForwardPacketPtr newPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + dataLength);
-	// copy
-	newPacket->setHeader(outHeader);
-	newPacket->setData(data, dataLength);
-	//if (debug) debugBytes("encodeData, final", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
-	return newPacket;
+    outData = data;
+    outDataLength = dataLength;
 }
 
 void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, uint8_t* data, size_t dataLength, uint8_t* &outData, size_t& outDataLength) {
@@ -707,8 +708,17 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 	if (!rawData || rawDataLength <= 0) {
 		logError("[convertPacket] no raw data");
 		return nullptr;
-	}
-	ForwardPacketPtr outPacket = encodeData(outServer, outHeader, rawData, rawDataLength);
+    }
+    uint8_t* encodedData;
+    size_t encodedDataLength;
+	encodeData(outServer, outHeader, rawData, rawDataLength, encodedData, encodedDataLength);
+    if(!encodedData || encodedDataLength <= 0) {
+        return nullptr;
+    }
+    ForwardPacketPtr outPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + encodedDataLength);
+    outPacket->setHeader(outHeader);
+    outPacket->setData(encodedData, encodedDataLength);
+    //if (debug) debugBytes("encodeData, final", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());
 	return outPacket;
 }
 

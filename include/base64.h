@@ -84,8 +84,13 @@ namespace forwarder {
 				output += std::string("=");
 			}
 			parts += output;
+            lastB64 = parts;
 			return parts;
 		}
+        
+        const std::string& getLastB64() const {
+            return lastB64;
+        }
 
 	private:
 		Base64Codec() {
@@ -143,6 +148,7 @@ namespace forwarder {
 
 	private:
 		const char * code;
+        std::string lastB64;
 		std::map<uint32_t, uint32_t> revLookup;
 	};
 };
