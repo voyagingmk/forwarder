@@ -30,7 +30,9 @@ namespace forwarder {
 		}
 		if (serverConfig.HasMember("destId"))
 			destId = serverConfig["destId"].GetInt();
-
+        
+        setRule(Protocol::Forward, HandleRule::Forward);
+        setRule(Protocol::BatchForward, HandleRule::BatchForward);
 		return ReturnCode::Ok;
 	}
 

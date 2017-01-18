@@ -381,6 +381,7 @@ void ForwardCtrl::pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len) {
     }
     memcpy(buffer + offset, data, len);
     offset += len;
+    bufferOffset[bufferID] = offset;
 }
 
 void ForwardCtrl::beginBatchForward() {
@@ -388,6 +389,8 @@ void ForwardCtrl::beginBatchForward() {
 }
 
 ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
+    size_t packetLength = bufferOffset[3];
+    bufferOffset[3] = 0;
     ForwardServer* outServer = getServerByID(serverId);
     if (!outServer) {
         logError("[forwarder][endBatchForward] outServer not found, serverId={0}", serverId);
@@ -401,7 +404,6 @@ ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
             return ReturnCode::Err;
         }
     }
-    size_t packetLength = bufferOffset[3];
     uint8_t* buffer = buffers[3];
     ForwardPacketPtr outPacket = createPacket(outServer->netType, packetLength);
     outPacket->setRaw(buffer, packetLength);
@@ -500,7 +502,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                                     int forwardClientId,
                                     bool forwardBroadcast,
                                     bool isForceRaw,
-                                    bool batch) {
+                                    bool isBatchMode) {
     ForwardServer* outServer = getServerByID(serverId);
     if (!outServer) {
         logError("[forwarder][sendBinary] outServer not found, serverId={0}", serverId);
@@ -523,7 +525,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
         outHeader.setFlag(HeaderFlag::Encrypt, true);
     if (outServer->compress)
         outHeader.setFlag(HeaderFlag::Compress, true);
-    if (batch) {
+    if (isBatchMode) {
         outHeader.setProtocol(Protocol::BatchForward);
         outHeader.setFlag(HeaderFlag::PacketLen, true);
     }
@@ -553,7 +555,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
         return ReturnCode::Err;
     }
     size_t packetLength = outHeader.getHeaderLength() + encodedDataLength;
-    if (batch) {
+    if (isBatchMode) {
         outHeader.setPacketLength(packetLength);
         pushToBuffer(3, (uint8_t*)(&outHeader), outHeader.getHeaderLength());
         pushToBuffer(3, encodedData, encodedDataLength);
