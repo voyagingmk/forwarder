@@ -864,7 +864,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
         // check if outClient exists
         int clientID = inHeader->getClientID();
         if(clientID <= 0) {
-            logWarn("[forward.single] wrong clientID.");
+            logWarn("[forward.single] wrong clientID = {0}", clientID);
             return ReturnCode::Err;
         }
         outClient = getOutClient(inHeader, inServer, outServer);
@@ -941,7 +941,7 @@ ReturnCode ForwardCtrl::handlePacket_BatchForward(ForwardParam& param) {
         uint8_t* pData = pCur + headerLen;
         size_t packetLen = subPacket->getHeader()->getPacketLength();
         size_t dataLen = packetLen - headerLen;
-        logDebug(pHeader->getHeaderDebugInfo().c_str());
+        // logDebug(pHeader->getHeaderDebugInfo().c_str());
         // logDebug("BatchForward, headerLen={0}, packetLen={1}, dataLen={2}", headerLen, packetLen, dataLen);
         subPacket->setData(pData, dataLen);
         size_t totalLen = headerLen + dataLen;
