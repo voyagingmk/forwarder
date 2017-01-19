@@ -371,7 +371,7 @@ void ForwardCtrl::pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len) {
         }
         uint8_t* oldData = buffer;
         buffer = new uint8_t[newSize]{ 0 };
-        bufferSize[bufferID] = size;
+        bufferSize[bufferID] = newSize;
         logDebug("pushToBuffer, buffer[{0}] change to {1}", bufferID, newSize);
         buffers[bufferID] = buffer;
         if(oldData) {
