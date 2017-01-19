@@ -364,7 +364,7 @@ void ForwardCtrl::pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len) {
     size_t size = bufferSize[bufferID];
     size_t offset = bufferOffset[bufferID];
     size_t n = offset + len;
-    if (!buffer || n > size) {
+    if (n > size) {
         size_t newSize = size;
         while (n > newSize) {
             newSize = newSize << 1;
@@ -372,12 +372,13 @@ void ForwardCtrl::pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len) {
         uint8_t* oldData = buffer;
         buffer = new uint8_t[newSize]{ 0 };
         bufferSize[bufferID] = newSize;
-        logDebug("pushToBuffer, buffer[{0}] change to {1}", bufferID, newSize);
         buffers[bufferID] = buffer;
+        logDebug("pushToBuffer, buffer[{0}] change to {1}", bufferID, newSize);
         if(oldData) {
             if(offset > 0) {
                 memcpy(buffer, oldData, offset);
             }
+            logDebug("pushToBuffer, delete oldData");
             delete[] oldData;
         }
     }
@@ -863,6 +864,10 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
     if(inHeader->isFlagOn(HeaderFlag::Broadcast)) {
         outClient = nullptr; // no outClient means Broadcast
     } else {
+        if(!inHeader->isFlagOn(forwarder::HeaderFlag::ClientID)){
+            logWarn("[forward.single] clientID is off, can't forward.");
+            return ReturnCode::Err;
+        }
         // check if outClient exists
         int clientID = inHeader->getClientID();
         if(clientID <= 0) {
