@@ -632,7 +632,7 @@ void ForwardCtrl::encodeData(
 	//if (debug) debugBytes("encodeData, raw Data", data, dataLength);
     if (outHeader->isFlagOn(HeaderFlag::Compress)) {
 		size_t bufferLen = compressBound(dataLength);
-		//logDebug("encodeData, compressBound={0}", bufferLen);
+		logDebug("encodeData, compressBound={0}, dataLength={1}", bufferLen, dataLength);
 		uint8_t* newData = getBuffer(0, bufferLen);
         if(!newData) {
             logError("[encodeData] step_Compress no newData");
@@ -793,15 +793,16 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 		inServer, packet->getHeader(),
 		packet->getDataPtr(), packet->getDataLength(),
 		rawData, rawDataLength);
-	//logDebug("raw data:{0}", rawData);
+	logDebug("decodeData, dataLength:{0}, rawDataLength:{1}", packet->getDataLength(), rawDataLength);
 	if (!rawData || rawDataLength <= 0) {
-		logError("[convertPacket] no raw data");
+		logError("[convertPacket] decodeData failed");
 		return nullptr;
     }
-    uint8_t* encodedData;
-    size_t encodedDataLength;
+    uint8_t* encodedData = nullptr;
+    size_t encodedDataLength = 0;
 	encodeData(outServer, outHeader, rawData, rawDataLength, encodedData, encodedDataLength);
     if(!encodedData || encodedDataLength <= 0) {
+        logDebug("[convertPacket] encodeData failed");
         return nullptr;
     }
     ForwardPacketPtr outPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + encodedDataLength);
@@ -932,17 +933,24 @@ ReturnCode ForwardCtrl::handlePacket_BatchForward(ForwardParam& param) {
     ForwardPacketPtr batchPacket = param.packet;
     ForwardPacketPtr subPacket = std::make_shared<ForwardPacketConst>();
     ForwardParam sub_param;
-    sub_param.client = param.client;
-    sub_param.server = param.server;
     while(offset < param.packet->getTotalLength()) {
-        uint8_t* pCur = (uint8_t*)batchPacket->getRawPtr() + offset;
-        subPacket->setHeader((ForwardHeader*)pCur);
-        uint8_t* pData = pCur + subPacket->getHeader()->getHeaderLength();
-        size_t dataLen = subPacket->getHeader()->getPacketLength() - subPacket->getHeader()->getHeaderLength();
+        uint8_t* pCur = (uint8_t*)batchPacket->getHeaderPtr() + offset;
+        ForwardHeader* pHeader = (ForwardHeader*)pCur;
+        size_t headerLen = pHeader->getHeaderLength();
+        subPacket->setHeader(pCur, headerLen);
+        uint8_t* pData = pCur + headerLen;
+        size_t packetLen = subPacket->getHeader()->getPacketLength();
+        size_t dataLen = packetLen - headerLen;
+        logDebug(pHeader->getHeaderDebugInfo().c_str());
+        // logDebug("BatchForward, headerLen={0}, packetLen={1}, dataLen={2}", headerLen, packetLen, dataLen);
         subPacket->setData(pData, dataLen);
+        size_t totalLen = headerLen + dataLen;
+        subPacket->setTotalLength(totalLen);
         sub_param.header = subPacket->getHeader();
         sub_param.packet = subPacket;
-        offset += subPacket->getHeader()->getPacketLength();
+        sub_param.client = param.client;
+        sub_param.server = param.server;
+        offset += totalLen;
         handlePacket_Forward(sub_param);
     }
     return ReturnCode::Ok;

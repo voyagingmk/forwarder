@@ -14,7 +14,10 @@ namespace forwarder {
 		}
 		size_t getTotalLength() const {
 			return length;
-		}
+        }
+        void setTotalLength(size_t l) {
+            length = l;
+        }
 		size_t getDataLength() const {
 			return length - getHeader()->getHeaderLength();
 		}

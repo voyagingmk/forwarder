@@ -1,36 +1,25 @@
 {
     "servers": [{
         "id": 1,
-        "desc": "C2FS_ws",
-        "netType": "ws",
-        "destId": 3,
-        "encrypt": false,
-        "encryptkey": "1234567812345678",
-        "base64": false,
-		"compress": false,
-        "port": 9998,
-        "peers": 3000
-    }, {
-        "id": 2,
-        "desc": "C2FS_enet",
+        "destId": 2,
+        "desc": "server_enet",
         "netType": "enet",
-        "destId": 3,
+        "port": 9998,
+        "peers": 3000,
         "encrypt": true,
         "encryptkey": "1234567812345678",
         "base64": true,
-		"compress": true,
-        "port": 9999,
-        "peers": 3000
+        "compress": true
     }, {
-        "id": 3,
-        "desc": "GS2FS",
-        "netType": "enet",
+        "id": 2,
         "destId": 1,
-        "admin": true,
+        "desc": "server_enet",
+        "netType": "enet",
+        "port": 9999,
+        "peers": 3000,
         "encrypt": false,
+        "encryptkey": "abcdefghabcdefgh",
         "base64": false,
-		"compress": false,
-        "port": 10000,
-        "peers": 1
+        "compress": false
     }]
 }

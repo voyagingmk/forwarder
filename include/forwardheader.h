@@ -9,10 +9,10 @@ namespace forwarder {
 /*
 |  1 byte		|  1 byte			|		1   byte		|		1 byte				| 
 |  Version		|  Length of Header	|	ProtocolType		|		 hash				| 
-|									4 byte												|
+|									4 bytes												|
 |									headerFlag											|
-
-dynamic data sequence by flag
+|                                   n bytes                                             |
+|                           dynamic data sequence by flag                               |
 
 */
 	enum class HeaderFlag: uint32_t {
@@ -45,6 +45,20 @@ dynamic data sequence by flag
         { HeaderFlag::PacketLen,    4 }, // record packet size ( slice )
 	};
 
+    // for debug
+    static std::map<HeaderFlag, std::string> FlagToStr {
+        { HeaderFlag::IP,			"IP"        },
+        { HeaderFlag::HostID,		"HostID"    },
+        { HeaderFlag::ClientID,		"ClientID"  },
+        { HeaderFlag::SubID,		"SubID"     },
+        { HeaderFlag::Base64,		"Base64"    },
+        { HeaderFlag::Encrypt,		"Encrypt"   },
+        { HeaderFlag::Compress,		"Compress"  },
+        { HeaderFlag::Broadcast,	"Broadcast" },
+        { HeaderFlag::ForceRaw,     "ForceRaw"  },
+        { HeaderFlag::PacketLen,    "PacketLen" },
+    };
+    
 	// small endian
 	class ForwardHeader
 	{
@@ -176,6 +190,23 @@ dynamic data sequence by flag
         inline void setPacketLength(uint32_t len) {
             *((uint32_t*)(data + getFlagPos(HeaderFlag::PacketLen))) = htonl(len);
         }
+        
+        std::string getHeaderDebugInfo() {
+            std::string info = "\n";
+            for(auto it = FlagToBytes.begin(); it != FlagToBytes.end(); it++) {
+                info += FlagToStr[it->first];
+                if(isFlagOn(it->first)) {
+                    info += " on";
+                } else {
+                    info += " off";
+                }
+                info += "\n";
+            }
+            info += "headerLen = " + std::to_string(getHeaderLength());
+            info += "packetLen = " + std::to_string(getPacketLength());
+            return info;
+        }
+        
 	public:
 		uint8_t version = HeaderVersion;
 		uint8_t length = 0;
