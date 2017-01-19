@@ -37,8 +37,8 @@ ForwardCtrl::ForwardCtrl() :
 	printf("[forwarder] ForwardCtrl created.\n");
 #endif
 	buffers = new uint8_t*[bufferNum];
-    bufferSize = new size_t[bufferNum];
-    bufferOffset = new size_t[bufferNum];
+    bufferSize = new size_t[bufferNum]{0};
+    bufferOffset = new size_t[bufferNum]{0};
 	for (size_t i = 0; i < bufferNum; i++) {
 		bufferSize[i] = 0xff;
 		buffers[i] = new uint8_t[bufferSize[i]]{ 0 };
