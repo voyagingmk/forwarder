@@ -394,6 +394,9 @@ void ForwardCtrl::beginBatchForward() {
 ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
     size_t packetLength = bufferOffset[3];
     bufferOffset[3] = 0;
+    if(packetLength <= 0) {
+        return ReturnCode::Err;
+    }
     ForwardServer* outServer = getServerByID(serverId);
     if (!outServer) {
         logError("[forwarder][endBatchForward] outServer not found, serverId={0}", serverId);
