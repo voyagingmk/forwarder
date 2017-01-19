@@ -349,7 +349,7 @@ uint8_t* ForwardCtrl::getBuffer(uint8_t bufferID, size_t n) {
             size = size << 1;
         }
         if (buffer) {
-            delete buffer;
+            delete[] buffer;
         }
         buffer = new uint8_t[size]{ 0 };
         logDebug("[forwarder] change buffer[{0}] size: {1}=>{2} success.", bufferID, bufferSize[bufferID], size);
@@ -369,14 +369,16 @@ void ForwardCtrl::pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len) {
         while (n > newSize) {
             newSize = newSize << 1;
         }
-        uint8_t* oldData = nullptr;
-        if (buffer) {
-            // keep the old data
-            oldData = buffer;
-        }
+        uint8_t* oldData = buffer;
         buffer = new uint8_t[newSize]{ 0 };
+        bufferSize[bufferID] = size;
+        logDebug("pushToBuffer, buffer[{0}] change to {1}", bufferID, newSize);
+        buffers[bufferID] = buffer;
         if(oldData) {
-            memcpy(buffer, oldData, offset);
+            if(offset > 0) {
+                memcpy(buffer, oldData, offset);
+            }
+            delete[] oldData;
         }
     }
     memcpy(buffer + offset, data, len);
@@ -933,24 +935,37 @@ ReturnCode ForwardCtrl::handlePacket_BatchForward(ForwardParam& param) {
     ForwardPacketPtr batchPacket = param.packet;
     ForwardPacketPtr subPacket = std::make_shared<ForwardPacketConst>();
     ForwardParam sub_param;
-    while(offset < param.packet->getTotalLength()) {
-        uint8_t* pCur = (uint8_t*)batchPacket->getHeaderPtr() + offset;
+    logDebug("[BatchForward] batchPacket len={0}", batchPacket->getTotalLength());
+    uint8_t* pStart = (uint8_t*)batchPacket->getHeaderPtr();
+    //logDebug(batchPacket->getHeader()->getHeaderDebugInfo().c_str());
+    while(offset < batchPacket->getTotalLength()) {
+        uint8_t* pCur = pStart + offset;
         ForwardHeader* pHeader = (ForwardHeader*)pCur;
+        if(validHeader(pHeader) == ReturnCode::Err) {
+            logError("[BatchForward] err, validHeader failded");
+            debugBytes("ddd=", pCur, 30);
+            break;
+        }
         size_t headerLen = pHeader->getHeaderLength();
         subPacket->setHeader(pCur, headerLen);
         uint8_t* pData = pCur + headerLen;
         size_t packetLen = subPacket->getHeader()->getPacketLength();
         size_t dataLen = packetLen - headerLen;
         // logDebug(pHeader->getHeaderDebugInfo().c_str());
-        // logDebug("BatchForward, headerLen={0}, packetLen={1}, dataLen={2}", headerLen, packetLen, dataLen);
+        logDebug("[BatchForward] headerLen={0}, packetLen={1}, dataLen={2}", headerLen, packetLen, dataLen);
         subPacket->setData(pData, dataLen);
         size_t totalLen = headerLen + dataLen;
+        if(totalLen <= 0) {
+            logError("[BatchForward] err, totalLen<=0");
+            break;
+        }
         subPacket->setTotalLength(totalLen);
         sub_param.header = subPacket->getHeader();
         sub_param.packet = subPacket;
         sub_param.client = param.client;
         sub_param.server = param.server;
         offset += totalLen;
+        logDebug("offset={0}", offset);
         handlePacket_Forward(sub_param);
     }
     return ReturnCode::Ok;

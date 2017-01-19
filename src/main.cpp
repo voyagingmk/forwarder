@@ -51,7 +51,7 @@ int main(int argc, char ** argv)
 	else {
 		ctrl.setupLogger("debug");
 	}
-    ctrl.setDebug(true);
+    ctrl.setDebug(false);
     ctrl.setLogLevel(spdlog::level::level_enum::debug);
 
 	RegisterSystemSignal(SIGINT, [&](int nSig)->void { ctrl.exist(); });
