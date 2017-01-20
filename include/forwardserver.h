@@ -25,7 +25,9 @@ namespace forwarder {
 			isClientMode(false),
 			clientID(0),
 			reconnect(false),
-			reconnectdelay(1000)
+            reconnectdelay(1000),
+            timeoutMin(0),
+            timeoutMax(0)
 		{
 #ifdef DEBUG_MODE
 			printf("[forwarder] ForwardServer created, netType:%d\n", int(netType));
@@ -66,7 +68,9 @@ namespace forwarder {
 		bool encrypt;
 		bool base64;
 		bool compress;
-		int peerLimit;
+        int peerLimit;
+        int timeoutMin;
+        int timeoutMax;
 		AES_KEY encryptkey;
 		NetType netType;
 		ForwardServer* dest;

@@ -30,6 +30,10 @@ namespace forwarder {
 		}
 		if (serverConfig.HasMember("destId"))
 			destId = serverConfig["destId"].GetInt();
+        if (serverConfig.HasMember("timeoutMin"))
+            timeoutMin = serverConfig["timeoutMin"].GetInt();
+        if (serverConfig.HasMember("timeoutMax"))
+            timeoutMax = serverConfig["timeoutMax"].GetInt();
         
         setRule(Protocol::Forward, HandleRule::Forward);
         setRule(Protocol::BatchForward, HandleRule::BatchForward);

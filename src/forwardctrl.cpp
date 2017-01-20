@@ -1113,6 +1113,7 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 	if (server->isClientMode) {
 		server->clientID = id;
 	}
+    client->setPeerTimeout(0, server->timeoutMin, server->timeoutMax);
 	logDebug("[forwarder][enet][c:{0}] connected, from {1}:{2}.",
              client->id,
              str,
