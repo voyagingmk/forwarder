@@ -166,6 +166,7 @@ namespace forwarder {
 			server.set_error_channels(websocketpp::log::elevel::all);
 			server.set_access_channels(websocketpp::log::alevel::none);
 			server.init_asio();
+            server.set_reuse_addr(true);
 			server.listen(port);
 			server.start_accept();
 		}
