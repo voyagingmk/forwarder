@@ -177,14 +177,8 @@ namespace forwarder {
 		}
 	}
 
-	void  ForwardServerWS::release() {
-		if (!isClientMode) {
-			server.stop();
-		}
-		else {
-			doDisconnect();
-			serverAsClient.stop();
-		}
+    void  ForwardServerWS::release() {
+        doDisconnect();
 		hdlToClientId.clear();
 	}
 
@@ -213,20 +207,26 @@ namespace forwarder {
 	}
 
 	void ForwardServerWS::doDisconnect() {
-		std::cout << "[forwarder] WS doDisconnect" << std::endl;
-		auto client = getClient(clientID);
-		if (!client) {
-			return;
-		}
-		ForwardClientWS* clientWS = dynamic_cast<ForwardClientWS*>(client);
-		auto hdl = clientWS->hdl;
-		websocketpp::lib::error_code ec;
-		websocketpp::close::status::value code = websocketpp::close::status::normal;
-		std::string reason = "";
-		serverAsClient.close(hdl, code, reason, ec);
-		if (ec) {
-			std::cout << "[forwarder] WS error, initiating close: " << ec.message() << std::endl;
-		}
+        std::cout << "[forwarder] WS doDisconnect" << std::endl;
+        std::string reason = "";
+        websocketpp::lib::error_code ec;
+        websocketpp::close::status::value code = websocketpp::close::status::normal;
+        if (!isClientMode) {
+            server.stop_listening();
+            server.stop();
+        } else {
+            auto client = getClient(clientID);
+            if (!client) {
+                return;
+            }
+            ForwardClientWS* clientWS = dynamic_cast<ForwardClientWS*>(client);
+            auto hdl = clientWS->hdl;
+            serverAsClient.close(hdl, code, reason, ec);
+            if (ec) {
+                std::cout << "[forwarder] WS error, initiating close: " << ec.message() << std::endl;
+            }
+            serverAsClient.stop();
+        }
 	}
 
 
