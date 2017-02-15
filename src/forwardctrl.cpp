@@ -195,7 +195,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
 		if (!wsServer->isClientMode) {
 			wsServer->server.set_message_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSReceived,
+				&ForwardCtrl::onWSCacheReceived,
 				this,
 				wsServer,
 				websocketpp::lib::placeholders::_1,
@@ -213,7 +213,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 		}
 		else {
 			wsServer->serverAsClient.set_message_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSReceived,
+				&ForwardCtrl::onWSCacheReceived,
 				this,
 				wsServer,
 				websocketpp::lib::placeholders::_1,
@@ -1066,7 +1066,14 @@ void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_h
 	onWSDisconnected(wsServer, hdl);
 }
 
-void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
+void ForwardCtrl::onWSCacheReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
+    wsPackets.push_back({wsServer, hdl, msg});
+}
+
+void ForwardCtrl::onWSReceived(WSPacket& wsPacket) {
+    ForwardServerWS* wsServer = wsPacket.server;
+    websocketpp::connection_hdl hdl = wsPacket.hdl;
+    ForwardServerWS::WebsocketServer::message_ptr msg = wsPacket.msg;
 	auto it1 = wsServer->hdlToClientId.find(hdl);
 	if (it1 == wsServer->hdlToClientId.end()) {
 		logError("[forwarder][ws.recv] no such hdl");
@@ -1287,14 +1294,21 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 		//std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 	else if (pServer->netType == NetType::WS) {
-		ForwardServerWS* server = dynamic_cast<ForwardServerWS*>(pServer);
-		server->poll();
+         if(wsPackets.begin() == wsPackets.end()) {
+             ForwardServerWS* server = dynamic_cast<ForwardServerWS*>(pServer);
+             server->poll();
+         }
+         if(wsPackets.begin() != wsPackets.end()) {
+             WSPacket packet = wsPackets.front();
+             wsPackets.pop_front();
+             onWSReceived(packet);
+         }
 	}
 }
 
 void ForwardCtrl::pollAllOnce() {
 	for (ForwardServer* pServer : servers) {
-		pollOnce(pServer);
+        pollOnce(pServer);
 	}
 }
 

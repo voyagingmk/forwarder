@@ -28,7 +28,13 @@ namespace forwarder {
 	};
 
 	typedef void(*DebugFuncPtr)(const char *);
-
+    
+    struct WSPacket {
+        ForwardServerWS* server;
+        websocketpp::connection_hdl hdl;
+        ForwardServerWS::WebsocketServer::message_ptr msg;
+    };
+    
 	class ForwardCtrl {
 	public:
 		ForwardCtrl();
@@ -152,7 +158,9 @@ namespace forwarder {
 
 		void onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
 
-		void onWSReceived(ForwardServerWS* server, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
+		void onWSCacheReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
+        
+        void onWSReceived(WSPacket& wsPacket);
 		
 		void onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer);
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -292,6 +300,7 @@ namespace forwarder {
         ForwardPacketPtr curProcessPacketENet; // will be destroyed after process!
 		uint8_t* curProcessData;
 		size_t curProcessDataLength;
+        std::list<WSPacket> wsPackets;
     
 
 		static const size_t ivSize = 16;
