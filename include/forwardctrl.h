@@ -288,7 +288,8 @@ namespace forwarder {
 		ForwardServer* curProcessServer;
 		ForwardClient* curProcessClient;
         ForwardHeader* curProcessHeader;
-        ForwardPacketPtr curProcessPacket; // will be destroyed after process!
+        ForwardPacketPtr curProcessPacketWS;
+        ForwardPacketPtr curProcessPacketENet; // will be destroyed after process!
 		uint8_t* curProcessData;
 		size_t curProcessDataLength;
     

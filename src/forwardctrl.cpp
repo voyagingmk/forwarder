@@ -27,7 +27,8 @@ ForwardCtrl::ForwardCtrl() :
 	curProcessClient(nullptr),
 	curProcessHeader(nullptr),
 	curProcessData(nullptr),
-    curProcessPacket(nullptr),
+    curProcessPacketWS(nullptr),
+    curProcessPacketENet(nullptr),
 	debugFunc(nullptr),
 	curProcessDataLength(0),
 	logger(nullptr),
@@ -1096,7 +1097,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	param.packet = createPacket(payload);
 	param.client = client;
 	param.server = static_cast<ForwardServer*>(wsServer);
-    curProcessPacket = param.packet;
+    curProcessPacketWS = param.packet;
 	(this->*handleFunc)(param);
 }
 
@@ -1163,7 +1164,7 @@ void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPack
 	param.packet = createPacket(inPacket);
 	param.client = client;
 	param.server = server;
-    curProcessPacket = param.packet;
+    curProcessPacketENet = param.packet;
 	(this->*handleFunc)(param);
 }
 
@@ -1238,10 +1239,11 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 	curProcessHeader = nullptr;
 	curProcessData = nullptr;
 	curProcessDataLength = 0;
-    if(curProcessPacket) {
-        ENetPacket* enetPacket = static_cast<ENetPacket*>(curProcessPacket->getRawPtr());
+    curProcessPacketWS = nullptr;
+    if(curProcessPacketENet) {
+        ENetPacket* enetPacket = static_cast<ENetPacket*>(curProcessPacketENet->getRawPtr());
         enet_packet_destroy(enetPacket);
-        curProcessPacket = nullptr;
+        curProcessPacketENet = nullptr;
     }
 	if (pServer->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
