@@ -1096,6 +1096,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	param.packet = createPacket(payload);
 	param.client = client;
 	param.server = static_cast<ForwardServer*>(wsServer);
+    curProcessPacket = param.packet;
 	(this->*handleFunc)(param);
 }
 
