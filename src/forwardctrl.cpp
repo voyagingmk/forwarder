@@ -1233,9 +1233,11 @@ ForwardClient* ForwardCtrl::getOutClient(ForwardHeader* inHeader, ForwardServer*
 
 ForwardServer* ForwardCtrl::getOutServer(ForwardHeader* inHeader, ForwardServer* inServer) const {
 	ForwardServer* outServer = nullptr;
-    int outHostID = inHeader->getHostID();
-    if (outHostID > 0) {
-        outServer = getServerByID(outHostID);
+    if (inHeader->isFlagOn(HeaderFlag::HostID)) {
+        int outHostID = inHeader->getHostID();
+        if(outHostID > 0) {
+            outServer = getServerByID(outHostID);
+        }
     } else if (inServer->dest) {
 		outServer = inServer->dest;
 	}
