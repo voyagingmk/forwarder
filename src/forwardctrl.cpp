@@ -1016,11 +1016,20 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 	UniqID id = wsServer->idGenerator.getNewID();
 	ForwardClientWS* client = poolForwardClientWS.add();
 	client->id = id;
-	client->hdl = hdl;
-	std::string host = con->get_host();
-	uint16_t port = con->get_port();
-	if (host == "localhost")
-		host = "127.0.0.1";
+    client->hdl = hdl;
+    uint16_t port = con->get_port();
+    std::string host = con->get_remote_endpoint();
+    if (host == "localhost") {
+        host = "127.0.0.1";
+    } else {
+        auto p1 = host.find("[::ffff:");
+        auto p2 = host.find("]:");
+        if (p1 != std::string::npos && p2 != std::string::npos) {
+            host = host.substr(p1 + 8, p2 - (p1 + 8));
+        } else {
+            host = "1.2.3.4";
+        }
+    }
 	asio::ip::address_v4::bytes_type ip = asio::ip::address_v4::from_string(host).to_bytes();
 	memcpy(&client->ip, ip.data(), 4);
 	wsServer->clients[id] = static_cast<ForwardClient*>(client);
