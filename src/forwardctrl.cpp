@@ -459,13 +459,15 @@ ReturnCode ForwardCtrl::broadcastText(UniqID serverId, const char* data) {
 }
 
 ReturnCode ForwardCtrl::forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
-                                      int forwardClientId,
+                                      UniqID forwardServerId,
+                                      UniqID forwardClientId,
                                       bool isBroadcast,
                                       bool isForceRaw,
                                       bool isBatchMode) {
     const bool forwardMode = true;
     return _sendBinary(serverId, clientId, data, dataLength,
                        forwardMode,
+                       forwardServerId,
                        forwardClientId,
                        isBroadcast,
                        isForceRaw,
@@ -473,13 +475,15 @@ ReturnCode ForwardCtrl::forwardBinary(UniqID serverId, UniqID clientId, uint8_t*
 }
 
 ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, std::string& data,
-                                    int forwardClientId,
+                                    UniqID forwardServerId,
+                                    UniqID forwardClientId,
                                     bool isBroadcast,
                                     bool isForceRaw,
                                     bool isBatchMode) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
+                       forwardServerId,
                        forwardClientId,
                        isBroadcast,
                        isForceRaw,
@@ -487,13 +491,15 @@ ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, std::strin
 }
 
 ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, const char* data,
-                                    int forwardClientId,
+                                    UniqID forwardServerId,
+                                    UniqID forwardClientId,
                                     bool isBroadcast,
                                     bool isForceRaw,
                                     bool isBatchMode) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
+                       forwardServerId,
                        forwardClientId,
                        isBroadcast,
                        isForceRaw,
@@ -507,7 +513,8 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                                     uint8_t* data,
                                     size_t dataLength,
                                     bool forwardMode,
-                                    int forwardClientId,
+                                    UniqID forwardServerId,
+                                    UniqID forwardClientId,
                                     bool forwardBroadcast,
                                     bool isForceRaw,
                                     bool isBatchMode) {
@@ -539,6 +546,11 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
     }
     // forward config
     if(forwardMode) {
+        if (forwardServerId > 0) {
+            outHeader.setFlag(HeaderFlag::HostID, true);
+            outHeader.setHostID((uint8_t)(forwardServerId));
+        }
+        
         if (forwardBroadcast) {
             outHeader.setFlag(HeaderFlag::Broadcast, true);
         } else {
@@ -588,12 +600,14 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
 
 ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, std::string& data,
                                   bool forwardMode,
-                                  int forwardClientId,
+                                  UniqID forwardServerId,
+                                  UniqID forwardClientId,
                                   bool forwardBroadcast,
                                   bool isForceRaw,
                                   bool batch) {
     return _sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size(),
                        forwardMode,
+                       forwardServerId,
                        forwardClientId,
                        forwardBroadcast,
                        isForceRaw,
@@ -602,7 +616,8 @@ ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, std::string&
 
 ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, const char* data,
                                   bool forwardMode,
-                                  int forwardClientId,
+                                  UniqID forwardServerId,
+                                  UniqID forwardClientId,
                                   bool forwardBroadcast,
                                   bool isForceRaw,
                                   bool batch) {
@@ -1218,14 +1233,11 @@ ForwardClient* ForwardCtrl::getOutClient(ForwardHeader* inHeader, ForwardServer*
 
 ForwardServer* ForwardCtrl::getOutServer(ForwardHeader* inHeader, ForwardServer* inServer) const {
 	ForwardServer* outServer = nullptr;
-	if (inServer->dest) {
+    int outHostID = inHeader->getHostID();
+    if (outHostID > 0) {
+        outServer = getServerByID(outHostID);
+    } else if (inServer->dest) {
 		outServer = inServer->dest;
-	}
-	else {
-		int destHostID = inHeader->getHostID();
-		if (!destHostID)
-			return nullptr;
-		outServer = getServerByID(destHostID);
 	}
 	return outServer;
 }

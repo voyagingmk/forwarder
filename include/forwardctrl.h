@@ -77,19 +77,22 @@ namespace forwarder {
         
         // forward send
         ReturnCode forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
-                                int forwardClientId,
+                                UniqID forwardServerId,
+                                UniqID forwardClientId,
                                 bool isBroadcast,
                                 bool isForceRaw = false,
                                 bool isBatchMode = false);
         
         ReturnCode forwardText(UniqID serverId, UniqID clientId, std::string& data,
-                                int forwardClientId,
+                                UniqID forwardServerId,
+                                UniqID forwardClientId,
                                 bool isBroadcast,
                                 bool isForceRaw = false,
                                 bool isBatchMode = false);
         
         ReturnCode forwardText(UniqID serverId, UniqID clientId, const char* data,
-                                int forwardClientId,
+                                UniqID forwardServerId,
+                                UniqID forwardClientId,
                                 bool isBroadcast,
                                 bool isForceRaw = false,
                                 bool isBatchMode = false);
@@ -166,22 +169,25 @@ namespace forwarder {
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         ReturnCode _sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
-                               bool forwardMode = false,
-                               int forwardClientId = 0,
-                               bool forwardBroadcast = false,
-                               bool isForceRaw = false,
-                               bool batch = false);
+                             bool forwardMode = false,
+                             UniqID forwardServerId = 0,
+                             UniqID forwardClientId = 0,
+                             bool forwardBroadcast = false,
+                             bool isForceRaw = false,
+                             bool batch = false);
         
         ReturnCode _sendText(UniqID serverId, UniqID clientId, std::string& data,
                              bool forwardMode = false,
-                             int forwardClientId = 0,
+                             UniqID forwardServerId = 0,
+                             UniqID forwardClientId = 0,
                              bool forwardBroadcast = false,
                              bool isForceRaw = false,
                              bool batch = false);
         
         ReturnCode _sendText(UniqID serverId, UniqID clientId, const char* data,
                              bool forwardMode = false,
-                             int forwardClientId = 0,
+                             UniqID forwardServerId = 0,
+                             UniqID forwardClientId = 0,
                              bool forwardBroadcast = false,
                              bool isForceRaw = false,
                              bool batch = false);
