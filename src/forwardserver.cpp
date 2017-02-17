@@ -163,7 +163,7 @@ namespace forwarder {
 
 	void ForwardServerWS::init(rapidjson::Value& serverConfig) {
 		if (!isClientMode) {
-			server.set_error_channels(websocketpp::log::elevel::fatal);
+			server.set_error_channels(websocketpp::log::elevel::none);
 			server.set_access_channels(websocketpp::log::alevel::none);
 			server.init_asio();
             server.set_reuse_addr(true);
@@ -171,7 +171,7 @@ namespace forwarder {
 			server.start_accept();
 		}
 		else {
-			serverAsClient.set_error_channels(websocketpp::log::elevel::fatal);
+			serverAsClient.set_error_channels(websocketpp::log::elevel::none);
 			serverAsClient.set_access_channels(websocketpp::log::alevel::none);
 			serverAsClient.init_asio();
 			doReconnect();

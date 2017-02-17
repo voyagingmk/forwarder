@@ -210,6 +210,11 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 				this,
 				wsServer,
 				websocketpp::lib::placeholders::_1));
+            wsServer->serverAsClient.set_fail_handler(websocketpp::lib::bind(
+                &ForwardCtrl::onWSError,
+                this,
+                wsServer,
+                websocketpp::lib::placeholders::_1));
 		}
 		else {
 			wsServer->serverAsClient.set_message_handler(websocketpp::lib::bind(
