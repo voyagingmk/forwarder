@@ -1352,17 +1352,17 @@ Document ForwardCtrl::stat() const {
 		servers:[
 			{
 				config:{
+                    desc: str,
 					id: int,
 					destId: int,
 					port: int,
 					peerLimit: int,
-					peerCount: int,
-					desc: str,
 					admin: bool,
 					encrypt: bool,
-					encrypt: bool
+                    compress: bool,
+                    base64: bool
 				},
-				peers: int,		
+				peers: int,
 				idGenerator: {
 					max: int,
 					recyled: int
@@ -1384,27 +1384,25 @@ Document ForwardCtrl::stat() const {
 			auto add = [&](Value::StringRefType k, Value& v) {
 				dConfig.AddMember(k, v, d.GetAllocator());
 			};
-			Value id(server->id);
+            Value desc;
+            desc.SetString(server->desc.c_str(), server->desc.size(), d.GetAllocator());
+            add("desc", desc);
+            Value id(server->id);
 			add("id", id);
 			Value destId(server->destId);
-			add("destId", destId);
-			Value desc;
-			desc.SetString(server->desc.c_str(), server->desc.size(), d.GetAllocator());
-			add("desc", desc);
+            add("destId", destId);
+            Value port(server->port);
+            add("port", port);
 			Value peerLimit(server->peerLimit);
 			add("peerLimit", peerLimit);
 			Value isAdmin(server->admin);
 			add("admin", isAdmin);
 			Value isEncrypt(server->encrypt);
-			add("encrypt", isEncrypt);
-			if (server->netType == NetType::ENet) {
-				ForwardServerENet* enetserver = dynamic_cast<ForwardServerENet*>(server);
-				Value port(enetserver->host->address.port);
-				add("port", port);
-			}
-			else if (server->netType == NetType::WS) {
-			}
-
+            add("encrypt", isEncrypt);
+            Value isCompress(server->compress);
+            add("compress", isCompress);
+            Value isBase64(server->base64);
+            add("base64", isBase64);
 			addToServer("config", dConfig);
 		}
 		{
