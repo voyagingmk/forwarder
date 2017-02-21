@@ -366,47 +366,24 @@ uint8_t* ForwardCtrl::getBuffer(uint8_t bufferID, size_t n) {
     return buffer;
 }
 
-void ForwardCtrl::pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len) {
-    uint8_t* buffer = buffers[bufferID];
-    size_t size = bufferSize[bufferID];
-    size_t offset = bufferOffset[bufferID];
-    size_t n = offset + len;
-    if (n > size) {
-        size_t newSize = size;
-        while (n > newSize) {
-            newSize = newSize << 1;
-        }
-        uint8_t* oldData = buffer;
-        buffer = new uint8_t[newSize]{ 0 };
-        bufferSize[bufferID] = newSize;
-        buffers[bufferID] = buffer;
-        logDebug("pushToBuffer, buffer[{0}] change to {1}", bufferID, newSize);
-        if(oldData) {
-            if(offset > 0) {
-                memcpy(buffer, oldData, offset);
-            }
-            logDebug("pushToBuffer, delete oldData");
-            delete[] oldData;
-        }
-    }
-    memcpy(buffer + offset, data, len);
-    offset += len;
-    bufferOffset[bufferID] = offset;
-}
 
-void ForwardCtrl::beginBatchForward() {
-    bufferOffset[3] = 0;
+void ForwardCtrl::beginBatchForward(UniqID serverId) {
+    ForwardServer* outServer = getServerByID(serverId);
+    if(!outServer) {
+        return;
+    }
+    outServer->batchBufferOffset = 0;
 }
 
 ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
-    size_t packetLength = bufferOffset[3];
-    bufferOffset[3] = 0;
-    if(packetLength <= 0) {
+    ForwardServer* outServer = getServerByID(serverId);
+    if(!outServer) {
+        // logError("[forwarder][endBatchForward] outServer not found, serverId={0}", serverId);
         return ReturnCode::Err;
     }
-    ForwardServer* outServer = getServerByID(serverId);
-    if (!outServer) {
-        logError("[forwarder][endBatchForward] outServer not found, serverId={0}", serverId);
+    size_t packetLength = outServer->batchBufferOffset;
+    outServer->batchBufferOffset = 0;
+    if(packetLength <= 0) {
         return ReturnCode::Err;
     }
     ForwardClient* outClient = nullptr;
@@ -417,7 +394,7 @@ ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
             return ReturnCode::Err;
         }
     }
-    uint8_t* buffer = buffers[3];
+    uint8_t* buffer = outServer->batchBuffer;
     ForwardPacketPtr outPacket = createPacket(outServer->netType, packetLength);
     outPacket->setRaw(buffer, packetLength);
     ForwardParam param;
@@ -582,8 +559,8 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
     size_t packetLength = outHeader.getHeaderLength() + encodedDataLength;
     if (isBatchMode) {
         outHeader.setPacketLength(packetLength);
-        pushToBuffer(3, (uint8_t*)(&outHeader), outHeader.getHeaderLength());
-        pushToBuffer(3, encodedData, encodedDataLength);
+        outServer->pushToBuffer((uint8_t*)(&outHeader), outHeader.getHeaderLength());
+        outServer->pushToBuffer(encodedData, encodedDataLength);
         return ReturnCode::Ok;
     } else {
         ForwardPacketPtr outPacket = createPacket(outServer->netType, packetLength);

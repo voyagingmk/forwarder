@@ -27,7 +27,10 @@ namespace forwarder {
 			reconnect(false),
             reconnectdelay(1000),
             timeoutMin(0),
-            timeoutMax(0)
+            timeoutMax(0),
+            batchBuffer(nullptr),
+            batchBufferSize(0),
+            batchBufferOffset(0)
 		{
 #ifdef DEBUG_MODE
 			printf("[forwarder] ForwardServer created, netType:%d\n", int(netType));
@@ -55,6 +58,11 @@ namespace forwarder {
 		ForwardClient* getClient(UniqID clientId);
 		void setRule(Protocol p, HandleRule rule);
 		HandleRule getRule(Protocol p);
+        // use buffer as a cache list
+        // will auto realloc when there's no enough room for push,
+        // and rewrite the prev data into new buffer memory
+        void pushToBuffer(uint8_t* data, size_t len);
+        
 
 		// used for client mode
 		virtual void doReconnect() {};
@@ -79,6 +87,9 @@ namespace forwarder {
 		std::string desc;
 		uint16_t port;
 		std::map<Protocol, HandleRule> ruleDict;
+        uint8_t* batchBuffer;
+        size_t batchBufferSize;
+        size_t batchBufferOffset;
 
 		// used for client mode
 		bool isClientMode;

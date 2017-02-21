@@ -97,7 +97,7 @@ namespace forwarder {
                                 bool isForceRaw = false,
                                 bool isBatchMode = false);
         
-        void beginBatchForward();
+        void beginBatchForward(UniqID serverId);
         
         ReturnCode endBatchForward(UniqID serverId, UniqID clientId);
         
@@ -239,11 +239,6 @@ namespace forwarder {
         inline size_t getBufferSize(uint8_t bufferID) {
             return bufferSize[bufferID];
         }
-        
-        // use buffer as a cache list
-        // will auto realloc when there's no enough room for push,
-        // and rewrite the prev data into new buffer memory
-        void pushToBuffer(uint8_t bufferID, uint8_t* data, size_t len);
         
 	public:
 		template <typename... Args>

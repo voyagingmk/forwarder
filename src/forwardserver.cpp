@@ -86,7 +86,33 @@ namespace forwarder {
 		return it->second;
 	}
 
-
+    void ForwardServer::pushToBuffer(uint8_t* data, size_t len) {
+        uint8_t* buffer = batchBuffer;
+        size_t size = batchBufferSize;
+        size_t offset = batchBufferOffset;
+        size_t n = offset + len;
+        if (n > size) {
+            size_t newSize = size;
+            while (n > newSize) {
+                newSize = newSize << 1;
+            }
+            uint8_t* oldData = buffer;
+            buffer = new uint8_t[newSize]{ 0 };
+            batchBufferSize = newSize;
+            batchBuffer = buffer;
+            if(oldData) {
+                if(offset > 0) {
+                    memcpy(buffer, oldData, offset);
+                }
+                delete[] oldData;
+            }
+        }
+        memcpy(buffer + offset, data, len);
+        offset += len;
+        batchBufferOffset = offset;
+    }
+    
+    
 
 	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
 		ENetAddress enetAddress;
