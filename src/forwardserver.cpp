@@ -92,6 +92,9 @@ namespace forwarder {
         size_t offset = batchBufferOffset;
         size_t n = offset + len;
         if (n > size) {
+            if(size == 0) {
+                size = 1;
+            }
             size_t newSize = size;
             while (n > newSize) {
                 newSize = newSize << 1;
