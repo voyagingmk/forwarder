@@ -605,6 +605,7 @@ ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, const char* 
                                   bool batch) {
     return _sendBinary(serverId, clientId, (uint8_t*)data, strlen(data),
                        forwardMode,
+                       forwardServerId,
                        forwardClientId,
                        forwardBroadcast,
                        isForceRaw,
