@@ -202,8 +202,8 @@ namespace forwarder {
                 }
                 info += "\n";
             }
-            info += "headerLen = " + std::to_string(getHeaderLength());
-            info += "packetLen = " + std::to_string(getPacketLength());
+            info += "headerLen = " + to_string(getHeaderLength());
+            info += "packetLen = " + to_string(getPacketLength());
             return info;
         }
         
