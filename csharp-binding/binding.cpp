@@ -60,7 +60,7 @@ void setProtocolRule(int serverId, int protocolId, const char* sRule) {
 	else {
 		return;
 	}
-	server->setRule(protocolId, rule);
+	server->setRule(static_cast<forwarder::Protocol>(protocolId), rule);
 }
 
 void initServers(const char* sConfig) {

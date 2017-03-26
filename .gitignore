@@ -4,3 +4,4 @@ build/
 build_ubuntu/
 test/node_modules/
 ubuntu_build/
+unity/
