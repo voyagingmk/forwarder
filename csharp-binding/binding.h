@@ -3,8 +3,11 @@
 #include <string>
 #include "forwardctrl.h"
 
+#if defined(__APPLE__)
+#define DLL_EXPORT 
+#else
 #define DLL_EXPORT extern "C" __declspec(dllexport)
-
+#endif
 
 DLL_EXPORT void SetDebugFunction(forwarder::DebugFuncPtr fp);
 
