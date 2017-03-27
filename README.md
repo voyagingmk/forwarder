@@ -21,6 +21,17 @@ cd xcode_build
 
 cmake .. -G Xcode
 
+### unity ios
+
+1. copy all the *src* files to Assets/Plugins/iOS/ directory.
+2. Open Files->Build Settings->iOS->Build, waiting for the build process
+3. after the xcode project directory built, open it with xcode
+4. choose a Signing Team
+5. copy forwarder's include directory to build/Classes/ directory
+6. append two header search paths:  $(SRCROOT)/Classes/include  $(SRCROOT)/Classes/include/zlib  
+7. enable rtti (TODO)
+8. run the program on your device
+
 ## centos 6
 
 yum install centos-release-scl-rh

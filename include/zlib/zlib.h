@@ -31,6 +31,10 @@
 #ifndef ZLIB_H
 #define ZLIB_H
 
+#if defined(__APPLE__) && !defined(_UNISTD_H_)
+#   include <unistd.h>
+#endif
+
 #include "zconf.h"
 
 #ifdef __cplusplus

@@ -9,6 +9,8 @@
 #define DLL_EXPORT extern "C" __declspec(dllexport)
 #endif
 
+ extern "C" {
+
 DLL_EXPORT void SetDebugFunction(forwarder::DebugFuncPtr fp);
 
 DLL_EXPORT int initENet();
@@ -54,5 +56,6 @@ DLL_EXPORT void pollOnceByServerID(int serverId);
 
 DLL_EXPORT std::string getStatInfo();
 
+ }
 
 #endif
