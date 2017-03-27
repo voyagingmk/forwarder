@@ -11,41 +11,41 @@ public delegate void MyDelegate(string str);
 
 public class Forwarder : MonoBehaviour {
 
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     public static extern void SetDebugFunction(IntPtr fp);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int initENet();
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void release();
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int version();
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void setupLogger(string filename);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void setDebug(bool debug);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int setProtocolRule(int serverId, int protocol, string rule);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void initServers(string sConfig);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int createServer(string sConfig);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int sendText(int serverId, int clientId, string data);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int getCurEvent();
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int getCurProcessServerID();
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern int getCurProcessClientID();
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void getCurProcessPacket(ref IntPtr data, ref int len);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void setTimeout(int serverId, int timeoutLimit, int timeoutMinimum, int timeoutMaximum);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void setPingInterval(int serverId, int interval);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern void pollOnceByServerID(int serverId);
-    [DllImport("__Internal")]
+    [DllImport("forwarder")]
     private static extern string getStatInfo();
 
     private class ServerConfg {
@@ -66,19 +66,13 @@ public class Forwarder : MonoBehaviour {
 
     void Start()
     {
-        Debug.Log("hello world");
         // MyDelegate callback_delegate = new MyDelegate(CallBackFunction);
-        Debug.Log("debug p 0");
         // IntPtr intptr_delegate = Marshal.GetFunctionPointerForDelegate(callback_delegate);
         // SetDebugFunction(intptr_delegate);
-        Debug.Log("debug p 1");
         initENet();
-        Debug.Log("debug p 2");
         //version();
         setupLogger("");
-        Debug.Log("debug p 3");
         setDebug(false);
-        Debug.Log("debug p 4");
         ServerConfg config = new ServerConfg();
         config.id = 1;
         config.desc = "client_enet";
@@ -94,9 +88,7 @@ public class Forwarder : MonoBehaviour {
         config.reconnect = true;
         serverId = createServer(JsonUtility.ToJson(config));
         Debug.Log("[forwarder] createServer:" + serverId);
-        Debug.Log("debug p 5");
         setProtocolRule(serverId, 2, "Process");
-        Debug.Log("debug p 6");
     }
 
     // Update is called once per frame
