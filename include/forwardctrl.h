@@ -238,6 +238,39 @@ namespace forwarder {
         inline size_t getBufferSize(uint8_t bufferID) {
             return bufferSize[bufferID];
         }
+    
+    public:
+        template <typename... Args>
+        void logDebugS(ForwardServer* server, const char* fmt, const Args&... args) {
+            logDebug(fmt, args...);
+            if (server) {
+                server->logDebug(fmt, args...);
+            }
+        }
+        
+        template <typename... Args>
+        void logInfoS(ForwardServer* server, const char* fmt, const Args&... args) {
+            logInfo(fmt, args...);
+            if (server) {
+                server->logInfo(fmt, args...);
+            }
+        }
+        
+        template <typename... Args>
+        void logWarnS(ForwardServer* server, const char* fmt, const Args&... args) {
+            logWarn(fmt, args...);
+            if (server) {
+                server->logWarn(fmt, args...);
+            }
+        }
+        
+        template <typename... Args>
+        void logErrorS(ForwardServer* server, const char* fmt, const Args&... args) {
+            logError(fmt, args...);
+            if (server) {
+                server->logError(fmt, args...);
+            }
+        }
         
 	private:
 		typedef ReturnCode(ForwardCtrl::*handlePacketFunc)(ForwardParam& param);

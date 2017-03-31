@@ -44,7 +44,7 @@ namespace forwarder {
         
         template <typename... Args>
         void logWarn(const char* fmt, const Args&... args) {
-            if (logger) logger->warn(fmt, args...);
+            if (debug && logger) logger->warn(fmt, args...);
             if (debugFunc) {
                 debugFunc(fmt);
             }

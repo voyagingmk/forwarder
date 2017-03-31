@@ -650,10 +650,10 @@ void ForwardCtrl::encodeData(
 	//if (debug) debugBytes("encodeData, raw Data", data, dataLength);
     if (outHeader->isFlagOn(HeaderFlag::Compress)) {
 		size_t bufferLen = compressBound(dataLength);
-		logDebug("encodeData, compressBound={0}, dataLength={1}", bufferLen, dataLength);
+		logDebugS(outServer, "encodeData, compressBound={0}, dataLength={1}", bufferLen, dataLength);
 		uint8_t* newData = getBuffer(0, bufferLen);
         if(!newData) {
-            logError("[encodeData] step_Compress no newData");
+            logErrorS(outServer, "[encodeData] step_Compress no newData");
             return;
         }
 		uLongf realLen = bufferLen;
@@ -662,17 +662,17 @@ void ForwardCtrl::encodeData(
 		if (ret == Z_OK) {
 			data = newData;
             dataLength = realLen;
-            logDebug("[encodeData] after step_Compress dataLength:{0}", dataLength);
+            logDebugS(outServer, "[encodeData] after step_Compress dataLength:{0}", dataLength);
 			//if (debug) debugBytes("encodeData, compressed", data, dataLength);
 		}
 		else {
-            logError("[encodeData] step_Compress, compress failed.");
+            logErrorS(outServer, "[encodeData] step_Compress, compress failed.");
 			if (ret == Z_MEM_ERROR)
-				logError("Z_MEM_ERROR");
+				logErrorS(outServer, "Z_MEM_ERROR");
 			else if (ret == Z_BUF_ERROR)
-				logError("Z_BUF_ERROR");
+				logErrorS(outServer, "Z_BUF_ERROR");
 			else if (ret == Z_DATA_ERROR)
-				logError("Z_DATA_ERROR");
+				logErrorS(outServer, "Z_DATA_ERROR");
 			return;
 		}
 	}
@@ -683,7 +683,7 @@ void ForwardCtrl::encodeData(
 		static std::uniform_int_distribution<> dis(0, int(std::pow(2, 8)) - 1);
 		uint8_t* newData = getBuffer(1, dataLength + ivSize);
         if(!newData) {
-            logError("[encodeData] step_Encrypt no newData");
+            logErrorS(outServer, "[encodeData] step_Encrypt no newData");
             return;
         }
         uint8_t* iv = newData;
@@ -698,7 +698,7 @@ void ForwardCtrl::encodeData(
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
 		data = newData;
         dataLength = dataLength + ivSize;
-        logDebug("[encodeData] after step_Encrypt dataLength:{0}", dataLength);
+        logDebugS(outServer, "[encodeData] after step_Encrypt dataLength:{0}", dataLength);
 		//if (debug) debugBytes("encodeData, encrypted", data, dataLength);
 	}
 
@@ -707,11 +707,11 @@ void ForwardCtrl::encodeData(
         const std::string& b64 = base64Codec.getLastB64();
 		data = (uint8_t*)b64.c_str();
         dataLength = b64.size();
-        logDebug("[encodeData] after step_Base64 dataLength:{0}", dataLength);
+        logDebugS(outServer, "[encodeData] after step_Base64 dataLength:{0}", dataLength);
 		//if (debug) debugBytes("encodeData, b64", data, dataLength);
 	}
     if(!data || !dataLength){
-        logError("[encodeData] final, no data");
+        logErrorS(outServer, "[encodeData] final, no data");
         return;
     }
     outData = data;
@@ -735,7 +735,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
            newData = getBuffer(0, newDataLength);
         }
         if(!newData) {
-            logError("[decodeData] step_Base64 no newData");
+            logErrorS(inServer, "[decodeData] step_Base64 no newData");
             outData = nullptr;
             outDataLength = 0;
             return;
@@ -744,10 +744,10 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 		outData = newData;
 		outDataLength = newDataLength;
 		//if (debug) debugBytes("decodeData, base64decoded Data", outData, outDataLength);
-        logDebug("[decodeData] after step_Base64 outDataLength:{0}", outDataLength);
+        logDebugS(inServer, "[decodeData] after step_Base64 outDataLength:{0}", outDataLength);
 	}
     if(!outData || !outDataLength) {
-        logError("[decodeData] err");
+        logErrorS(inServer, "[decodeData] err");
         return;
     }
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
@@ -758,7 +758,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
             newData = getBuffer(1, newDataLength);
         }
         if(!newData) {
-            logError("[decodeData] step_Encrypt no newData");
+            logErrorS(inServer, "[decodeData] step_Encrypt no newData");
             outData = nullptr;
             outDataLength = 0;
             return;
@@ -769,11 +769,11 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 		AES_ctr128_encrypt(encryptedData, newData, newDataLength, &inServer->encryptkey, iv, ecount_buf, &num);
 		outData = newData;
 		outDataLength = newDataLength;
-        logDebug("[decodeData] after step_Encrypt outDataLength:{0}", outDataLength);
+        logDebugS(inServer, "[decodeData] after step_Encrypt outDataLength:{0}", outDataLength);
 		//if (debug) debugBytes("decodeData, decrypted Data", outData, outDataLength);
 	}
     if(!outData || !outDataLength) {
-        logError("[decodeData] err");
+        logErrorS(inServer, "[decodeData] err");
         return;
     }
 	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
@@ -783,7 +783,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
             newData = getBuffer(2, newDataLength);
         }
         if(!newData) {
-            logError("[decodeData] step_Compress, no newData");
+            logErrorS(inServer, "[decodeData] step_Compress, no newData");
             outData = nullptr;
             outDataLength = 0;
             return;
@@ -795,19 +795,19 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 		if (ret == Z_OK) {
 			outData = newData;
             outDataLength = realLen;
-            logDebug("[decodeData] after step_Compress outDataLength:{0}", outDataLength);
+            logDebugS(inServer, "[decodeData] after step_Compress outDataLength:{0}", outDataLength);
 			//if (debug) debugBytes("decodeData, uncompressed Data", outData, outDataLength);
 		}
         else {
             outData = nullptr;
             outDataLength = 0;
-			logError("[decodeData] step_Compress, uncompress failed");
+			logErrorS(inServer, "[decodeData] step_Compress, uncompress failed");
 			if (ret == Z_MEM_ERROR)
-				logError("Z_MEM_ERROR");
+				logErrorS(inServer, "Z_MEM_ERROR");
 			else if (ret == Z_BUF_ERROR)
-				logError("Z_BUF_ERROR");
+				logErrorS(inServer, "Z_BUF_ERROR");
 			else if (ret == Z_DATA_ERROR)
-				logError("Z_DATA_ERROR");
+				logErrorS(inServer, "Z_DATA_ERROR");
 		}
 	}
 
@@ -820,16 +820,16 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
 		inServer, packet->getHeader(),
 		packet->getDataPtr(), packet->getDataLength(),
 		rawData, rawDataLength);
-	logDebug("decodeData, dataLength:{0}, rawDataLength:{1}", packet->getDataLength(), rawDataLength);
+	logDebugS(inServer, "decodeData, dataLength:{0}, rawDataLength:{1}", packet->getDataLength(), rawDataLength);
 	if (!rawData || rawDataLength <= 0) {
-		logError("[convertPacket] decodeData failed");
+		logErrorS(inServer, "[convertPacket] decodeData failed");
 		return nullptr;
     }
     uint8_t* encodedData = nullptr;
     size_t encodedDataLength = 0;
 	encodeData(outServer, outHeader, rawData, rawDataLength, encodedData, encodedDataLength);
     if(!encodedData || encodedDataLength <= 0) {
-        logDebug("[convertPacket] encodeData failed");
+        logDebugS(inServer, "[convertPacket] encodeData failed");
         return nullptr;
     }
     ForwardPacketPtr outPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + encodedDataLength);
@@ -884,24 +884,24 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		logWarn("[forward] no outServer");
 		return ReturnCode::Err;
 	}
-    logDebug("forward from server[{0}] to server[{1}]", inServer->id, outServer->id);
+    logDebugS(inServer, "forward from server[{0}] to server[{1}]", inServer->id, outServer->id);
     ForwardClient* outClient;
     if(inHeader->isFlagOn(HeaderFlag::Broadcast)) {
         outClient = nullptr; // no outClient means Broadcast
     } else {
         if(!inHeader->isFlagOn(forwarder::HeaderFlag::ClientID)){
-            logWarn("[forward.single] clientID is off, can't forward.");
+            logWarnS(inServer, "[forward.single] clientID is off, can't forward.");
             return ReturnCode::Err;
         }
         // check if outClient exists
         int clientID = inHeader->getClientID();
         if(clientID <= 0) {
-            logWarn("[forward.single] wrong clientID = {0}", clientID);
+            logWarnS(inServer, "[forward.single] wrong clientID = {0}", clientID);
             return ReturnCode::Err;
         }
         outClient = getOutClient(inHeader, inServer, outServer);
         if(!outClient) {
-            logWarn("[forward.single] outClient[{0}] not found.", clientID);
+            logWarnS(inServer, "[forward.single] outClient[{0}] not found.", clientID);
             return ReturnCode::Err;
         }
     }
@@ -939,7 +939,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	outPacket = convertPacket(inPacket, inServer, outServer, &outHeader);
 
 	if (!outPacket) {
-		logWarn("[forward] convertPacket failed.");
+		logWarnS(inServer, "[forward] convertPacket failed.");
 		return ReturnCode::Err;
 	}
 	param.header = nullptr;
