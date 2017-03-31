@@ -121,9 +121,12 @@ void ForwardCtrl::setupLogger(const char* filename) {
 	logInfo("logger created successfully.");
     for (auto it = servers.begin(); it != servers.end(); it++) {
         ForwardServer* server = *it;
-        server->setLogger(obj);
+        if (server) {
+            server->setLogger(obj);
+        }
     }
 }
+
 
 
 void ForwardCtrl::setLogLevel(spdlog::level::level_enum lv) {
@@ -881,6 +884,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 		logWarn("[forward] no outServer");
 		return ReturnCode::Err;
 	}
+    logDebug("forward from server[{0}] to server[{1}]", inServer->id, outServer->id);
     ForwardClient* outClient;
     if(inHeader->isFlagOn(HeaderFlag::Broadcast)) {
         outClient = nullptr; // no outClient means Broadcast

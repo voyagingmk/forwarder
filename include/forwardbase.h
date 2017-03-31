@@ -17,7 +17,7 @@ namespace forwarder {
         logger(nullptr)
         {}
         
-        bool setDebug(bool enabled) {
+        void setDebug(bool enabled) {
             debug = enabled;
         }
         
