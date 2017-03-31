@@ -322,6 +322,8 @@ ReturnCode ForwardCtrl::sendPacket(ForwardParam& param) {
     return ReturnCode::Err;
 }
 
+ 
+
 ReturnCode ForwardCtrl::broadcastPacket(ForwardParam& param) {
     logDebugS(param.server, "broadcastPacket begin");
 	if (param.server->netType == NetType::ENet) {
@@ -1007,11 +1009,13 @@ ReturnCode ForwardCtrl::handlePacket_BatchForward(ForwardParam& param) {
 ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
-	ForwardPacketPtr inPacket = param.packet;
+    ForwardPacketPtr inPacket = param.packet;
+    logDebugS(inServer, "Process from server[{0}]", inServer->id);
 	ForwardHeader* inHeader = inPacket->getHeader();
 	uint8_t * data = inPacket->getDataPtr();
 	size_t dataLength = inPacket->getDataLength();
-	decodeData(inServer, inHeader, data, dataLength, curProcessData, curProcessDataLength);
+    decodeData(inServer, inHeader, data, dataLength, curProcessData, curProcessDataLength);
+    logDebugS(inServer, "Process result len ={0}", dataLength);
 	curProcessServer = inServer;
 	curProcessClient = inClient;
 	curProcessHeader = inHeader;
