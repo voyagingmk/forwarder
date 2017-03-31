@@ -868,11 +868,12 @@ ReturnCode ForwardCtrl::handlePacket_SysCmd(ForwardParam& param) {
 }
 
 ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
-    logDebug("forward begin");
 	ForwardServer* inServer = param.server;
 	ForwardClient* inClient = param.client;
 	ForwardPacketPtr inPacket = param.packet;
 	ForwardHeader* inHeader = param.header;
+  
+    logDebugS(inServer, "forward begin");
     
     curProcessServer = inServer;
     curProcessClient = inClient;
