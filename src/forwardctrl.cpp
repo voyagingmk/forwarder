@@ -323,6 +323,7 @@ ReturnCode ForwardCtrl::sendPacket(ForwardParam& param) {
 }
 
 ReturnCode ForwardCtrl::broadcastPacket(ForwardParam& param) {
+    logDebugS(param.server, "broadcastPacket begin");
 	if (param.server->netType == NetType::ENet) {
 		ForwardServerENet* enetServer = dynamic_cast<ForwardServerENet*>(param.server);
 		ForwardPacketPtr outPacket = param.packet;
@@ -333,10 +334,11 @@ ReturnCode ForwardCtrl::broadcastPacket(ForwardParam& param) {
             if (client->peer->state != ENET_PEER_STATE_CONNECTED)
                 continue;
             enet_peer_send(client->peer, channelID, enetPacket);
+			// logDebugS(param.server, "broadcast send to client[{0}]", client->id);
 		}
         if (enetPacket->referenceCount == 0)
             enet_packet_destroy(enetPacket);
-        logDebug("enet.broadcast, len:{0}, clientNum:{1}", enetPacket->dataLength, enetServer->clients.size());
+        logDebugS(param.server, "enet.broadcast end, len:{0}, clientNum:{1}", enetPacket->dataLength, enetServer->clients.size());
         return ReturnCode::Ok;
 	}
 	else if (param.server->netType == NetType::WS) {
@@ -350,7 +352,7 @@ ReturnCode ForwardCtrl::broadcastPacket(ForwardParam& param) {
                 websocketpp::frame::opcode::value::BINARY,
                 ec);
 		}
-		logDebug("ws.broadcast, len:{0}, clientNum:{1}", param.packet->getTotalLength(), wsServer->clients.size());
+		logDebugS(param.server, "ws.broadcast end, len:{0}, clientNum:{1}", param.packet->getTotalLength(), wsServer->clients.size());
         return ReturnCode::Ok;
 	}
     return ReturnCode::Ok;
