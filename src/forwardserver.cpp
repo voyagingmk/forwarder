@@ -182,6 +182,18 @@ namespace forwarder {
 		auto state = dynamic_cast<ForwardClientENet*>(client)->peer->state;
 		return state == ENET_PEER_STATE_CONNECTED;
 	}
+    
+    
+    
+    bool ForwardServerENet::isClientConnected(UniqID targetClientID) {
+        ForwardClient* client = getClient(targetClientID);
+        if (!client) {
+            return false;
+        }
+        auto state = dynamic_cast<ForwardClientENet*>(client)->peer->state;
+        return state == ENET_PEER_STATE_CONNECTED;
+    }
+    
 
 	void ForwardServerENet::release() {
 		enet_host_destroy(host);
@@ -268,4 +280,13 @@ namespace forwarder {
 		auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
 		return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
 	}
+    
+    bool ForwardServerWS::isClientConnected(UniqID targetClientID) {
+        auto client = getClient(targetClientID);
+        if (!client) {
+            return false;
+        }
+        auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
+        return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
+    }
 }

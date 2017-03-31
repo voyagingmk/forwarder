@@ -79,6 +79,8 @@ namespace forwarder {
         
 		virtual bool isConnected() { return false; };
         
+        virtual bool isClientConnected(UniqID targetClientID) { return false; };
+        
 		virtual void poll() {};
 
 	public:
@@ -132,6 +134,8 @@ class ForwardServerENet : public ForwardServer {
 		virtual void doDisconnect();
 
 		virtual bool isConnected();
+    
+        virtual bool isClientConnected(UniqID targetClientID);
 	public:
 		ENetHost * host = nullptr;
 		uint8_t broadcastChannelID = 0;
@@ -160,7 +164,9 @@ class ForwardServerWS : public ForwardServer {
 		virtual void doDisconnect();
 
 		virtual bool isConnected();
-
+    
+        virtual bool isClientConnected(UniqID targetClientID);
+    
 		virtual void poll();
 	private:
 		std::string getUri() {
