@@ -3,6 +3,7 @@
 
 #include "base.h"
 #include "defines.h"
+#include "forwardbase.h"
 #include "forwardclient.h"
 #include "forwardserver.h"
 #include "forwardheader.h"
@@ -26,8 +27,6 @@ namespace forwarder {
 		ForwardClient* client = nullptr;
 		ForwardPacketPtr packet = nullptr;
 	};
-
-	typedef void(*DebugFuncPtr)(const char *);
     
     struct WSPacket {
         ForwardServerWS* server;
@@ -35,7 +34,7 @@ namespace forwarder {
         ForwardServerWS::WebsocketServer::message_ptr msg;
     };
     
-	class ForwardCtrl {
+    class ForwardCtrl: public ForwardBase {
 	public:
 		ForwardCtrl();
 
@@ -49,9 +48,9 @@ namespace forwarder {
 
 		void setupLogger(const char* filename = nullptr);
 
-        void setDebug(bool enabled);
-        
         void setLogLevel(spdlog::level::level_enum lv);
+        
+        void setServerDebug(UniqID serverId, bool enabled);
 
 		void initServers(rapidjson::Value& serversConfig);
 
@@ -240,39 +239,6 @@ namespace forwarder {
             return bufferSize[bufferID];
         }
         
-	public:
-		template <typename... Args>
-		inline void logDebug(const char* fmt, const Args&... args) {
-			if (debug && logger) logger->info(fmt, args...);
-			if (debugFunc) {
-				debugFunc(fmt);
-			}
-		}
-
-		template <typename... Args>
-		inline void logInfo(const char* fmt, const Args&... args) {
-			if (debug && logger) logger->info(fmt, args...);
-			if (debugFunc) {
-				debugFunc(fmt);
-			}
-		}
-
-		template <typename... Args>
-		inline void logWarn(const char* fmt, const Args&... args) {
-			if (logger) logger->warn(fmt, args...);
-			if (debugFunc) {
-				debugFunc(fmt);
-			}
-		}
-
-		template <typename... Args>
-		inline void logError(const char* fmt, const Args&... args) {
-			if (logger) logger->error(fmt, args...);
-			if (debugFunc) {
-				debugFunc(fmt);
-			}
-		}
-
 	private:
 		typedef ReturnCode(ForwardCtrl::*handlePacketFunc)(ForwardParam& param);
 		Pool<ForwardServerENet> poolForwardServerENet;
@@ -287,7 +253,6 @@ namespace forwarder {
 		size_t* bufferSize;
         size_t* bufferOffset;
 		int serverNum;
-		bool debug;
 		bool released;
 		bool isExit;
 		Base64Codec& base64Codec;
@@ -305,9 +270,7 @@ namespace forwarder {
     
 
 		static const size_t ivSize = 16;
-		std::shared_ptr<spdlog::logger> logger;
 		UniqID id;
-		DebugFuncPtr debugFunc;
 
 		// static members
 		static size_t bufferNum;

@@ -19,7 +19,6 @@ ForwardCtrl::ForwardCtrl() :
 	poolForwardServerWS(sizeof(ForwardServerWS)),
 	poolForwardClientWS(sizeof(ForwardClientWS)),
 	serverNum(0),
-	debug(false),
 	released(false),
 	base64Codec(Base64Codec::get()),
 	isExit(false),
@@ -29,9 +28,7 @@ ForwardCtrl::ForwardCtrl() :
 	curProcessData(nullptr),
     curProcessPacketWS(nullptr),
     curProcessPacketENet(nullptr),
-	debugFunc(nullptr),
 	curProcessDataLength(0),
-	logger(nullptr),
 	id(0)
 {
 #ifdef DEBUG_MODE
@@ -112,25 +109,34 @@ void ForwardCtrl::setupLogger(const char* filename) {
 	sinks.push_back(make_shared<spdlog::sinks::stdout_sink_st>());
 #endif
 	std::string name("ctrl" + to_string(id));
-	logger = make_shared<spdlog::logger>(name, begin(sinks), end(sinks));
+	std::shared_ptr<spdlog::logger> obj = make_shared<spdlog::logger>(name, begin(sinks), end(sinks));
 	if (spdlog::get(name)) {
 		spdlog::drop(name);
 	}
-	spdlog::register_logger(logger);
-    logger->flush_on(spdlog::level::debug);
+	spdlog::register_logger(obj);
+    obj->flush_on(spdlog::level::debug);
 	spdlog::set_pattern("[%D %H:%M:%S:%e][%l] %v");
     spdlog::set_level(spdlog::level::err); // Default
+    setLogger(obj);
 	logInfo("logger created successfully.");
+    for (auto it = servers.begin(); it != servers.end(); it++) {
+        ForwardServer* server = *it;
+        server->setLogger(obj);
+    }
 }
 
-void ForwardCtrl::setDebug(bool enabled) {
-	debug = enabled;
-}
 
 void ForwardCtrl::setLogLevel(spdlog::level::level_enum lv) {
     if(logger) logger->set_level(lv);
 }
 
+
+void ForwardCtrl::setServerDebug(UniqID serverId, bool enabled) {
+    ForwardServer* server = getServerByID(serverId);
+    if (server) {
+        server->setDebug(enabled);
+    }
+}
 
 ForwardServer* ForwardCtrl::createServerByNetType(NetType& netType) {
 	if (netType == NetType::ENet) {
@@ -190,6 +196,9 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	server->id = serverConfig["id"].GetInt();
 	servers.push_back(server);
 	serverDict[server->id] = server;
+    if (logger) {
+        server->setLogger(logger);
+    }
 
 	if (server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
@@ -718,7 +727,10 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 	if (inHeader->isFlagOn(HeaderFlag::Base64)) {
 		//if (debug) debugBytes("decodeData, originData", data, dataLength);
 		size_t newDataLength = base64Codec.calculateDataLength((const char*)data, dataLength);
-		uint8_t* newData = getBuffer(0, newDataLength);
+        uint8_t* newData = nullptr;
+        if (newDataLength > 0) {
+           newData = getBuffer(0, newDataLength);
+        }
         if(!newData) {
             logError("[decodeData] step_Base64 no newData");
             outData = nullptr;
@@ -738,7 +750,10 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 	if (inHeader->isFlagOn(HeaderFlag::Encrypt)) { // DO decrypt
 		size_t newDataLength = outDataLength - ivSize;
 		uint8_t* encryptedData = outData + ivSize;
-		uint8_t* newData = getBuffer(1, newDataLength);
+        uint8_t* newData = nullptr;;
+        if (newDataLength > 0) {
+            newData = getBuffer(1, newDataLength);
+        }
         if(!newData) {
             logError("[decodeData] step_Encrypt no newData");
             outData = nullptr;
@@ -759,15 +774,18 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
         return;
     }
 	if (inHeader->isFlagOn(HeaderFlag::Compress)) {
-		uLongf bufferLen = inHeader->getUncompressedSize();
-		uint8_t* newData = getBuffer(2, bufferLen);
+		uLongf newDataLength = inHeader->getUncompressedSize();
+        uint8_t* newData = nullptr;;
+        if (newDataLength > 0) {
+            newData = getBuffer(2, newDataLength);
+        }
         if(!newData) {
             logError("[decodeData] step_Compress, no newData");
             outData = nullptr;
             outDataLength = 0;
             return;
         }
-		uLongf realLen = bufferLen;
+		uLongf realLen = newDataLength;
 		int ret = uncompress((Bytef*)newData, &realLen, outData, outDataLength);
 		//logInfo("uncompress, bufferLen={0},realLen={1},outDataLength={2}",
 		//	bufferLen, realLen, outDataLength);

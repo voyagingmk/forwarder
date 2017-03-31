@@ -24,7 +24,7 @@ namespace forwarder {
 				initCipherKey(serverConfig["encryptkey"].GetString());
 			}
 			else {
-				std::cout << "[forwarder] no encryptkey" << std::endl;
+				logError("[forwarder] encrypt mode, but no encryptkey");
 				return ReturnCode::Err;
 			}
 		}
@@ -134,7 +134,7 @@ namespace forwarder {
 		if (serverConfig.HasMember("bandwidth")) {
 			incomingBandwidth = serverConfig["bandwidth"]["incoming"].GetUint();
 			outgoingBandwidth = serverConfig["bandwidth"]["outgoing"].GetUint();
-			std::cout << "[forwarder] incomingBandwidth:" << incomingBandwidth << ", outgoingBandwidth:" << outgoingBandwidth << std::endl;
+			logInfo("[forwarder] incomingBandwidth: {0}, outgoingBandwidth: {1}", incomingBandwidth, outgoingBandwidth);
 		}
 
 		host = enet_host_create(isClientMode? nullptr: &enetAddress,
@@ -143,7 +143,7 @@ namespace forwarder {
 			incomingBandwidth,
 			outgoingBandwidth);
 		if (!host) {
-			std::cout << "[forwarder] An error occurred while trying to create an ENet server host." << std::endl;
+			logError("[forwarder] An error occurred while trying to create an ENet server host.");
 			exit(1);
 			return;
 		}
@@ -153,7 +153,7 @@ namespace forwarder {
 	}
 
 	void ForwardServerENet::doReconnect() {
-		std::cout << "[forwarder] ENet doReconnect" << std::endl;
+		logInfo("[forwarder] ENet doReconnect");
 		ENetAddress enetAddress; 
 		enet_address_set_host(&enetAddress, address.c_str());
 		enetAddress.port = port;
@@ -162,7 +162,7 @@ namespace forwarder {
 	};
 
 	void ForwardServerENet::doDisconnect() {
-		std::cout << "[forwarder] ENet doDisconnect" << std::endl;
+		logInfo("[forwarder] ENet doDisconnect");
 		ForwardClient* client = getClient(clientID);
 		if (!client) {
 			return;
@@ -183,7 +183,7 @@ namespace forwarder {
 		return state == ENET_PEER_STATE_CONNECTED;
 	}
 
-	void  ForwardServerENet::release() {
+	void ForwardServerENet::release() {
 		enet_host_destroy(host);
 		host = nullptr;
 	}
@@ -222,7 +222,7 @@ namespace forwarder {
 	}	
 
 	void ForwardServerWS::doReconnect() {
-		std::cout << "[forwarder] WS doReconnect" << std::endl;
+		logInfo("[forwarder] WS doReconnect");
 		if (isConnected()) {
 			return;
 		}
@@ -230,14 +230,14 @@ namespace forwarder {
 		websocketpp::lib::error_code ec;
 		WebsocketClient::connection_ptr con = serverAsClient.get_connection(uri, ec);
 		if (ec) {
-			std::cout << "[forwarder] WS error, could not create connection because: " << ec.message() << std::endl;
+			logError("[forwarder] WS error, could not create connection because: {0}", ec.message());
 			return;
 		}
 		serverAsClient.connect(con);
 	}
 
 	void ForwardServerWS::doDisconnect() {
-        std::cout << "[forwarder] WS doDisconnect" << std::endl;
+        logInfo("[forwarder] WS doDisconnect");
         std::string reason = "";
         websocketpp::lib::error_code ec;
         websocketpp::close::status::value code = websocketpp::close::status::normal;
@@ -253,7 +253,7 @@ namespace forwarder {
             auto hdl = clientWS->hdl;
             serverAsClient.close(hdl, code, reason, ec);
             if (ec) {
-                std::cout << "[forwarder] WS error, initiating close: " << ec.message() << std::endl;
+                logError("[forwarder] WS error, initiating close: {0}", ec.message());
             }
             serverAsClient.stop();
         }

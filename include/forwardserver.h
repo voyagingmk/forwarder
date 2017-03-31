@@ -3,13 +3,14 @@
 
 #include "uniqid.h"
 #include "defines.h"
+#include "forwardbase.h"
 #include "forwardclient.h"
 #include "aes_ctr.h"
 #include "aes.h"
 #include "utils.h"
 
 namespace forwarder {
-	class ForwardServer {
+    class ForwardServer: public ForwardBase {
 	protected:
 		ForwardServer(NetType p_netType) :
 			id(0),
@@ -19,7 +20,7 @@ namespace forwarder {
 			admin(false),
 			base64(false),
 			encrypt(false),
-			compress(false),
+            compress(false),
 			netType(p_netType),
 			dest(nullptr),
 			isClientMode(false),
@@ -51,31 +52,42 @@ namespace forwarder {
 		}
 	public:
 		virtual void release() {};
+        
 		virtual ReturnCode initCommon(rapidjson::Value& serverConfig) final;
+        
 		virtual void init(rapidjson::Value& serverConfig) = 0;
+        
 		void initCipherKey(const char* key);
+        
 		bool hasConsistConfig(ForwardServer*);
+        
 		ForwardClient* getClient(UniqID clientId);
+        
 		void setRule(Protocol p, HandleRule rule);
+        
 		HandleRule getRule(Protocol p);
+        
         // use buffer as a cache list
         // will auto realloc when there's no enough room for push,
         // and rewrite the prev data into new buffer memory
         void pushToBuffer(uint8_t* data, size_t len);
         
-
 		// used for client mode
 		virtual void doReconnect() {};
+        
 		virtual void doDisconnect() {};
+        
 		virtual bool isConnected() { return false; };
+        
 		virtual void poll() {};
+
 	public:
 		UniqID id;
 		int destId;
 		bool admin;
 		bool encrypt;
 		bool base64;
-		bool compress;
+        bool compress;
         int peerLimit;
         int timeoutMin;
         int timeoutMax;
@@ -157,7 +169,7 @@ class ForwardServerWS : public ForwardServer {
 			}
 			return "ws://" + address + ":" + to_string(port);
 		}
-	public:
+    public:
 		WebsocketServer server;
 		WebsocketClient serverAsClient;
 		std::map<websocketpp::connection_hdl, UniqID, std::owner_less<websocketpp::connection_hdl> > hdlToClientId;
