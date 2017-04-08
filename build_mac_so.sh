@@ -1,5 +1,5 @@
-mkdir build_ios
-cd build_ios
+mkdir build_mac
+cd build_mac
 cmake  -G "Xcode" -Dbuildtarget=dll ..
 xcodebuild
 cd ..

@@ -2,7 +2,6 @@
 #define FORWARDSERVER_H
 
 #include "uniqid.h"
-#include "defines.h"
 #include "forwardbase.h"
 #include "forwardclient.h"
 #include "forwardpacket.h"

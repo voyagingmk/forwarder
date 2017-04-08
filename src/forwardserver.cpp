@@ -268,7 +268,7 @@ namespace forwarder {
             sfd = socket (rp->ai_family, rp->ai_socktype, rp->ai_protocol);
             if (sfd == -1)
                 continue;
-            
+             
             s = bind (sfd, rp->ai_addr, rp->ai_addrlen);
             if (s == 0)
             {
@@ -326,8 +326,8 @@ namespace forwarder {
         }
         ret = makeSocketNonBlocking(m_sfd);
         if (ret == -1) {
-            logError("[forwarder] tcp makeSocketNonBlocking error";
-            return;
+            logError("[forwarder] tcp makeSocketNonBlocking error");
+            return; 
         }
         ret = listen(m_sfd, SOMAXCONN);
         if (ret == -1) {

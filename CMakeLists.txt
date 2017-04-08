@@ -5,8 +5,8 @@ SET(buildtarget "dll" CACHE STRING "buildtarget = exe/dll/staic/")
 
 if(UNIX)
     MESSAGE(STATUS "It is UNIX-like OS")  
-    SET (CMAKE_C_COMPILER             "/usr/bin/clang")
-    SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
+    SET (CMAKE_C_COMPILER       "/usr/bin/clang")
+    SET (CMAKE_CXX_COMPILER     "/usr/bin/clang++")
 endif()
 
 project (forwarder)
@@ -50,10 +50,13 @@ else()
   add_executable(forwarder ${BASE_SOURCERS} ${MAIN_SOURCERS})
 endif()
 
-
+find_package( Threads )
 target_link_libraries (forwarder ${EXTRA_LIBS})
 if (WIN32)
   target_link_libraries (forwarder winmm.lib ws2_32.lib)
+else()
+  target_link_libraries( forwarder ${CMAKE_THREAD_LIBS_INIT} )
 endif (WIN32)
+
 
 install (TARGETS forwarder DESTINATION bin)
