@@ -1,6 +1,10 @@
 #ifndef FORWARDPACKET_H
 #define FORWARDPACKET_H
 
+#include "forwardbase.h"
+#include "forwardheader.h"
+
+
 
 namespace forwarder {
 
@@ -18,9 +22,7 @@ namespace forwarder {
         void setTotalLength(size_t l) {
             length = l;
         }
-		size_t getDataLength() const {
-			return length - getHeader()->getHeaderLength();
-		}
+        size_t getDataLength() const;
         virtual void setHeader(ForwardHeader* header) = 0;
         virtual void setHeader(uint8_t* p, size_t len) {
             

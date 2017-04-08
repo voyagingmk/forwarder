@@ -1,6 +1,17 @@
 #include "forwardserver.h"
 #include "utils.h"
 
+#if defined(linux)
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/epoll.h>
+#include <errno.h>
+#endif
+
+
 namespace forwarder {
 
 	ReturnCode ForwardServer::initCommon(rapidjson::Value& serverConfig) {
@@ -116,6 +127,11 @@ namespace forwarder {
     }
     
     
+    
+    
+    
+    
+    
 
 	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
 		ENetAddress enetAddress;
@@ -194,6 +210,31 @@ namespace forwarder {
         return state == ENET_PEER_STATE_CONNECTED;
     }
     
+    void ForwardServerENet::broadcastPacket(ForwardPacketPtr outPacket) {
+        ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
+        for (auto it : clients) {
+            ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it.second);
+            uint8_t channelID = 0;
+            if (client->peer->state != ENET_PEER_STATE_CONNECTED)
+                continue;
+            enet_peer_send(client->peer, channelID, enetPacket);
+        }
+        if (enetPacket->referenceCount == 0)
+            enet_packet_destroy(enetPacket);
+    }
+    
+    
+    ReturnCode ForwardServerENet::sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {
+        ForwardClientENet* enetClient = dynamic_cast<ForwardClientENet*>(client);
+        ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
+        uint8_t channelID = 0;
+        int ret = enet_peer_send(enetClient->peer, channelID, enetPacket);
+        if (ret < 0 || enetPacket->referenceCount == 0) {
+            logError("[sendPacket] enet, err: {0}", ret);
+            enet_packet_destroy(enetPacket);
+        }
+        return ret == 0 ? ReturnCode::Ok : ReturnCode::Err;
+    }
 
 	void ForwardServerENet::release() {
 		enet_host_destroy(host);
@@ -201,7 +242,145 @@ namespace forwarder {
 	}
 
 
+    
+    
+    int ForwardServerTcp::initSocket() {
+#if defined(linux)
+        struct addrinfo hints;
+        struct addrinfo *result, *rp;
+        int s, sfd;
+        
+        memset (&hints, 0, sizeof (struct addrinfo));
+        hints.ai_family = AF_UNSPEC;     /* Return IPv4 and IPv6 choices */
+        hints.ai_socktype = SOCK_STREAM; /* We want a TCP socket */
+        hints.ai_flags = AI_PASSIVE;     /* All interfaces */
+        
+        auto sPort = to_string(port);
+        s = getaddrinfo (NULL, sPort.c_str(), &hints, &result);
+        if (s != 0)
+        {
+            fprintf (stderr, "getaddrinfo: %s\n", gai_strerror (s));
+            return -1;
+        }
+        
+        for (rp = result; rp != NULL; rp = rp->ai_next)
+        {
+            sfd = socket (rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+            if (sfd == -1)
+                continue;
+            
+            s = bind (sfd, rp->ai_addr, rp->ai_addrlen);
+            if (s == 0)
+            {
+                /* We managed to bind successfully! */
+                break;
+            }
+            
+            close (sfd);
+        }
+        
+        if (rp == NULL)
+        {
+            fprintf (stderr, "Could not bind\n");
+            return -1;
+        }
+        
+        freeaddrinfo (result);
+        
+        m_sfd = sfd;
+        return 0;
+#endif
+        return -1;
+   	}
+ 
+    int ForwardServerTcp::makeSocketNonBlocking(int sfd) {
+#if defined(linux)  
+        int flags, s;
+        
+        flags = fcntl (sfd, F_GETFL, 0);
+        if (flags == -1)
+        {
+            perror ("fcntl");
+            return -1;
+        }
+        
+        flags |= O_NONBLOCK;
+        s = fcntl (sfd, F_SETFL, flags);
+        if (s == -1)
+        {
+            perror ("fcntl");
+            return -1;
+        }
+#endif
+        return 0;
+    }
+    
+    
+    void ForwardServerTcp::init(rapidjson::Value& serverConfig) {
+#if defined(linux)
+        epoll_event event;
+        int ret = initSocket();
+        if (ret == -1) {
+            logError("[forwarder] tcp initSocket error");
+            return;
+        }
+        ret = makeSocketNonBlocking(m_sfd);
+        if (ret == -1) {
+            logError("[forwarder] tcp makeSocketNonBlocking error";
+            return;
+        }
+        ret = listen(m_sfd, SOMAXCONN);
+        if (ret == -1) {
+            logError("[forwarder] tcp listen error");
+            return;
+        }
+        m_efd = epoll_create1 (0);
+        if (m_efd == -1)
+        {
+            logError ("[forwarder] tcp epoll_create1 error");
+            return;
+        }
+        event.data.fd = m_sfd;
+        event.events = EPOLLIN | EPOLLET;
+        ret = epoll_ctl (m_efd, EPOLL_CTL_ADD, m_sfd, &event);
+        if (ret == -1)
+        {
+            logError ("[forwarder] tcp epoll_ctl EPOLL_CTL_ADD error");
+            return;
+        }
+#endif
+    }
 
+    void ForwardServerTcp::doReconnect() {
+        
+    }
+    
+    void ForwardServerTcp::doDisconnect() {
+        
+    }
+    
+    bool ForwardServerTcp::isConnected() {
+        return false;
+    }
+
+    bool ForwardServerTcp::isClientConnected(UniqID targetClientID) {
+        return false;
+    }
+    
+    void broadcastPacket(ForwardPacketPtr outPacket) {
+
+    }
+    
+    ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {
+        return ReturnCode::Ok;
+
+    }
+    
+    
+    
+    
+    
+    
 	void ForwardServerWS::init(rapidjson::Value& serverConfig) {
 		if (!isClientMode) {
 			server.set_error_channels(websocketpp::log::elevel::none);
@@ -281,6 +460,7 @@ namespace forwarder {
 		return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
 	}
     
+    
     bool ForwardServerWS::isClientConnected(UniqID targetClientID) {
         auto client = getClient(targetClientID);
         if (!client) {
@@ -288,5 +468,33 @@ namespace forwarder {
         }
         auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
         return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
+    }
+    
+    
+    void ForwardServerWS::broadcastPacket(ForwardPacketPtr outPacket) {
+        for (auto it : clients) {
+            ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it.second);
+            websocketpp::lib::error_code ec;
+            server.send(client->hdl,
+                 outPacket->getRawPtr(),
+                 outPacket->getTotalLength(),
+                 websocketpp::frame::opcode::value::BINARY,
+                 ec);
+        }
+    }
+    
+    ReturnCode ForwardServerWS::sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {
+        ForwardClientWS* wsClient = dynamic_cast<ForwardClientWS*>(client);
+        websocketpp::lib::error_code ec;
+        server.send(wsClient->hdl,
+            outPacket->getRawPtr(),
+            outPacket->getTotalLength(),
+            websocketpp::frame::opcode::value::BINARY,
+            ec);
+        if (ec) {
+            logError("[sendPacket] ws, err: {0}", ec.message());
+            return ReturnCode::Err;
+        }
+        return ReturnCode::Ok;
     }
 }

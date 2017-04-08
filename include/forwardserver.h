@@ -5,6 +5,7 @@
 #include "defines.h"
 #include "forwardbase.h"
 #include "forwardclient.h"
+#include "forwardpacket.h"
 #include "aes_ctr.h"
 #include "aes.h"
 #include "utils.h"
@@ -82,6 +83,10 @@ namespace forwarder {
         virtual bool isClientConnected(UniqID targetClientID) { return false; };
         
 		virtual void poll() {};
+        
+        virtual void broadcastPacket(ForwardPacketPtr outPacket) {};
+
+        virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {};
 
 	public:
 		UniqID id;
@@ -114,6 +119,38 @@ namespace forwarder {
 	};
 
 
+class ForwardServerTcp: public ForwardServer {
+    public:
+        ForwardServerTcp():
+            ForwardServer(NetType::TCP)
+        {}
+        ForwardServerTcp(const ForwardServerTcp& x) = delete;
+        ForwardServerTcp& operator=(const ForwardServerTcp& x) = delete;
+    
+        virtual void release();
+    
+        virtual void init(rapidjson::Value& serverConfig);
+    
+        virtual void doReconnect();
+    
+        virtual void doDisconnect();
+    
+        virtual bool isConnected();
+    
+        virtual bool isClientConnected(UniqID targetClientID);
+    
+        virtual void broadcastPacket(ForwardPacketPtr outPacket);
+    
+        virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
+    private:
+        int initSocket();
+        int makeSocketNonBlocking(int sfd);
+    public:
+#if defined(linux)
+    int m_sfd;
+    int m_efd;
+#endif
+};
 
 
 class ForwardServerENet : public ForwardServer {
@@ -136,6 +173,11 @@ class ForwardServerENet : public ForwardServer {
 		virtual bool isConnected();
     
         virtual bool isClientConnected(UniqID targetClientID);
+    
+        virtual void broadcastPacket(ForwardPacketPtr outPacket);
+    
+        virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
+
 	public:
 		ENetHost * host = nullptr;
 		uint8_t broadcastChannelID = 0;
@@ -168,7 +210,11 @@ class ForwardServerWS : public ForwardServer {
         virtual bool isClientConnected(UniqID targetClientID);
     
 		virtual void poll();
-	private:
+    
+        virtual void broadcastPacket(ForwardPacketPtr outPacket);
+
+        virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
+    private:
 		std::string getUri() {
 			if (address == "127.0.0.1" || address == "localhost") {
 				return "http://localhost:" + to_string(port);

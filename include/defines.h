@@ -18,7 +18,8 @@ namespace forwarder {
 
 	enum class NetType {
 		ENet = 1,
-		WS = 2
+		WS = 2,
+        TCP = 3
 	};
 
 	enum class Event {
