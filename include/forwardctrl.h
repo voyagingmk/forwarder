@@ -278,6 +278,8 @@ namespace forwarder {
 		Pool<ForwardClientENet> poolForwardClientENet;
 		Pool<ForwardServerWS> poolForwardServerWS;
 		Pool<ForwardClientWS> poolForwardClientWS;
+		Pool<ForwardServerTcp> poolForwardServerTCP;
+		// Pool<ForwardClientTCP> poolForwardClientTCP;
 		std::vector<ForwardServer*> servers;
 		std::map<UniqID, ForwardServer*> serverDict;
 		std::map<HandleRule, handlePacketFunc> handleFuncs;

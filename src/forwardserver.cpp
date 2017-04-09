@@ -244,6 +244,8 @@ namespace forwarder {
 
     
     
+    
+    
     int ForwardServerTcp::initSocket() {
 #if defined(linux)
         struct addrinfo hints;
@@ -311,8 +313,9 @@ namespace forwarder {
             perror ("fcntl");
             return -1;
         }
-#endif
         return 0;
+#endif
+        return -1;
     }
     
     
@@ -351,6 +354,10 @@ namespace forwarder {
 #endif
     }
 
+    void ForwardServerTcp::release() {
+        
+    }
+    
     void ForwardServerTcp::doReconnect() {
         
     }
@@ -367,11 +374,11 @@ namespace forwarder {
         return false;
     }
     
-    void broadcastPacket(ForwardPacketPtr outPacket) {
+    void ForwardServerTcp::broadcastPacket(ForwardPacketPtr outPacket) {
 
     }
     
-    ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {
+    ReturnCode ForwardServerTcp::sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {
         return ReturnCode::Ok;
 
     }

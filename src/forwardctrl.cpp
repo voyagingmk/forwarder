@@ -18,6 +18,7 @@ ForwardCtrl::ForwardCtrl() :
 	poolForwardClientENet(sizeof(ForwardClientENet)),
 	poolForwardServerWS(sizeof(ForwardServerWS)),
 	poolForwardClientWS(sizeof(ForwardClientWS)),
+	poolForwardServerTCP(sizeof(ForwardServerTcp)),
 	serverNum(0),
 	released(false),
 	base64Codec(Base64Codec::get()),
@@ -85,14 +86,17 @@ void ForwardCtrl::release() {
 		}
 		if (server->netType == NetType::WS) {
 			poolForwardServerWS.del(dynamic_cast<ForwardServerWS*>(server));
-		}else if (server->netType == NetType::ENet) {
+		} else if (server->netType == NetType::ENet) {
 			poolForwardServerENet.del(dynamic_cast<ForwardServerENet*>(server));
+		} else if (server->netType == NetType::TCP) {
+			poolForwardServerTCP.del(dynamic_cast<ForwardServerTcp*>(server));
 		}
 	}
 	poolForwardServerENet.clear();
 	poolForwardClientENet.clear();
 	poolForwardServerWS.clear();
 	poolForwardClientWS.clear();
+	poolForwardServerTCP.clear();
 	handleFuncs.clear();
 }
 
@@ -144,9 +148,10 @@ void ForwardCtrl::setServerDebug(UniqID serverId, bool enabled) {
 ForwardServer* ForwardCtrl::createServerByNetType(NetType& netType) {
 	if (netType == NetType::ENet) {
 		return static_cast<ForwardServer*>(poolForwardServerENet.add());
-	}
-	else if (netType == NetType::WS) {
+	} else if (netType == NetType::WS) {
 		return static_cast<ForwardServer*>(poolForwardServerWS.add());
+	} else if (netType == NetType::TCP) {
+		return static_cast<ForwardServer*>(poolForwardServerTCP.add());
 	}
 	return nullptr;
 }
@@ -190,7 +195,17 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 }
 
 uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
-	NetType netType = strcmp(serverConfig["netType"].GetString(), "enet") == 0 ? NetType::ENet : NetType::WS;
+    auto sNetType = serverConfig["netType"].GetString();
+    NetType netType;
+    if (strcmp(sNetType, "enet") == 0) {
+        netType = NetType::ENet;
+    } else if (strcmp(sNetType, "ws") == 0) {
+        netType = NetType::ENet;
+    } else if (strcmp(sNetType, "tcp") == 0) {
+        netType = NetType::TCP;
+    } else {
+        return 0;
+    }
 	ForwardServer* server = createServerByNetType(netType);
 	ReturnCode code = server->initCommon(serverConfig);
 	if (code == ReturnCode::Err) {
