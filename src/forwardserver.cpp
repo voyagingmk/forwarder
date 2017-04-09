@@ -368,6 +368,7 @@ namespace forwarder {
 #endif
     }
     
+
     void ForwardServerTcp::doReconnect() {
         
     }
@@ -394,7 +395,7 @@ namespace forwarder {
             return;
         }
         // pre process
-        for (i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) ||
                 (!(events[i].events & EPOLLIN))) {
                 // close(events[i].data.fd);
@@ -436,12 +437,13 @@ namespace forwarder {
                     ret = makeSocketNonBlocking(infd);
                     if (ret == -1)
                         logError("makeSocketNonBlocking failed");
+                        close(infd);
                         continue;
                     
                     event.data.fd = infd;
                     event.events = EPOLLIN | EPOLLET;
-                    s = epoll_ctl(m_efd, EPOLL_CTL_ADD, infd, &event);
-                    if (s == -1) {
+                    ret = epoll_ctl(m_efd, EPOLL_CTL_ADD, infd, &event);
+                    if (ret == -1) {
                         logError("epoll_ctl failed");
                         close(infd);
                         continue;
