@@ -203,7 +203,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
     if (strcmp(sNetType, "enet") == 0) {
         netType = NetType::ENet;
     } else if (strcmp(sNetType, "ws") == 0) {
-        netType = NetType::ENet;
+        netType = NetType::WS;
     } else if (strcmp(sNetType, "tcp") == 0) {
         netType = NetType::TCP;
     } else {
@@ -918,7 +918,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	outPacket = convertPacket(inPacket, inServer, outServer, &outHeader);
 
 	if (!outPacket) {
-		logWarnS(inServer, "[forward] convertPacket failed.");
+		logWarnS(inServer, "[forward] convertPacket failed, server: {0}", inServer->id);
 		return ReturnCode::Err;
 	}
 	param.header = nullptr;
@@ -928,7 +928,10 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 
 	if (outClient) {
 		//single send
-		sendPacket(param);
+        auto ret = sendPacket(param);
+        if (ret != ReturnCode::Ok) {
+            logErrorS(inServer, "[forwarder] forward sendPacket error, server: {0}", inServer->id);
+        }
     }
     else {
         // broadcast the incoming packet to dest host's peers
