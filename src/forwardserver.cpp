@@ -367,7 +367,7 @@ namespace forwarder {
         close (m_sfd);
 #endif
     }
-    
+
 
     void ForwardServerTcp::doReconnect() {
         
@@ -396,11 +396,11 @@ namespace forwarder {
         }
         // pre process
         for (int i = 0; i < n; i++) {
-            if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) ||
-                (!(events[i].events & EPOLLIN))) {
-                // close(events[i].data.fd);
+            if ((m_events[i].events & EPOLLERR) || (m_events[i].events & EPOLLHUP) ||
+                (!(m_events[i].events & EPOLLIN))) {
+                close(m_events[i].data.fd);
                 continue;
-            } else if (m_sfd == events[i].data.fd) {
+            } else if (m_sfd == m_events[i].data.fd) {
                 /* We have a notification on the listening socket, which
                  means one or more incoming connections. */
                 epoll_event event;
