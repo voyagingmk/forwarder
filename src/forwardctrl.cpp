@@ -225,9 +225,12 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 	if (server->netType == NetType::WS) {
 		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
 		if (!wsServer->isClientMode) {
-            wsServer->server.set_message_handler([&](websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
-                wsPackets.push_back({wsServer, hdl, msg});
-            });
+            wsServer->server.set_message_handler(websocketpp::lib::bind(
+                &ForwardCtrl::onWSCacheReceived,
+                this,
+                wsServer,
+                websocketpp::lib::placeholders::_1,
+                websocketpp::lib::placeholders::_2));
 			wsServer->server.set_open_handler(websocketpp::lib::bind(
 				&ForwardCtrl::onWSConnected,
 				this,
@@ -245,9 +248,12 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
                 websocketpp::lib::placeholders::_1));
 		}
 		else {
-            wsServer->serverAsClient.set_message_handler([&](websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
-                wsPackets.push_back({wsServer, hdl, msg});
-            });
+            wsServer->serverAsClient.set_message_handler(websocketpp::lib::bind(
+                &ForwardCtrl::onWSCacheReceived,
+                this,
+                wsServer,
+                websocketpp::lib::placeholders::_1,
+                websocketpp::lib::placeholders::_2));
 			wsServer->serverAsClient.set_open_handler(websocketpp::lib::bind(
 				&ForwardCtrl::onWSConnected,
 				this,
