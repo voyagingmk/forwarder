@@ -359,6 +359,7 @@ namespace forwarder {
         logInfo ("[forwarder] init tcp server ok");
 #endif
     }
+
     
     void ForwardServerTcp::release() {
         doDisconnect();
@@ -427,19 +428,17 @@ namespace forwarder {
                     ret = getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf,
                                     sizeof sbuf, NI_NUMERICHOST | NI_NUMERICSERV);
                     if (ret == 0) {
-                        logInfo("Accepted connection on descriptor %d "
-                               "(host=%s, port=%s)\n",
-                               infd, hbuf, sbuf);
+                        logInfo("Accepted connection on descriptor {0} (host={1}, port={2})\n", infd, hbuf, sbuf);
                     }
                     
                     /* Make the incoming socket non-blocking and add it to the
                      list of fds to monitor. */
                     ret = makeSocketNonBlocking(infd);
-                    if (ret == -1)
+                    if (ret == -1) {
                         logError("makeSocketNonBlocking failed");
                         close(infd);
                         continue;
-                    
+                    }
                     event.data.fd = infd;
                     event.events = EPOLLIN | EPOLLET;
                     ret = epoll_ctl(m_efd, EPOLL_CTL_ADD, infd, &event);
