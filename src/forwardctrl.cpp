@@ -193,7 +193,7 @@ void ForwardCtrl::initServers(rapidjson::Value& serversConfig) {
 		}
 	}
 }
-
+ 
 uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
     auto sNetType = serverConfig["netType"].GetString();
     NetType netType;
@@ -204,6 +204,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
     } else if (strcmp(sNetType, "tcp") == 0) {
         netType = NetType::TCP;
     } else {
+        logError("[forwarder] createServer failed, wrong netType:{0}", sNetType);
         return 0;
     }
 	ForwardServer* server = createServerByNetType(netType);

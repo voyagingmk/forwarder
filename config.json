@@ -1,22 +1,12 @@
 {
     "servers": [{
         "id": 1,
-        "destId": 2,
-        "desc": "server_enet",
-        "netType": "enet",
-        "port": 9998,
-        "peers": 3000,
-        "encrypt": true,
-        "encryptkey": "1234567812345678",
-        "base64": true,
-        "compress": true
-    }, {
-        "id": 2,
         "destId": 1,
-        "desc": "server_enet",
-        "netType": "enet",
+        "desc": "server_tcp",
+        "netType": "tcp",
         "port": 9999,
         "peers": 3000,
+        "debug": true,
         "encrypt": false,
         "encryptkey": "abcdefghabcdefgh",
         "base64": false,

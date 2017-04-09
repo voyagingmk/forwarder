@@ -24,6 +24,7 @@ namespace forwarder {
 		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
 		isClientMode = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
 		reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
+        setDebug(serverConfig.HasMember("debug") && serverConfig["debug"].GetBool());
 		if (serverConfig.HasMember("reconnectdelay")) {
 			reconnectdelay = serverConfig["reconnectdelay"].GetUint();
 		}
@@ -317,7 +318,7 @@ namespace forwarder {
 #endif
         return -1;
     }
-    
+ 
     
     void ForwardServerTcp::init(rapidjson::Value& serverConfig) {
 #if defined(linux)
@@ -351,6 +352,7 @@ namespace forwarder {
             logError ("[forwarder] tcp epoll_ctl EPOLL_CTL_ADD error");
             return;
         }
+        logInfo ("[forwarder] init tcp server ok");
 #endif
     }
 
