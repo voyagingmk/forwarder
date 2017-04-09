@@ -212,12 +212,35 @@ class ForwardServerWS : public ForwardServer {
 	public:
 		typedef websocketpp::server<websocketpp::config::asio> WebsocketServer;
 		typedef websocketpp::client<websocketpp::config::asio_client> WebsocketClient;
+        enum class WSEventType {
+            Connected = 1,
+            Disconnected = 2,
+            Msg = 3,
+            Error = 4
+        };
+        class WSEvent {
+            public:
+            WSEvent(WSEventType _event,
+                    websocketpp::connection_hdl _hdl,
+                    ForwardServerWS::WebsocketServer::message_ptr _msg):
+                event(_event),
+                hdl(_hdl),
+                msg(_msg)
+                {}
+            public:
+            WSEventType event;
+            websocketpp::connection_hdl hdl;
+            ForwardServerWS::WebsocketServer::message_ptr msg;
+            
+        };
 	public:
 		ForwardServerWS() :
 			ForwardServer(NetType::WS)
 		{}
 		ForwardServerWS(const ForwardServerWS& x) = delete;
 		ForwardServerWS& operator=(const ForwardServerWS& x) = delete;
+    
+        void setupReconnectTimer();
 
 		virtual void release();
 
@@ -243,11 +266,22 @@ class ForwardServerWS : public ForwardServer {
 			}
 			return "ws://" + address + ":" + to_string(port);
 		}
+    
+        void onWSReconnectTimeOut(websocketpp::lib::error_code const & ec);
+    
+        void onWSConnected(websocketpp::connection_hdl hdl);
+        
+        void onWSDisconnected(websocketpp::connection_hdl hdl);
+    
+        void onWSError(websocketpp::connection_hdl hdl);
+        
+        void onWSReceived(websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
     public:
 		WebsocketServer server;
 		WebsocketClient serverAsClient;
 		std::map<websocketpp::connection_hdl, UniqID, std::owner_less<websocketpp::connection_hdl> > hdlToClientId;
+        std::list<WSEvent> eventQueue;
 	};
 
 }
-#endif 
+#endif

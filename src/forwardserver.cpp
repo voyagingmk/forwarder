@@ -484,6 +484,44 @@ namespace forwarder {
             serverAsClient.init_asio();
             doReconnect();
         }
+        if (!isClientMode) {
+            server.set_message_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSReceived,
+                this,
+                websocketpp::lib::placeholders::_1,
+                websocketpp::lib::placeholders::_2));
+            server.set_open_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSConnected,
+                this,
+                websocketpp::lib::placeholders::_1));
+            server.set_close_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSDisconnected,
+                this,
+                websocketpp::lib::placeholders::_1));
+            server.set_fail_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSError,
+                this,
+                websocketpp::lib::placeholders::_1));
+        }
+        else {
+            serverAsClient.set_message_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSReceived,
+                this,
+                websocketpp::lib::placeholders::_1,
+                websocketpp::lib::placeholders::_2));
+            serverAsClient.set_open_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSConnected,
+                this,
+                websocketpp::lib::placeholders::_1));
+            serverAsClient.set_close_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSDisconnected,
+                this,
+                websocketpp::lib::placeholders::_1));
+            serverAsClient.set_fail_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onWSError,
+                this,
+                websocketpp::lib::placeholders::_1));
+        }
     }
     
     void  ForwardServerWS::release() {
@@ -584,5 +622,42 @@ namespace forwarder {
             return ReturnCode::Err;
         }
         return ReturnCode::Ok;
+    }
+    
+    void ForwardServerWS::setupReconnectTimer() {
+        if (isClientMode) {
+            if (reconnect) {
+                serverAsClient.set_timer(reconnectdelay, websocketpp::lib::bind(
+                    &ForwardServerWS::onWSReconnectTimeOut,
+                    this,
+                    websocketpp::lib::placeholders::_1
+                    ));
+            }
+        }
+    }
+    
+    void ForwardServerWS::onWSReconnectTimeOut(websocketpp::lib::error_code const & ec) {
+        logDebug("[onWSReconnectTimeOut]");
+        if (ec) {
+            logError("[onWSReconnectTimeOut] err: {0}", ec.message());
+            return;
+        }
+        doReconnect();
+    }
+    
+    void ForwardServerWS::onWSConnected(websocketpp::connection_hdl hdl) {
+        eventQueue.emplace_back(WSEventType::Connected, hdl, nullptr);
+    }
+    
+    void ForwardServerWS::onWSDisconnected(websocketpp::connection_hdl hdl) {
+        eventQueue.emplace_back(WSEventType::Disconnected, hdl, nullptr);
+    }
+    
+    void ForwardServerWS::onWSError(websocketpp::connection_hdl hdl) {
+        eventQueue.emplace_back(WSEventType::Error, hdl, nullptr);
+    }
+    
+    void ForwardServerWS::onWSReceived(websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
+        eventQueue.emplace_back(WSEventType::Msg, hdl, msg);
     }
 }

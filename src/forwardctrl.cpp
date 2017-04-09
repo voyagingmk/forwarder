@@ -222,55 +222,7 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
         server->setLogger(logger);
     }
 
-	if (server->netType == NetType::WS) {
-		ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(server);
-		if (!wsServer->isClientMode) {
-            wsServer->server.set_message_handler(websocketpp::lib::bind(
-                &ForwardCtrl::onWSCacheReceived,
-                this,
-                wsServer,
-                websocketpp::lib::placeholders::_1,
-                websocketpp::lib::placeholders::_2));
-			wsServer->server.set_open_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSConnected,
-				this,
-				wsServer,
-				websocketpp::lib::placeholders::_1));
-			wsServer->server.set_close_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSDisconnected,
-				this,
-				wsServer,
-				websocketpp::lib::placeholders::_1));
-            wsServer->serverAsClient.set_fail_handler(websocketpp::lib::bind(
-                &ForwardCtrl::onWSError,
-                this,
-                wsServer,
-                websocketpp::lib::placeholders::_1));
-		}
-		else {
-            wsServer->serverAsClient.set_message_handler(websocketpp::lib::bind(
-                &ForwardCtrl::onWSCacheReceived,
-                this,
-                wsServer,
-                websocketpp::lib::placeholders::_1,
-                websocketpp::lib::placeholders::_2));
-			wsServer->serverAsClient.set_open_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSConnected,
-				this,
-				wsServer,
-				websocketpp::lib::placeholders::_1));
-			wsServer->serverAsClient.set_close_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSDisconnected,
-				this,
-				wsServer,
-				websocketpp::lib::placeholders::_1));
-			wsServer->serverAsClient.set_fail_handler(websocketpp::lib::bind(
-				&ForwardCtrl::onWSError,
-				this,
-				wsServer,
-				websocketpp::lib::placeholders::_1));
-		}
-    } else if(server->netType == NetType::TCP) {
+	if(server->netType == NetType::TCP) {
         ForwardServerTcp* tcpServer = dynamic_cast<ForwardServerTcp*>(server);
         tcpServer->setMessageHandler(std::bind(
                 &ForwardCtrl::onTCPReceived,
@@ -1061,30 +1013,13 @@ void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::conne
 			poolForwardClientWS.del(client);
 			curProcessClient = client;
 		}
-	}
-	if (wsServer->isClientMode) {
-		wsServer->clientID = 0;
-		if (wsServer->reconnect) {
-			wsServer->serverAsClient.set_timer(wsServer->reconnectdelay, websocketpp::lib::bind(
-				&ForwardCtrl::onWSReconnectTimeOut,
-				this,
-				websocketpp::lib::placeholders::_1,
-				wsServer
-				));
-		}
-	}
+    }
+    wsServer->clientID = 0;
+    wsServer->setupReconnectTimer();
 	curProcessServer = wsServer;
 	curEvent = Event::Disconnected;
 }
 
-void ForwardCtrl::onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer) {
-	logDebug("[onWSReconnectTimeOut]");
-	if (ec) {
-		logError("[onWSReconnectTimeOut] err: {0}", ec.message());
-		return;
-	}
-	wsServer->doReconnect();
-}
 
 void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
 	auto con = wsServer->server.get_con_from_hdl(hdl);
@@ -1098,14 +1033,8 @@ void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_h
 	onWSDisconnected(wsServer, hdl);
 }
 
-void ForwardCtrl::onWSCacheReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
-    wsPackets.push_back({wsServer, hdl, msg});
-}
 
-void ForwardCtrl::onWSReceived(WSPacket& wsPacket) {
-    ForwardServerWS* wsServer = wsPacket.server;
-    websocketpp::connection_hdl hdl = wsPacket.hdl;
-    ForwardServerWS::WebsocketServer::message_ptr msg = wsPacket.msg;
+void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
 	auto it1 = wsServer->hdlToClientId.find(hdl);
 	if (it1 == wsServer->hdlToClientId.end()) {
 		logError("[forwarder][ws.recv] no such hdl");
@@ -1324,16 +1253,37 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 		}
 		//std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
-	else if (pServer->netType == NetType::WS) {
-         if(wsPackets.begin() == wsPackets.end()) {
-             ForwardServerWS* server = dynamic_cast<ForwardServerWS*>(pServer);
-             server->poll();
-         }
-         if(wsPackets.begin() != wsPackets.end()) {
-             WSPacket packet = wsPackets.front();
-             wsPackets.pop_front();
-             onWSReceived(packet);
-         }
+    else if (pServer->netType == NetType::WS) {
+        ForwardServerWS* wsServer = dynamic_cast<ForwardServerWS*>(pServer);
+        if(wsServer->eventQueue.size() == 0) {
+            wsServer->poll();
+        }
+        
+        while(wsServer->eventQueue.size() > 0) {
+            auto it = wsServer->eventQueue.front();
+            wsServer->eventQueue.pop_front();
+            switch(it.event) {
+                case ForwardServerWS::WSEventType::Connected: {
+                    onWSConnected(wsServer, it.hdl);
+                    break;
+                }
+                case ForwardServerWS::WSEventType::Disconnected: {
+                    onWSDisconnected(wsServer, it.hdl);
+                    break;
+                }
+                case ForwardServerWS::WSEventType::Msg: {
+                    onWSReceived(wsServer, it.hdl, it.msg);
+                    break;
+                }
+                case ForwardServerWS::WSEventType::Error: {
+                    onWSError(wsServer, it.hdl);
+                    break;
+                }
+                default: {
+                    break;
+                }
+            }
+        }
 	}
     else if (pServer->netType == NetType::TCP) {
          ForwardServerTcp* tcpServer = dynamic_cast<ForwardServerTcp*>(pServer);

@@ -166,12 +166,9 @@ namespace forwarder {
 		void onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
 
 		void onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl);
-
-		void onWSCacheReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
         
-        void onWSReceived(WSPacket& wsPacket);
+        void onWSReceived(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
 		
-		void onWSReconnectTimeOut(websocketpp::lib::error_code const & ec, ForwardServerWS* wsServer);
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         ReturnCode _sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
