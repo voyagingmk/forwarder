@@ -145,6 +145,13 @@ namespace forwarder {
 		void SetDebugFunction(DebugFuncPtr fp);
 
 	private:
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        void onTCPConnected(ForwardServer* server, int fd);
+        
+        void onTCPDisconnected(ForwardServer* server, int fd);
+        
+        void onTCPReceived(ForwardServer* server, int fd, uint8_t* msg);
+        
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		void onENetConnected(ForwardServer* server, ENetPeer* peer);
 
@@ -287,7 +294,8 @@ namespace forwarder {
 		uint8_t** buffers;
 		size_t* bufferSize;
         size_t* bufferOffset;
-		int serverNum;
+        int serverNum;
+        UniqID id;
 		bool released;
 		bool isExit;
 		Base64Codec& base64Codec;
@@ -301,13 +309,15 @@ namespace forwarder {
         ForwardPacketPtr curProcessPacketENet; // will be destroyed after process!
 		uint8_t* curProcessData;
 		size_t curProcessDataLength;
+        
+        /* 
+            special use
+        */
+        // websocket:
         std::list<WSPacket> wsPackets;
     
-
-		static const size_t ivSize = 16;
-		UniqID id;
-
-		// static members
+        // static members
+        static const size_t ivSize = 16;
 		static size_t bufferNum;
 		static UniqID ForwardCtrlCount;
 	};

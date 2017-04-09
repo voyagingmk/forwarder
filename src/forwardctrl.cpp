@@ -267,7 +267,25 @@ uint32_t ForwardCtrl::createServer(rapidjson::Value& serverConfig) {
 				wsServer,
 				websocketpp::lib::placeholders::_1));
 		}
-	}
+    } else if(server->netType == NetType::TCP) {
+        ForwardServerTcp* tcpServer = dynamic_cast<ForwardServerTcp*>(server);
+        tcpServer->setMessageHandler(std::bind(
+                &ForwardCtrl::onTCPReceived,
+                this,
+                tcpServer,
+                std::placeholders::_1,
+                std::placeholders::_2));
+        tcpServer->setOpenHandler(std::bind(
+                &ForwardCtrl::onTCPConnected,
+                this,
+                tcpServer,
+                std::placeholders::_1));
+        tcpServer->setCloseHandler(std::bind(
+                &ForwardCtrl::onTCPDisconnected,
+                this,
+                tcpServer,
+                std::placeholders::_1));
+    }
 	server->init(serverConfig);
 
 	for (auto it = servers.begin(); it != servers.end(); it++) {
@@ -982,6 +1000,19 @@ ReturnCode ForwardCtrl::handlePacket_Process(ForwardParam& param) {
 	return ReturnCode::Ok;
 }
 
+
+void ForwardCtrl::onTCPConnected(ForwardServer* server, int fd) {
+    
+}
+
+void ForwardCtrl::onTCPDisconnected(ForwardServer* server, int fd) {
+    
+}
+
+void ForwardCtrl::onTCPReceived(ForwardServer* server, int fd, uint8_t* msg) {
+
+}
+
 void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
 	ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
 	UniqID id = wsServer->idGenerator.getNewID();
@@ -1298,6 +1329,11 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
              onWSReceived(packet);
          }
 	}
+    else if (pServer->netType == NetType::TCP) {
+         ForwardServerTcp* tcpServer = dynamic_cast<ForwardServerTcp*>(pServer);
+         tcpServer->poll();
+    }
+
 }
 
 void ForwardCtrl::pollAllOnce() {

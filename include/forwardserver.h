@@ -9,6 +9,8 @@
 #include "aes.h"
 #include "utils.h"
 
+
+
 namespace forwarder {
     class ForwardServer: public ForwardBase {
 	protected:
@@ -121,6 +123,12 @@ namespace forwarder {
 class ForwardServerTcp: public ForwardServer {
     public:
         ForwardServerTcp():
+#if defined(linux)
+			MAXEVENTS(64),
+    		m_sfd(0),
+    		m_efd(0),
+    		m_events(nullptr),
+#endif
             ForwardServer(NetType::TCP)
         {}
         ForwardServerTcp(const ForwardServerTcp& x) = delete;
@@ -138,16 +146,31 @@ class ForwardServerTcp: public ForwardServer {
     
         virtual bool isClientConnected(UniqID targetClientID);
     
+        virtual void poll();
+    
         virtual void broadcastPacket(ForwardPacketPtr outPacket);
     
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
+    
+        typedef std::function<void(int fd, uint8_t* msg)> MsgHandler;
+        typedef std::function<void(int fd)> OpenHandler;
+        typedef std::function<void(int fd)> CloseHandler;
+    
+        void setMessageHandler(MsgHandler h) { m_msgHandler = h; }
+        void setOpenHandler(OpenHandler h)   { m_openHandler = h; }
+        void setCloseHandler(CloseHandler h) { m_closeHandler = h; }
     private:
         int initSocket();
         int makeSocketNonBlocking(int sfd);
     public:
+        MsgHandler m_msgHandler;
+        OpenHandler m_openHandler;
+        CloseHandler m_closeHandler;
 #if defined(linux)
+    const int MAXEVENTS;
     int m_sfd;
     int m_efd;
+    epoll_event* m_events;
 #endif
 };
 

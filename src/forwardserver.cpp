@@ -13,35 +13,35 @@
 
 
 namespace forwarder {
-
-	ReturnCode ForwardServer::initCommon(rapidjson::Value& serverConfig) {
-		desc = serverConfig["desc"].GetString();
-		peerLimit = serverConfig["peers"].GetInt();
-		port = serverConfig["port"].GetInt();
-		admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
-		encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
-		compress = serverConfig.HasMember("compress") && serverConfig["compress"].GetBool();
-		base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
-		isClientMode = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
-		reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
+    
+    ReturnCode ForwardServer::initCommon(rapidjson::Value& serverConfig) {
+        desc = serverConfig["desc"].GetString();
+        peerLimit = serverConfig["peers"].GetInt();
+        port = serverConfig["port"].GetInt();
+        admin = serverConfig.HasMember("admin") && serverConfig["admin"].GetBool();
+        encrypt = serverConfig.HasMember("encrypt") && serverConfig["encrypt"].GetBool();
+        compress = serverConfig.HasMember("compress") && serverConfig["compress"].GetBool();
+        base64 = serverConfig.HasMember("base64") && serverConfig["base64"].GetBool();
+        isClientMode = serverConfig.HasMember("isClient") && serverConfig["isClient"].GetBool();
+        reconnect = serverConfig.HasMember("reconnect") && serverConfig["reconnect"].GetBool();
         setDebug(serverConfig.HasMember("debug") && serverConfig["debug"].GetBool());
-		if (serverConfig.HasMember("reconnectdelay")) {
-			reconnectdelay = serverConfig["reconnectdelay"].GetUint();
-		}
-		if (serverConfig.HasMember("address")) {
-			address = serverConfig["address"].GetString();
-		}
-		if (encrypt) {
-			if (serverConfig.HasMember("encryptkey")) {
-				initCipherKey(serverConfig["encryptkey"].GetString());
-			}
-			else {
-				logError("[forwarder] encrypt mode, but no encryptkey");
-				return ReturnCode::Err;
-			}
-		}
-		if (serverConfig.HasMember("destId"))
-			destId = serverConfig["destId"].GetInt();
+        if (serverConfig.HasMember("reconnectdelay")) {
+            reconnectdelay = serverConfig["reconnectdelay"].GetUint();
+        }
+        if (serverConfig.HasMember("address")) {
+            address = serverConfig["address"].GetString();
+        }
+        if (encrypt) {
+            if (serverConfig.HasMember("encryptkey")) {
+                initCipherKey(serverConfig["encryptkey"].GetString());
+            }
+            else {
+                logError("[forwarder] encrypt mode, but no encryptkey");
+                return ReturnCode::Err;
+            }
+        }
+        if (serverConfig.HasMember("destId"))
+            destId = serverConfig["destId"].GetInt();
         if (serverConfig.HasMember("timeoutMin"))
             timeoutMin = serverConfig["timeoutMin"].GetInt();
         if (serverConfig.HasMember("timeoutMax"))
@@ -49,55 +49,55 @@ namespace forwarder {
         
         setRule(Protocol::Forward, HandleRule::Forward);
         setRule(Protocol::BatchForward, HandleRule::BatchForward);
-		return ReturnCode::Ok;
-	}
-
-	bool ForwardServer::hasConsistConfig(ForwardServer* server) {
-		if (netType != server->netType) {
-			return false;
-		}
-		if (base64 != server->base64) {
-			return false;
-		}
-		if (encrypt != server->encrypt) {
-			return false;
-		}
-		if (encrypt) {
-			size_t len = sizeof(AES_KEY);
-			for (uint32_t i = 0; i < len; i++) {
-				if (((uint8_t*)(&encryptkey))[i] != ((uint8_t*)(&server->encryptkey))[i]) {
-					return false;
-				}
-			}
-		}
-		return true;
-	}
-
-	ForwardClient*  ForwardServer::getClient(UniqID clientId) {
-		if (clientId) {
-			auto it_client = clients.find(clientId);
-			if (it_client != clients.end())
-				return it_client->second;
-		}
-		return nullptr;
-	}
-
-	void ForwardServer::initCipherKey(const char* key){
-		AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
-	}
-
-	void ForwardServer::setRule(Protocol p, HandleRule rule) {
-		ruleDict[p] = rule;
-	}
-
-	HandleRule ForwardServer::getRule(Protocol p) {
-		auto it = ruleDict.find(p);
-		if (it == ruleDict.end()) {
-			return HandleRule::Unknown;
-		}
-		return it->second;
-	}
-
+        return ReturnCode::Ok;
+    }
+    
+    bool ForwardServer::hasConsistConfig(ForwardServer* server) {
+        if (netType != server->netType) {
+            return false;
+        }
+        if (base64 != server->base64) {
+            return false;
+        }
+        if (encrypt != server->encrypt) {
+            return false;
+        }
+        if (encrypt) {
+            size_t len = sizeof(AES_KEY);
+            for (uint32_t i = 0; i < len; i++) {
+                if (((uint8_t*)(&encryptkey))[i] != ((uint8_t*)(&server->encryptkey))[i]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    ForwardClient*  ForwardServer::getClient(UniqID clientId) {
+        if (clientId) {
+            auto it_client = clients.find(clientId);
+            if (it_client != clients.end())
+                return it_client->second;
+        }
+        return nullptr;
+    }
+    
+    void ForwardServer::initCipherKey(const char* key){
+        AES_set_encrypt_key((const unsigned char*)key, 128, &encryptkey);
+    }
+    
+    void ForwardServer::setRule(Protocol p, HandleRule rule) {
+        ruleDict[p] = rule;
+    }
+    
+    HandleRule ForwardServer::getRule(Protocol p) {
+        auto it = ruleDict.find(p);
+        if (it == ruleDict.end()) {
+            return HandleRule::Unknown;
+        }
+        return it->second;
+    }
+    
     void ForwardServer::pushToBuffer(uint8_t* data, size_t len) {
         uint8_t* buffer = batchBuffer;
         size_t size = batchBufferSize;
@@ -133,72 +133,72 @@ namespace forwarder {
     
     
     
-
-	void ForwardServerENet::init(rapidjson::Value& serverConfig) {
-		ENetAddress enetAddress;
-		if (!isClientMode) {
-			enet_address_set_host(&enetAddress, "0.0.0.0");
-			enetAddress.port = port;
-		}
-		else {
-			enet_address_set_host(&enetAddress, address.c_str());
-			enetAddress.port = port;
-		}
-		size_t channelLimit = 1;
-		//address.host = ENET_HOST_ANY;
-		enet_uint32 incomingBandwidth = 0;  /* assume any amount of incoming bandwidth */
-		enet_uint32 outgoingBandwidth = 0;	/* assume any amount of outgoing bandwidth */
-		if (serverConfig.HasMember("bandwidth")) {
-			incomingBandwidth = serverConfig["bandwidth"]["incoming"].GetUint();
-			outgoingBandwidth = serverConfig["bandwidth"]["outgoing"].GetUint();
-			logInfo("[forwarder] incomingBandwidth: {0}, outgoingBandwidth: {1}", incomingBandwidth, outgoingBandwidth);
-		}
-
-		host = enet_host_create(isClientMode? nullptr: &enetAddress,
-			peerLimit,
-			channelLimit,
-			incomingBandwidth,
-			outgoingBandwidth);
-		if (!host) {
-			logError("[forwarder] An error occurred while trying to create an ENet server host.");
-			exit(1);
-			return;
-		}
-		if (isClientMode) {
-			enet_host_connect(host, &enetAddress, channelLimit, 0);
-		}
-	}
-
-	void ForwardServerENet::doReconnect() {
-		logInfo("[forwarder] ENet doReconnect");
-		ENetAddress enetAddress; 
-		enet_address_set_host(&enetAddress, address.c_str());
-		enetAddress.port = port;
-		size_t channelLimit = 1;
-		enet_host_connect(host, &enetAddress, channelLimit, 0);
-	};
-
-	void ForwardServerENet::doDisconnect() {
-		logInfo("[forwarder] ENet doDisconnect");
-		ForwardClient* client = getClient(clientID);
-		if (!client) {
-			return;
-		}
-		ForwardClientENet* clientENet = dynamic_cast<ForwardClientENet*>(client);
-		auto state = clientENet->peer->state;
-		if(state == ENET_PEER_STATE_CONNECTING || state == ENET_PEER_STATE_CONNECTED){
-			enet_peer_disconnect(clientENet->peer, 0);
-		}
-	}
-
-	bool ForwardServerENet::isConnected() {
-		ForwardClient* client = getClient(clientID);
-		if (!client) {
-			return false;
-		}
-		auto state = dynamic_cast<ForwardClientENet*>(client)->peer->state;
-		return state == ENET_PEER_STATE_CONNECTED;
-	}
+    
+    void ForwardServerENet::init(rapidjson::Value& serverConfig) {
+        ENetAddress enetAddress;
+        if (!isClientMode) {
+            enet_address_set_host(&enetAddress, "0.0.0.0");
+            enetAddress.port = port;
+        }
+        else {
+            enet_address_set_host(&enetAddress, address.c_str());
+            enetAddress.port = port;
+        }
+        size_t channelLimit = 1;
+        //address.host = ENET_HOST_ANY;
+        enet_uint32 incomingBandwidth = 0;  /* assume any amount of incoming bandwidth */
+        enet_uint32 outgoingBandwidth = 0;	/* assume any amount of outgoing bandwidth */
+        if (serverConfig.HasMember("bandwidth")) {
+            incomingBandwidth = serverConfig["bandwidth"]["incoming"].GetUint();
+            outgoingBandwidth = serverConfig["bandwidth"]["outgoing"].GetUint();
+            logInfo("[forwarder] incomingBandwidth: {0}, outgoingBandwidth: {1}", incomingBandwidth, outgoingBandwidth);
+        }
+        
+        host = enet_host_create(isClientMode? nullptr: &enetAddress,
+                                peerLimit,
+                                channelLimit,
+                                incomingBandwidth,
+                                outgoingBandwidth);
+        if (!host) {
+            logError("[forwarder] An error occurred while trying to create an ENet server host.");
+            exit(1);
+            return;
+        }
+        if (isClientMode) {
+            enet_host_connect(host, &enetAddress, channelLimit, 0);
+        }
+    }
+    
+    void ForwardServerENet::doReconnect() {
+        logInfo("[forwarder] ENet doReconnect");
+        ENetAddress enetAddress;
+        enet_address_set_host(&enetAddress, address.c_str());
+        enetAddress.port = port;
+        size_t channelLimit = 1;
+        enet_host_connect(host, &enetAddress, channelLimit, 0);
+    };
+    
+    void ForwardServerENet::doDisconnect() {
+        logInfo("[forwarder] ENet doDisconnect");
+        ForwardClient* client = getClient(clientID);
+        if (!client) {
+            return;
+        }
+        ForwardClientENet* clientENet = dynamic_cast<ForwardClientENet*>(client);
+        auto state = clientENet->peer->state;
+        if(state == ENET_PEER_STATE_CONNECTING || state == ENET_PEER_STATE_CONNECTED){
+            enet_peer_disconnect(clientENet->peer, 0);
+        }
+    }
+    
+    bool ForwardServerENet::isConnected() {
+        ForwardClient* client = getClient(clientID);
+        if (!client) {
+            return false;
+        }
+        auto state = dynamic_cast<ForwardClientENet*>(client)->peer->state;
+        return state == ENET_PEER_STATE_CONNECTED;
+    }
     
     
     
@@ -236,13 +236,14 @@ namespace forwarder {
         }
         return ret == 0 ? ReturnCode::Ok : ReturnCode::Err;
     }
-
-	void ForwardServerENet::release() {
-		enet_host_destroy(host);
-		host = nullptr;
-	}
-
-
+    
+    void ForwardServerENet::release() {
+        doDisconnect();
+        enet_host_destroy(host);
+        host = nullptr;
+    }
+    
+    
     
     
     
@@ -271,7 +272,7 @@ namespace forwarder {
             sfd = socket (rp->ai_family, rp->ai_socktype, rp->ai_protocol);
             if (sfd == -1)
                 continue;
-             
+            
             s = bind (sfd, rp->ai_addr, rp->ai_addrlen);
             if (s == 0)
             {
@@ -295,9 +296,9 @@ namespace forwarder {
 #endif
         return -1;
    	}
- 
+    
     int ForwardServerTcp::makeSocketNonBlocking(int sfd) {
-#if defined(linux)  
+#if defined(linux)
         int flags, s;
         
         flags = fcntl (sfd, F_GETFL, 0);
@@ -318,7 +319,8 @@ namespace forwarder {
 #endif
         return -1;
     }
- 
+    
+    
     
     void ForwardServerTcp::init(rapidjson::Value& serverConfig) {
 #if defined(linux)
@@ -331,7 +333,7 @@ namespace forwarder {
         ret = makeSocketNonBlocking(m_sfd);
         if (ret == -1) {
             logError("[forwarder] tcp makeSocketNonBlocking error");
-            return; 
+            return;
         }
         ret = listen(m_sfd, SOMAXCONN);
         if (ret == -1) {
@@ -352,12 +354,18 @@ namespace forwarder {
             logError ("[forwarder] tcp epoll_ctl EPOLL_CTL_ADD error");
             return;
         }
+        /* Buffer where events are returned */
+        m_events = (epoll_event*)calloc(MAXEVENTS, sizeof(epoll_event));
         logInfo ("[forwarder] init tcp server ok");
 #endif
     }
-
+    
     void ForwardServerTcp::release() {
-        
+        doDisconnect();
+#if defined(linux)
+        free (m_events);
+        close (m_sfd);
+#endif
     }
     
     void ForwardServerTcp::doReconnect() {
@@ -371,18 +379,88 @@ namespace forwarder {
     bool ForwardServerTcp::isConnected() {
         return false;
     }
-
+    
     bool ForwardServerTcp::isClientConnected(UniqID targetClientID) {
         return false;
     }
     
+    void ForwardServerTcp::poll() {
+#if defined(linux)
+        if(!m_efd) {
+            return;
+        }
+        int n = epoll_wait(m_efd, m_events, MAXEVENTS, 0);
+        if(n <= 0) {
+            return;
+        }
+        // pre process
+        for (i = 0; i < n; i++) {
+            if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP) ||
+                (!(events[i].events & EPOLLIN))) {
+                // close(events[i].data.fd);
+                continue;
+            } else if (m_sfd == events[i].data.fd) {
+                /* We have a notification on the listening socket, which
+                 means one or more incoming connections. */
+                epoll_event event;
+                while (1) {
+                    struct sockaddr in_addr;
+                    socklen_t in_len;
+                    int infd;
+                    int ret;
+                    char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+                    
+                    in_len = sizeof in_addr;
+                    infd = accept(m_sfd, &in_addr, &in_len);
+                    if (infd == -1) {
+                        if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                            /* We have processed all incoming
+                             connections. */
+                            break;
+                        } else {
+                            logError("accept");
+                            break;
+                        }
+                    }
+                    
+                    ret = getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf,
+                                    sizeof sbuf, NI_NUMERICHOST | NI_NUMERICSERV);
+                    if (ret == 0) {
+                        logInfo("Accepted connection on descriptor %d "
+                               "(host=%s, port=%s)\n",
+                               infd, hbuf, sbuf);
+                    }
+                    
+                    /* Make the incoming socket non-blocking and add it to the
+                     list of fds to monitor. */
+                    ret = makeSocketNonBlocking(infd);
+                    if (ret == -1)
+                        logError("makeSocketNonBlocking failed");
+                        continue;
+                    
+                    event.data.fd = infd;
+                    event.events = EPOLLIN | EPOLLET;
+                    s = epoll_ctl(m_efd, EPOLL_CTL_ADD, infd, &event);
+                    if (s == -1) {
+                        logError("epoll_ctl failed");
+                        close(infd);
+                        continue;
+                    }
+                    m_openHandler(infd);
+                }
+            }
+        }
+#endif
+    }
+    
+    
     void ForwardServerTcp::broadcastPacket(ForwardPacketPtr outPacket) {
-
+        
     }
     
     ReturnCode ForwardServerTcp::sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {
         return ReturnCode::Ok;
-
+        
     }
     
     
@@ -390,53 +468,53 @@ namespace forwarder {
     
     
     
-	void ForwardServerWS::init(rapidjson::Value& serverConfig) {
-		if (!isClientMode) {
-			server.set_error_channels(websocketpp::log::elevel::none);
-			server.set_access_channels(websocketpp::log::alevel::none);
-			server.init_asio();
+    void ForwardServerWS::init(rapidjson::Value& serverConfig) {
+        if (!isClientMode) {
+            server.set_error_channels(websocketpp::log::elevel::none);
+            server.set_access_channels(websocketpp::log::alevel::none);
+            server.init_asio();
             server.set_reuse_addr(true);
-			server.listen(port);
-			server.start_accept();
-		}
-		else {
-			serverAsClient.set_error_channels(websocketpp::log::elevel::none);
-			serverAsClient.set_access_channels(websocketpp::log::alevel::none);
-			serverAsClient.init_asio();
-			doReconnect();
-		}
-	}
-
+            server.listen(port);
+            server.start_accept();
+        }
+        else {
+            serverAsClient.set_error_channels(websocketpp::log::elevel::none);
+            serverAsClient.set_access_channels(websocketpp::log::alevel::none);
+            serverAsClient.init_asio();
+            doReconnect();
+        }
+    }
+    
     void  ForwardServerWS::release() {
         doDisconnect();
-		hdlToClientId.clear();
-	}
-
-	void ForwardServerWS::poll() {
-		if (!isClientMode) {
-			server.poll_one();
-		}
-		else {
-			serverAsClient.poll_one();
-		}
-	}	
-
-	void ForwardServerWS::doReconnect() {
-		logInfo("[forwarder] WS doReconnect");
-		if (isConnected()) {
-			return;
-		}
-		std::string uri = getUri();
-		websocketpp::lib::error_code ec;
-		WebsocketClient::connection_ptr con = serverAsClient.get_connection(uri, ec);
-		if (ec) {
-			logError("[forwarder] WS error, could not create connection because: {0}", ec.message());
-			return;
-		}
-		serverAsClient.connect(con);
-	}
-
-	void ForwardServerWS::doDisconnect() {
+        hdlToClientId.clear();
+    }
+    
+    void ForwardServerWS::poll() {
+        if (!isClientMode) {
+            server.poll_one();
+        }
+        else {
+            serverAsClient.poll_one();
+        }
+    }
+    
+    void ForwardServerWS::doReconnect() {
+        logInfo("[forwarder] WS doReconnect");
+        if (isConnected()) {
+            return;
+        }
+        std::string uri = getUri();
+        websocketpp::lib::error_code ec;
+        WebsocketClient::connection_ptr con = serverAsClient.get_connection(uri, ec);
+        if (ec) {
+            logError("[forwarder] WS error, could not create connection because: {0}", ec.message());
+            return;
+        }
+        serverAsClient.connect(con);
+    }
+    
+    void ForwardServerWS::doDisconnect() {
         logInfo("[forwarder] WS doDisconnect");
         std::string reason = "";
         websocketpp::lib::error_code ec;
@@ -457,17 +535,17 @@ namespace forwarder {
             }
             serverAsClient.stop();
         }
-	}
-
-
-	bool ForwardServerWS::isConnected() {
-		auto client = getClient(clientID);
-		if (!client) {
-			return false;
-		}
-		auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
-		return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
-	}
+    }
+    
+    
+    bool ForwardServerWS::isConnected() {
+        auto client = getClient(clientID);
+        if (!client) {
+            return false;
+        }
+        auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
+        return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
+    }
     
     
     bool ForwardServerWS::isClientConnected(UniqID targetClientID) {
@@ -485,10 +563,10 @@ namespace forwarder {
             ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it.second);
             websocketpp::lib::error_code ec;
             server.send(client->hdl,
-                 outPacket->getRawPtr(),
-                 outPacket->getTotalLength(),
-                 websocketpp::frame::opcode::value::BINARY,
-                 ec);
+                        outPacket->getRawPtr(),
+                        outPacket->getTotalLength(),
+                        websocketpp::frame::opcode::value::BINARY,
+                        ec);
         }
     }
     
@@ -496,10 +574,10 @@ namespace forwarder {
         ForwardClientWS* wsClient = dynamic_cast<ForwardClientWS*>(client);
         websocketpp::lib::error_code ec;
         server.send(wsClient->hdl,
-            outPacket->getRawPtr(),
-            outPacket->getTotalLength(),
-            websocketpp::frame::opcode::value::BINARY,
-            ec);
+                    outPacket->getRawPtr(),
+                    outPacket->getTotalLength(),
+                    websocketpp::frame::opcode::value::BINARY,
+                    ec);
         if (ec) {
             logError("[sendPacket] ws, err: {0}", ec.message());
             return ReturnCode::Err;
