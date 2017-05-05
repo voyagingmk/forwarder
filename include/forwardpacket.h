@@ -106,10 +106,10 @@ namespace forwarder {
 			length = p_packet->dataLength;
 		}
 
-		ForwardPacketENet(size_t len) :
+		ForwardPacketENet(size_t len, enet_uint32 flags) :
 			owned(true)
 		{
-			packet = enet_packet_create(NULL, len, ENET_PACKET_FLAG_RELIABLE);
+			packet = enet_packet_create(NULL, len, flags);
 			memset(packet->data, '\0', len);
 			length = len;
 		}

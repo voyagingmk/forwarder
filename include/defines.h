@@ -21,6 +21,19 @@ namespace forwarder {
 		WS = 2,
         TCP = 3
 	};
+    
+#define SendFlag_None           0
+#define SendFlag_Reliable       1<<0
+#define SendFlag_Unreliable     1<<1
+#define SendFlag_Broadcast      1<<2
+#define SendFlag_ForceRaw       1<<3
+#define SendFlag_BatchMode      1<<4
+    
+    typedef size_t SendFlags;
+    
+    static bool hasFlag(SendFlags sendFlags, SendFlags needFlag) {
+        return (sendFlags & needFlag) > 0;
+    }
 
 	enum class Event {
 		Nothing = 0,

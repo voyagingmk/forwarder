@@ -122,10 +122,10 @@ namespace forwarder {
 
 class ForwardServerTcp: public ForwardServer {
     public:
-        ForwardServerTcp():
+    ForwardServerTcp():
+            m_sfd(0),
 #if defined(linux)
 			MAXEVENTS(64),
-    		m_sfd(0),
     		m_efd(0),
     		m_events(nullptr),
 #endif
@@ -168,10 +168,10 @@ class ForwardServerTcp: public ForwardServer {
         CloseHandler m_closeHandler;
 #if defined(linux)
     const int MAXEVENTS;
-    int m_sfd;
     int m_efd;
     epoll_event* m_events;
 #endif
+    int m_sfd;
 };
 
 

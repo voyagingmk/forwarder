@@ -361,79 +361,70 @@ ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
 }
 
 
-ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength) {
-    return _sendBinary(serverId, clientId, data, dataLength);
+ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, SendFlags sendFlags) {
+    return _sendBinary(serverId, clientId, data, dataLength, sendFlags);
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string& data) {
-    return _sendText(serverId, clientId, data);
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string& data, SendFlags sendFlags) {
+    return _sendText(serverId, clientId, data, sendFlags);
 }
 
-ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data) {
-    return _sendText(serverId, clientId, data);
+ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data, SendFlags sendFlags) {
+    return _sendText(serverId, clientId, data, sendFlags);
 }
 
-ReturnCode ForwardCtrl::broadcastBinary(UniqID serverId, uint8_t* data, size_t dataLength) {
+ReturnCode ForwardCtrl::broadcastBinary(UniqID serverId, uint8_t* data, size_t dataLength, SendFlags sendFlags) {
     const UniqID clientId = 0;
-    return _sendBinary(serverId, clientId, data, dataLength);
+    sendFlags |= SendFlag_Broadcast;
+    return _sendBinary(serverId, clientId, data, dataLength, sendFlags);
 }
 
-ReturnCode ForwardCtrl::broadcastText(UniqID serverId, std::string& data) {
+ReturnCode ForwardCtrl::broadcastText(UniqID serverId, std::string& data, SendFlags sendFlags) {
     const UniqID clientId = 0;
-    return _sendText(serverId, clientId, data);
+    sendFlags |= SendFlag_Broadcast;
+    return _sendText(serverId, clientId, data, sendFlags);
 }
 
-ReturnCode ForwardCtrl::broadcastText(UniqID serverId, const char* data) {
+ReturnCode ForwardCtrl::broadcastText(UniqID serverId, const char* data, SendFlags sendFlags) {
     const UniqID clientId = 0;
-    return _sendText(serverId, clientId, data);
+    sendFlags |= SendFlag_Broadcast;
+    return _sendText(serverId, clientId, data, sendFlags);
 }
 
 ReturnCode ForwardCtrl::forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
                                       UniqID forwardServerId,
                                       UniqID forwardClientId,
-                                      bool isBroadcast,
-                                      bool isForceRaw,
-                                      bool isBatchMode) {
+                                      SendFlags sendFlags) {
     const bool forwardMode = true;
     return _sendBinary(serverId, clientId, data, dataLength,
                        forwardMode,
                        forwardServerId,
                        forwardClientId,
-                       isBroadcast,
-                       isForceRaw,
-                       isBatchMode);
+                       sendFlags);
 }
 
 ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, std::string& data,
                                     UniqID forwardServerId,
                                     UniqID forwardClientId,
-                                    bool isBroadcast,
-                                    bool isForceRaw,
-                                    bool isBatchMode) {
+                                    SendFlags sendFlags) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
                        forwardServerId,
                        forwardClientId,
-                       isBroadcast,
-                       isForceRaw,
-                       isBatchMode);
+                       sendFlags);
 }
 
 ReturnCode ForwardCtrl::forwardText(UniqID serverId, UniqID clientId, const char* data,
                                     UniqID forwardServerId,
                                     UniqID forwardClientId,
-                                    bool isBroadcast,
-                                    bool isForceRaw,
-                                    bool isBatchMode) {
+                                    SendFlags sendFlags) {
     const bool forwardMode = true;
     return _sendText(serverId, clientId, data,
                        forwardMode,
                        forwardServerId,
                        forwardClientId,
-                       isBroadcast,
-                       isForceRaw,
-                       isBatchMode);
+                       sendFlags);
 }
 
 
@@ -445,9 +436,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                                     bool forwardMode,
                                     UniqID forwardServerId,
                                     UniqID forwardClientId,
-                                    bool forwardBroadcast,
-                                    bool isForceRaw,
-                                    bool isBatchMode) {
+                                    SendFlags sendFlags) {
     ForwardServer* outServer = getServerByID(serverId);
     if (!outServer) {
         logError("[forwarder][sendBinary] outServer not found, serverId={0}", serverId);
@@ -470,7 +459,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
         outHeader.setFlag(HeaderFlag::Encrypt, true);
     if (outServer->compress)
         outHeader.setFlag(HeaderFlag::Compress, true);
-    if (isBatchMode) {
+    if (hasFlag(sendFlags, SendFlag_BatchMode)) {
         outHeader.setProtocol(Protocol::BatchForward);
         outHeader.setFlag(HeaderFlag::PacketLen, true);
     }
@@ -481,7 +470,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
             outHeader.setHostID((uint8_t)(forwardServerId));
         }
         
-        if (forwardBroadcast) {
+        if (hasFlag(sendFlags, SendFlag_Broadcast)) {
             outHeader.setFlag(HeaderFlag::Broadcast, true);
         } else {
             if (forwardClientId > 0) {
@@ -492,7 +481,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
                 return ReturnCode::Err;
             }
         }
-        if(isForceRaw) {
+        if(hasFlag(sendFlags, SendFlag_ForceRaw)) {
             outHeader.setFlag(HeaderFlag::ForceRaw, true);
         }
     }
@@ -505,13 +494,13 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
         return ReturnCode::Err;
     }
     size_t packetLength = outHeader.getHeaderLength() + encodedDataLength;
-    if (isBatchMode) {
+    if (hasFlag(sendFlags, SendFlag_BatchMode)) {
         outHeader.setPacketLength(packetLength);
         outServer->pushToBuffer((uint8_t*)(&outHeader), outHeader.getHeaderLength());
         outServer->pushToBuffer(encodedData, encodedDataLength);
         return ReturnCode::Ok;
     } else {
-        ForwardPacketPtr outPacket = createPacket(outServer->netType, packetLength);
+        ForwardPacketPtr outPacket = createPacket(outServer->netType, packetLength, sendFlags);
         outPacket->setHeader(&outHeader);
         outPacket->setData(encodedData, encodedDataLength);
         ForwardParam param;
@@ -532,39 +521,40 @@ ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, std::string&
                                   bool forwardMode,
                                   UniqID forwardServerId,
                                   UniqID forwardClientId,
-                                  bool forwardBroadcast,
-                                  bool isForceRaw,
-                                  bool batch) {
+                                  SendFlags sendFlags) {
     return _sendBinary(serverId, clientId, (uint8_t*)data.c_str(), data.size(),
                        forwardMode,
                        forwardServerId,
                        forwardClientId,
-                       forwardBroadcast,
-                       isForceRaw,
-                       batch);
+                       sendFlags);
 }
 
 ReturnCode ForwardCtrl::_sendText(UniqID serverId, UniqID clientId, const char* data,
                                   bool forwardMode,
                                   UniqID forwardServerId,
                                   UniqID forwardClientId,
-                                  bool forwardBroadcast,
-                                  bool isForceRaw,
-                                  bool batch) {
+                                  SendFlags sendFlags) {
     return _sendBinary(serverId, clientId, (uint8_t*)data, strlen(data),
                        forwardMode,
                        forwardServerId,
                        forwardClientId,
-                       forwardBroadcast,
-                       isForceRaw,
-                       batch);
+                    sendFlags);
 }
 
 
 
-ForwardPacketPtr ForwardCtrl::createPacket(NetType netType, size_t len) {
+ForwardPacketPtr ForwardCtrl::createPacket(NetType netType, size_t len, SendFlags sendFlags) {
 	if (netType == NetType::ENet) {
-		return std::make_shared<ForwardPacketENet>(len);
+        enet_uint32 enet_flags = 0;
+        if(sendFlags == 0) {
+            // default
+            enet_flags = ENET_PACKET_FLAG_RELIABLE;
+        } else if(hasFlag(sendFlags, SendFlag_Reliable)) {
+            enet_flags = ENET_PACKET_FLAG_RELIABLE;
+        } else if(hasFlag(sendFlags, SendFlag_Unreliable)) {
+            enet_flags = 0;
+        }
+		return std::make_shared<ForwardPacketENet>(len, enet_flags);
 	}else if (netType == NetType::WS) {
 		return std::make_shared<ForwardPacketWS>(len);
 	}
@@ -749,7 +739,7 @@ void ForwardCtrl::decodeData(ForwardServer* inServer, ForwardHeader* inHeader, u
 
 }
 
-ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, ForwardHeader* outHeader) {
+ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, ForwardHeader* outHeader, SendFlags sendFlags) {
 	uint8_t* rawData;
 	size_t rawDataLength;
 	decodeData(
@@ -768,7 +758,7 @@ ForwardPacketPtr ForwardCtrl::convertPacket(ForwardPacketPtr packet, ForwardServ
         logDebugS(inServer, "[convertPacket] encodeData failed");
         return nullptr;
     }
-    ForwardPacketPtr outPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + encodedDataLength);
+    ForwardPacketPtr outPacket = createPacket(outServer->netType, outHeader->getHeaderLength() + encodedDataLength, sendFlags);
     outPacket->setHeader(outHeader);
     outPacket->setData(encodedData, encodedDataLength);
     //if (debug) debugBytes("encodeData, final", (uint8_t*)newPacket->getHeaderPtr(), newPacket->getTotalLength());

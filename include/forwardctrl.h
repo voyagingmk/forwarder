@@ -61,40 +61,34 @@ namespace forwarder {
 		ForwardServer* getServerByID(UniqID serverId) const;
         
         // single send
-		ReturnCode sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength);
+        ReturnCode sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, SendFlags sendFlags = SendFlag_None);
 
-		ReturnCode sendText(UniqID serverId, UniqID clientId, std::string& data);
+        ReturnCode sendText(UniqID serverId, UniqID clientId, std::string& data, SendFlags sendFlags = SendFlag_None);
 	
-		ReturnCode sendText(UniqID serverId, UniqID clientId, const char* data);
+		ReturnCode sendText(UniqID serverId, UniqID clientId, const char* data, SendFlags sendFlags = SendFlag_None);
         
         // broadcast send
-        ReturnCode broadcastBinary(UniqID serverId, uint8_t* data, size_t dataLength);
+        ReturnCode broadcastBinary(UniqID serverId, uint8_t* data, size_t dataLength, SendFlags sendFlags = SendFlag_None);
         
-        ReturnCode broadcastText(UniqID serverId, std::string& data);
+        ReturnCode broadcastText(UniqID serverId, std::string& data, SendFlags sendFlags = SendFlag_None);
 
-        ReturnCode broadcastText(UniqID serverId, const char* data);
+        ReturnCode broadcastText(UniqID serverId, const char* data, SendFlags sendFlags = SendFlag_None);
         
         // forward send
         ReturnCode forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
                                 UniqID forwardServerId,
                                 UniqID forwardClientId,
-                                bool isBroadcast,
-                                bool isForceRaw = false,
-                                bool isBatchMode = false);
+                                SendFlags sendFlags = SendFlag_None);
         
         ReturnCode forwardText(UniqID serverId, UniqID clientId, std::string& data,
                                 UniqID forwardServerId,
                                 UniqID forwardClientId,
-                                bool isBroadcast,
-                                bool isForceRaw = false,
-                                bool isBatchMode = false);
+                                SendFlags sendFlags = SendFlag_None);
         
         ReturnCode forwardText(UniqID serverId, UniqID clientId, const char* data,
                                 UniqID forwardServerId,
                                 UniqID forwardClientId,
-                                bool isBroadcast,
-                                bool isForceRaw = false,
-                                bool isBatchMode = false);
+                                SendFlags sendFlags = SendFlag_None);
         
         void beginBatchForward(UniqID serverId);
         
@@ -175,27 +169,21 @@ namespace forwarder {
                              bool forwardMode = false,
                              UniqID forwardServerId = 0,
                              UniqID forwardClientId = 0,
-                             bool forwardBroadcast = false,
-                             bool isForceRaw = false,
-                             bool batch = false);
+                             SendFlags sendFlags = SendFlag_None);
         
         ReturnCode _sendText(UniqID serverId, UniqID clientId, std::string& data,
                              bool forwardMode = false,
                              UniqID forwardServerId = 0,
                              UniqID forwardClientId = 0,
-                             bool forwardBroadcast = false,
-                             bool isForceRaw = false,
-                             bool batch = false);
+                             SendFlags sendFlags = SendFlag_None);
         
         ReturnCode _sendText(UniqID serverId, UniqID clientId, const char* data,
                              bool forwardMode = false,
                              UniqID forwardServerId = 0,
                              UniqID forwardClientId = 0,
-                             bool forwardBroadcast = false,
-                             bool isForceRaw = false,
-                             bool batch = false);
+                             SendFlags sendFlags = SendFlag_None);
         
-		ForwardPacketPtr createPacket(NetType netType, size_t len);
+		ForwardPacketPtr createPacket(NetType netType, size_t len, size_t flags = 0);
 
 		ForwardPacketPtr createPacket(const std::string& packet);
 
@@ -213,7 +201,7 @@ namespace forwarder {
 
 		ReturnCode getHeader(ForwardHeader* &header, ENetPacket * packet);
 
-		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, ForwardHeader* outHeader);
+		ForwardPacketPtr convertPacket(ForwardPacketPtr packet, ForwardServer* inServer, ForwardServer* outServer, ForwardHeader* outHeader, size_t flags = 0);
 
 		/* ----  protocol   ----- */
 		// System Cmd

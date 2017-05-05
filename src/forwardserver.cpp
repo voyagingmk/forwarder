@@ -249,7 +249,6 @@ namespace forwarder {
     
     
     int ForwardServerTcp::initSocket() {
-#if defined(linux)
         struct addrinfo hints;
         struct addrinfo *result, *rp;
         int s, sfd;
@@ -293,12 +292,9 @@ namespace forwarder {
         
         m_sfd = sfd;
         return 0;
-#endif
-        return -1;
    	}
     
     int ForwardServerTcp::makeSocketNonBlocking(int sfd) {
-#if defined(linux)
         int flags, s;
         
         flags = fcntl (sfd, F_GETFL, 0);
@@ -316,15 +312,11 @@ namespace forwarder {
             return -1;
         }
         return 0;
-#endif
-        return -1;
     }
     
     
     
     void ForwardServerTcp::init(rapidjson::Value& serverConfig) {
-#if defined(linux)
-        epoll_event event;
         int ret = initSocket();
         if (ret == -1) {
             logError("[forwarder] tcp initSocket error");
@@ -340,6 +332,8 @@ namespace forwarder {
             logError("[forwarder] tcp listen error");
             return;
         }
+#if defined(linux)
+        epoll_event event;
         m_efd = epoll_create1 (0);
         if (m_efd == -1)
         {
