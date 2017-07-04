@@ -19,6 +19,7 @@
 
 // third party library
 
+#include <openssl/aes.h>
 #include <enet/enet.h>
 #include <spdlog/spdlog.h>
 #include <pool/pool.h>
@@ -40,6 +41,7 @@
 #endif
 
 #include <websocketpp/server.hpp>
+#include <websocketpp/config/asio.hpp>
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>

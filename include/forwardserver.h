@@ -5,8 +5,6 @@
 #include "forwardbase.h"
 #include "forwardclient.h"
 #include "forwardpacket.h"
-#include "aes_ctr.h"
-#include "aes.h"
 #include "utils.h"
 
 
@@ -210,13 +208,19 @@ class ForwardServerENet : public ForwardServer {
 
 class ForwardServerWS : public ForwardServer {
 	public:
-		typedef websocketpp::server<websocketpp::config::asio> WebsocketServer;
-		typedef websocketpp::client<websocketpp::config::asio_client> WebsocketClient;
+		typedef websocketpp::server<websocketpp::config::asio_tls> WebsocketServer;
+        typedef websocketpp::client<websocketpp::config::asio_client> WebsocketClient;
+        typedef websocketpp::lib::shared_ptr<websocketpp::lib::asio::ssl::context> context_ptr;
+
         enum class WSEventType {
             Connected = 1,
             Disconnected = 2,
             Msg = 3,
             Error = 4
+        };
+        enum tls_mode {
+            MOZILLA_INTERMEDIATE = 1,
+            MOZILLA_MODERN = 2
         };
         class WSEvent {
             public:
@@ -276,6 +280,9 @@ class ForwardServerWS : public ForwardServer {
         void onWSError(websocketpp::connection_hdl hdl);
         
         void onWSReceived(websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
+    
+        context_ptr onTlsInit(tls_mode mode, websocketpp::connection_hdl hdl);
+    
     public:
 		WebsocketServer server;
 		WebsocketClient serverAsClient;

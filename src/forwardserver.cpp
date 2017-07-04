@@ -496,6 +496,12 @@ namespace forwarder {
                 &ForwardServerWS::onWSError,
                 this,
                 websocketpp::lib::placeholders::_1));
+            server.set_tls_init_handler(websocketpp::lib::bind(
+                &ForwardServerWS::onTlsInit,
+                this,
+                tls_mode::MOZILLA_MODERN,
+                websocketpp::lib::placeholders::_1));
+
         }
         else {
             serverAsClient.set_message_handler(websocketpp::lib::bind(
@@ -637,6 +643,10 @@ namespace forwarder {
             return;
         }
         doReconnect();
+    }
+    
+    ForwardServerWS::context_ptr ForwardServerWS::onTlsInit(tls_mode mode, websocketpp::connection_hdl hdl) {
+    
     }
     
     void ForwardServerWS::onWSConnected(websocketpp::connection_hdl hdl) {
