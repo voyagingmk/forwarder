@@ -2,7 +2,7 @@
 #define BASE_H
 
 #include <stdio.h>
-#include<stdlib.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <string>
 #include <iostream>
@@ -29,6 +29,7 @@
 #include <zlib.h>
 
 #define ASIO_STANDALONE
+#define ASIO_HEADER_ONLY
 
 #ifdef _MSC_VER
 #define ASIO_MSVC _MSC_VER
