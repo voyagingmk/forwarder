@@ -2,7 +2,7 @@
 #define BASE_H
 
 #include <stdio.h>
-#include <stdlib.h>
+#include<stdlib.h>
 #include <signal.h>
 #include <string>
 #include <iostream>
@@ -19,7 +19,6 @@
 
 // third party library
 
-#include <openssl/aes.h>
 #include <enet/enet.h>
 #include <spdlog/spdlog.h>
 #include <pool/pool.h>
@@ -29,7 +28,6 @@
 #include <zlib.h>
 
 #define ASIO_STANDALONE
-#define ASIO_HEADER_ONLY
 
 #ifdef _MSC_VER
 #define ASIO_MSVC _MSC_VER
@@ -42,7 +40,6 @@
 #endif
 
 #include <websocketpp/server.hpp>
-#include <websocketpp/config/asio.hpp>
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>

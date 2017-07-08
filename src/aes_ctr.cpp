@@ -1,10 +1,6 @@
-/* crypto/cmac/cmac.h */
-/*
- * Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
- * project.
- */
+/* crypto/aes/aes_ctr.c */
 /* ====================================================================
- * Copyright (c) 2010 The OpenSSL Project.  All rights reserved.
+ * Copyright (c) 1998-2002 The OpenSSL Project.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -21,12 +17,12 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit. (http://www.OpenSSL.org/)"
+ *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
  *
  * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
  *    endorse or promote products derived from this software without
  *    prior written permission. For written permission, please contact
- *    licensing@OpenSSL.org.
+ *    openssl-core@openssl.org.
  *
  * 5. Products derived from this software may not be called "OpenSSL"
  *    nor may "OpenSSL" appear in their names without prior written
@@ -35,7 +31,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit (http://www.OpenSSL.org/)"
+ *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
  *
  * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
  * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -50,33 +46,17 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * ====================================================================
+ *
  */
 
-#ifndef HEADER_CMAC_H
-# define HEADER_CMAC_H
+#include "aes_ctr.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-# include <openssl/evp.h>
-
-/* Opaque */
-typedef struct CMAC_CTX_st CMAC_CTX;
-
-CMAC_CTX *CMAC_CTX_new(void);
-void CMAC_CTX_cleanup(CMAC_CTX *ctx);
-void CMAC_CTX_free(CMAC_CTX *ctx);
-EVP_CIPHER_CTX *CMAC_CTX_get0_cipher_ctx(CMAC_CTX *ctx);
-int CMAC_CTX_copy(CMAC_CTX *out, const CMAC_CTX *in);
-
-int CMAC_Init(CMAC_CTX *ctx, const void *key, size_t keylen,
-              const EVP_CIPHER *cipher, ENGINE *impl);
-int CMAC_Update(CMAC_CTX *ctx, const void *data, size_t dlen);
-int CMAC_Final(CMAC_CTX *ctx, unsigned char *out, size_t *poutlen);
-int CMAC_resume(CMAC_CTX *ctx);
-
-#ifdef  __cplusplus
+void AES_ctr128_encrypt(const unsigned char *in, unsigned char *out,
+                        size_t length, const AES_KEY *key,
+                        unsigned char ivec[AES_BLOCK_SIZE],
+                        unsigned char ecount_buf[AES_BLOCK_SIZE],
+                        unsigned int *num)
+{
+    CRYPTO_ctr128_encrypt(in, out, length, key, ivec, ecount_buf, num,
+                          (block128_f)AES_encrypt);
 }
-#endif
-#endif

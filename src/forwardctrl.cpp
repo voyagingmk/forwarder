@@ -1,5 +1,7 @@
 #include "forwardctrl.h"
 #include "utils.h"
+#include "aes_ctr.h"
+#include "aes.h"
 #include <errno.h>
 
 namespace spd = spdlog;
