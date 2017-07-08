@@ -362,33 +362,51 @@ ReturnCode ForwardCtrl::endBatchForward(UniqID serverId, UniqID clientId) {
 
 
 ReturnCode ForwardCtrl::sendBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength, SendFlags sendFlags) {
-    return _sendBinary(serverId, clientId, data, dataLength, sendFlags);
+   	const bool forwardMode = false;
+	const UniqID forwardServerId = 0;
+	const UniqID forwardClientId = 0;
+    return _sendBinary(serverId, clientId,
+	 	data, dataLength,
+	  	forwardMode, forwardServerId, forwardClientId,
+	  	sendFlags);
 }
 
 ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, std::string& data, SendFlags sendFlags) {
-    return _sendText(serverId, clientId, data, sendFlags);
+   	const bool forwardMode = false;
+	const UniqID forwardServerId = 0;
+	const UniqID forwardClientId = 0;
+    return _sendText(serverId, clientId, 		
+		data,
+	  	forwardMode, forwardServerId, forwardClientId,
+	  	sendFlags);
 }
 
 ReturnCode ForwardCtrl::sendText(UniqID serverId, UniqID clientId, const char* data, SendFlags sendFlags) {
-    return _sendText(serverId, clientId, data, sendFlags);
+    const bool forwardMode = false;
+	const UniqID forwardServerId = 0;
+	const UniqID forwardClientId = 0;
+	return _sendText(serverId, clientId, 
+		data,
+	  	forwardMode, forwardServerId, forwardClientId,
+	  	sendFlags);
 }
 
 ReturnCode ForwardCtrl::broadcastBinary(UniqID serverId, uint8_t* data, size_t dataLength, SendFlags sendFlags) {
     const UniqID clientId = 0;
     sendFlags |= SendFlag_Broadcast;
-    return _sendBinary(serverId, clientId, data, dataLength, sendFlags);
+    return sendBinary(serverId, clientId, data, dataLength, sendFlags);
 }
 
 ReturnCode ForwardCtrl::broadcastText(UniqID serverId, std::string& data, SendFlags sendFlags) {
     const UniqID clientId = 0;
     sendFlags |= SendFlag_Broadcast;
-    return _sendText(serverId, clientId, data, sendFlags);
+    return sendText(serverId, clientId, data, sendFlags);
 }
 
 ReturnCode ForwardCtrl::broadcastText(UniqID serverId, const char* data, SendFlags sendFlags) {
     const UniqID clientId = 0;
     sendFlags |= SendFlag_Broadcast;
-    return _sendText(serverId, clientId, data, sendFlags);
+    return sendText(serverId, clientId, data, sendFlags);
 }
 
 ReturnCode ForwardCtrl::forwardBinary(UniqID serverId, UniqID clientId, uint8_t* data, size_t dataLength,
