@@ -595,7 +595,7 @@ namespace forwarder {
             return false;
         }
         auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
-        return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
+        return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::open;
     }
     
     
@@ -605,7 +605,7 @@ namespace forwarder {
             return false;
         }
         auto hdl = dynamic_cast<ForwardClientWS*>(client)->hdl;
-        return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
+        return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::open;
     }
     
     bool ForwardServerWS::doDisconnectClient(UniqID targetClientID) {
