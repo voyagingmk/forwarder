@@ -618,11 +618,12 @@ namespace forwarder {
         websocketpp::lib::error_code ec;
         websocketpp::close::status::value code = websocketpp::close::status::normal;
         auto hdl = clientWS->hdl;
-        if(server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting) {
+        auto state = server.get_con_from_hdl(hdl)->get_state();
+        if(state == websocketpp::session::state::value::connecting ||
+           state == websocketpp::session::state::value::open) {
             server.close(hdl, code, reason, ec);
             if (ec) {
                 logError("[forwarder] WS error, initiating close: {0}", ec.message());
-                return false;
             };
             return true;
         };
