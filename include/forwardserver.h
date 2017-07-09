@@ -83,7 +83,9 @@ namespace forwarder {
         
         virtual bool isClientConnected(UniqID targetClientID) { return false; };
         
-		virtual void poll() {};
+        virtual bool doDisconnectClient(UniqID targetClientID) { return false; };
+
+        virtual void poll() {};
         
         virtual void broadcastPacket(ForwardPacketPtr outPacket) {};
 
@@ -146,6 +148,8 @@ class ForwardServerTcp: public ForwardServer {
     
         virtual bool isClientConnected(UniqID targetClientID);
     
+        virtual bool doDisconnectClient(UniqID targetClientID);
+    
         virtual void poll();
     
         virtual void broadcastPacket(ForwardPacketPtr outPacket);
@@ -195,6 +199,8 @@ class ForwardServerENet : public ForwardServer {
 		virtual bool isConnected();
     
         virtual bool isClientConnected(UniqID targetClientID);
+    
+        virtual bool doDisconnectClient(UniqID targetClientID);
     
         virtual void broadcastPacket(ForwardPacketPtr outPacket);
     
@@ -253,6 +259,8 @@ class ForwardServerWS : public ForwardServer {
 		virtual bool isConnected();
     
         virtual bool isClientConnected(UniqID targetClientID);
+    
+        virtual bool doDisconnectClient(UniqID targetClientID);
     
 		virtual void poll();
     

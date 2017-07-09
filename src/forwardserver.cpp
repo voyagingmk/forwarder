@@ -211,6 +211,20 @@ namespace forwarder {
         return state == ENET_PEER_STATE_CONNECTED;
     }
     
+    bool ForwardServerENet::doDisconnectClient(UniqID targetClientID) {
+        ForwardClient* client = getClient(targetClientID);
+        if (!client) {
+            return false;
+        }
+       ForwardClientENet* clientENet = dynamic_cast<ForwardClientENet*>(client);
+        auto state = clientENet->peer->state;
+        if(state == ENET_PEER_STATE_CONNECTING || state == ENET_PEER_STATE_CONNECTED) {
+            enet_peer_disconnect(clientENet->peer, 0);
+            return true;
+        }
+        return false;
+    }
+    
     void ForwardServerENet::broadcastPacket(ForwardPacketPtr outPacket) {
         ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
         for (auto it : clients) {
@@ -377,6 +391,10 @@ namespace forwarder {
     }
     
     bool ForwardServerTcp::isClientConnected(UniqID targetClientID) {
+        return false;
+    }
+    
+    bool ForwardServerTcp::doDisconnectClient(UniqID targetClientID) {
         return false;
     }
     
@@ -590,6 +608,26 @@ namespace forwarder {
         return server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting;
     }
     
+    bool ForwardServerWS::doDisconnectClient(UniqID targetClientID) {
+        auto client = getClient(targetClientID);
+        if (!client) {
+            return false;
+        }
+        ForwardClientWS* clientWS = dynamic_cast<ForwardClientWS*>(client);
+        std::string reason = "";
+        websocketpp::lib::error_code ec;
+        websocketpp::close::status::value code = websocketpp::close::status::normal;
+        auto hdl = clientWS->hdl;
+        if(server.get_con_from_hdl(hdl)->get_state() == websocketpp::session::state::value::connecting) {
+            server.close(hdl, code, reason, ec);
+            if (ec) {
+                logError("[forwarder] WS error, initiating close: {0}", ec.message());
+                return false;
+            };
+            return true;
+        };
+        return false;
+    }
     
     void ForwardServerWS::broadcastPacket(ForwardPacketPtr outPacket) {
         for (auto it : clients) {
