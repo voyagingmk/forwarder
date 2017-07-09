@@ -469,7 +469,7 @@ ReturnCode ForwardCtrl::_sendBinary(UniqID serverId,
         }
     }
     ForwardHeader outHeader;
-    outHeader.setProtocol(Protocol::Forward);
+    outHeader.setProtocol(forwardMode?Protocol::Forward:Protocol::Process);
     outHeader.cleanFlag();
     if (outServer->base64)
         outHeader.setFlag(HeaderFlag::Base64, true);
@@ -892,9 +892,10 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	param.client = outClient;
 	param.server = outServer;
 
+    ReturnCode ret = ReturnCode::Ok;
 	if (outClient) {
 		//single send
-        auto ret = sendPacket(param);
+        ret = sendPacket(param);
         if (ret != ReturnCode::Ok) {
             logErrorS(inServer, "[forwarder] forward sendPacket error, server: {0}", inServer->id);
         }
@@ -904,7 +905,7 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
         broadcastPacket(param);
     }
     logDebug("forward finish");
-	return ReturnCode::Ok;
+	return ret;
 }
 
 
