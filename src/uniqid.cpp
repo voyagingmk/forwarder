@@ -4,7 +4,9 @@
 namespace forwarder {
 
 	UniqIDGenerator::UniqIDGenerator() :
-		count(0)
+		count(0),
+        recycleThreshold(10000),
+        recycleEnabled(true)
 	{
 	};
 
@@ -13,7 +15,7 @@ namespace forwarder {
 	}
 
 	UniqID UniqIDGenerator::getNewID() noexcept {
-		if (count > 10000) {
+		if (recycleEnabled && count > recycleThreshold) {
 			if (recycled.size() > 0 && recycled.front() > 0) {
 				UniqID id = recycled.front();
 				recycled.pop_front();

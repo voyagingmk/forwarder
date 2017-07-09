@@ -12,6 +12,12 @@ namespace forwarder {
 		UniqIDGenerator();
 		~UniqIDGenerator();
 		UniqID getNewID() noexcept;
+        void setRecycleThreshold(int threshold) noexcept {
+            recycleThreshold = threshold;
+        }
+        void setRecycleEnabled(bool b) noexcept {
+            recycleEnabled = b;
+        }
 		void recycleID(UniqID id) noexcept;
 		inline size_t getCount() const noexcept {
 			return count;
@@ -21,7 +27,9 @@ namespace forwarder {
 		}
 	private:
 		std::list<UniqID> recycled;
-		UniqID count;
+        UniqID count;
+        int recycleThreshold;
+        bool recycleEnabled;
 	};
 };
 
