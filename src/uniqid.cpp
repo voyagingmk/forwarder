@@ -5,7 +5,7 @@ namespace forwarder {
 
 	UniqIDGenerator::UniqIDGenerator() :
 		count(0),
-        recycleThreshold(10000),
+        recycleThreshold(100000),
         recycleEnabled(true)
 	{
 	};
