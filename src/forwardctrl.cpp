@@ -986,6 +986,9 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 
 void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
     curProcessClient = wsServer->destroyClientByHDL(hdl);
+    if (!curProcessClient) {
+        return;
+    }
     if (wsServer->isClientMode) {
         wsServer->clientID = 0;
         wsServer->setupReconnectTimer();
@@ -1069,9 +1072,10 @@ void ForwardCtrl::onENetConnected(ForwardServerENet* enetServer, ENetPeer* peer)
 void ForwardCtrl::onENetDisconnected(ForwardServerENet* enetServer, ENetPeer* peer) {
 	ForwardClientENet* client = peer->data ? (ForwardClientENet*)peer->data : nullptr;
 	peer->data = nullptr;
-	if (client) {
-		enetServer->destroyClientByPtr(client);
-	}
+	if (!client) {
+        return;
+    }
+    enetServer->destroyClientByPtr(client);
 	if (enetServer->isClientMode && enetServer->reconnect) {
 		enetServer->doReconnect();
 	}
