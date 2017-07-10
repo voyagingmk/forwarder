@@ -147,11 +147,11 @@ namespace forwarder {
         void onTCPReceived(ForwardServer* server, int fd, uint8_t* msg);
         
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		void onENetConnected(ForwardServer* server, ENetPeer* peer);
+		void onENetConnected(ForwardServerENet* server, ENetPeer* peer);
 
-		void onENetDisconnected(ForwardServer* server, ENetPeer* peer);
+		void onENetDisconnected(ForwardServerENet* server, ENetPeer* peer);
 
-		void onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket);
+		void onENetReceived(ForwardServerENet* server, ENetPeer* peer, ENetPacket* inPacket);
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		
@@ -215,8 +215,6 @@ namespace forwarder {
 
 		ForwardServer* createServerByNetType(NetType& netType);
 
-		ForwardClient* createClientByNetType(NetType netType);
-
 		ForwardClient* getOutClient(ForwardHeader* inHeader, ForwardServer* inServer, ForwardServer* outServer) const;
 
 		ForwardServer* getOutServer(ForwardHeader* inHeader, ForwardServer* inServer) const;
@@ -267,9 +265,7 @@ namespace forwarder {
 	private:
 		typedef ReturnCode(ForwardCtrl::*handlePacketFunc)(ForwardParam& param);
 		Pool<ForwardServerENet> poolForwardServerENet;
-		Pool<ForwardClientENet> poolForwardClientENet;
 		Pool<ForwardServerWS> poolForwardServerWS;
-		Pool<ForwardClientWS> poolForwardClientWS;
 		Pool<ForwardServerTcp> poolForwardServerTCP;
 		// Pool<ForwardClientTCP> poolForwardClientTCP;
 		std::vector<ForwardServer*> servers;

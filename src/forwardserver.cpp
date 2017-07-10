@@ -216,13 +216,25 @@ namespace forwarder {
         if (!client) {
             return false;
         }
-       ForwardClientENet* clientENet = dynamic_cast<ForwardClientENet*>(client);
+        ForwardClientENet* clientENet = dynamic_cast<ForwardClientENet*>(client);
+        destroyClientByPtr(clientENet);
         auto state = clientENet->peer->state;
         if(state == ENET_PEER_STATE_CONNECTING || state == ENET_PEER_STATE_CONNECTED) {
             enet_peer_disconnect(clientENet->peer, 0);
             return true;
         }
         return false;
+    }
+    
+    ForwardClientENet* ForwardServerENet::destroyClientByPtr(ForwardClientENet* client) {
+        if (client) {
+            logDebug("[forwarder][enet][c:{0}] disconnected.", client->id);
+            auto it = clients.find(client->id);
+            if (it != clients.end())
+               clients.erase(it);
+            poolForwardClientENet.del(client);
+        }
+        return client;
     }
     
     void ForwardServerENet::broadcastPacket(ForwardPacketPtr outPacket) {
@@ -251,9 +263,24 @@ namespace forwarder {
         return ret == 0 ? ReturnCode::Ok : ReturnCode::Err;
     }
     
+    ForwardClient* ForwardServerENet::createClientFromPool() {
+        return static_cast<ForwardClient*>(poolForwardClientENet.add());
+    }
+    
     void ForwardServerENet::release() {
+        if (released) {
+            return;
+        }
+        released = true;
+        if (!isClientMode) {
+            for (auto it = clients.begin(); it != clients.end(); it++) {
+                auto client = it->second;
+                poolForwardClientENet.del(dynamic_cast<ForwardClientENet*>(client));
+            }
+        }
         doDisconnect();
         enet_host_destroy(host);
+        poolForwardClientENet.clear();
         host = nullptr;
     }
     
@@ -370,6 +397,10 @@ namespace forwarder {
 
     
     void ForwardServerTcp::release() {
+        if (released) {
+            return;
+        }
+        released = true;
         doDisconnect();
 #if defined(linux)
         free (m_events);
@@ -476,6 +507,10 @@ namespace forwarder {
         
     }
     
+    ForwardClient* ForwardServerTcp::createClientFromPool() {
+        return nullptr;
+    }
+    
     
     
     
@@ -537,8 +572,19 @@ namespace forwarder {
     }
     
     void  ForwardServerWS::release() {
+        if (released) {
+            return;
+        }
+        released = true;
+        if (!isClientMode) {
+            for (auto it = clients.begin(); it != clients.end(); it++) {
+                auto client = it->second;
+                poolForwardClientWS.del(dynamic_cast<ForwardClientWS*>(client));
+            }
+        }
         doDisconnect();
         hdlToClientId.clear();
+        poolForwardClientWS.clear();
     }
     
     void ForwardServerWS::poll() {
@@ -618,6 +664,7 @@ namespace forwarder {
         websocketpp::lib::error_code ec;
         websocketpp::close::status::value code = websocketpp::close::status::normal;
         auto hdl = clientWS->hdl;
+        destroyClientByHDL(hdl);
         auto state = server.get_con_from_hdl(hdl)->get_state();
         if(state == websocketpp::session::state::value::connecting ||
            state == websocketpp::session::state::value::open) {
@@ -657,6 +704,10 @@ namespace forwarder {
         return ReturnCode::Ok;
     }
     
+    ForwardClient* ForwardServerWS::createClientFromPool() {
+        return static_cast<ForwardClient*>(poolForwardClientWS.add());
+    }
+    
     void ForwardServerWS::setupReconnectTimer() {
         if (isClientMode) {
             if (reconnect) {
@@ -692,5 +743,21 @@ namespace forwarder {
     
     void ForwardServerWS::onWSReceived(websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
         eventQueue.emplace_back(WSEventType::Msg, hdl, msg);
+    }
+    
+    ForwardClientWS* ForwardServerWS::destroyClientByHDL(websocketpp::connection_hdl hdl) {
+        auto it = hdlToClientId.find(hdl);
+        if (it != hdlToClientId.end()) {
+            UniqID id = it->second;
+            logDebug("[WS,c:{0}] disconnected.", id);
+            hdlToClientId.erase(it);
+            auto it = clients.find(id);
+            if (it != clients.end()) {
+                clients.erase(it);
+                ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
+                poolForwardClientWS.del(client);
+                return client;
+            }
+        }
     }
 }

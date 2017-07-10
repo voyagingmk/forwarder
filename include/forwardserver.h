@@ -33,7 +33,8 @@ namespace forwarder {
             timeoutMax(0),
             batchBuffer(nullptr),
             batchBufferSize(0),
-            batchBufferOffset(0)
+            batchBufferOffset(0),
+            released(false)
 		{
 #ifdef DEBUG_MODE
 			printf("[forwarder] ForwardServer created, netType:%d\n", int(netType));
@@ -49,8 +50,8 @@ namespace forwarder {
 #endif
 			dest = nullptr;
 			admin = false;
-			clients.clear();
 			release();
+			clients.clear();
 		}
 	public:
 		virtual void release() {};
@@ -89,7 +90,9 @@ namespace forwarder {
         
         virtual void broadcastPacket(ForwardPacketPtr outPacket) {};
 
-        virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {};
+        virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) { return ReturnCode::Err; };
+        
+        virtual ForwardClient* createClientFromPool() { return nullptr; }
 
 	public:
 		UniqID id;
@@ -119,6 +122,7 @@ namespace forwarder {
 		UniqID clientID;
 		bool reconnect; // auto reconncet to target host when disconnected
 		size_t reconnectdelay; // ms
+        bool released;
 	};
 
 
@@ -156,6 +160,8 @@ class ForwardServerTcp: public ForwardServer {
     
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
     
+        virtual ForwardClient* createClientFromPool();
+    
         typedef std::function<void(int fd, uint8_t* msg)> MsgHandler;
         typedef std::function<void(int fd)> OpenHandler;
         typedef std::function<void(int fd)> CloseHandler;
@@ -182,8 +188,9 @@ class ForwardServerTcp: public ForwardServer {
 class ForwardServerENet : public ForwardServer {
 	public:
 		ForwardServerENet() :
-			host(nullptr),
-			ForwardServer(NetType::ENet)
+            ForwardServer(NetType::ENet),
+            host(nullptr),
+            poolForwardClientENet(sizeof(ForwardClientENet))
 		{}
 		ForwardServerENet(const ForwardServerENet& x) = delete;
 		ForwardServerENet& operator=(const ForwardServerENet& x) = delete;
@@ -202,13 +209,19 @@ class ForwardServerENet : public ForwardServer {
     
         virtual bool doDisconnectClient(UniqID targetClientID);
     
+        ForwardClientENet* destroyClientByPtr(ForwardClientENet*);
+    
         virtual void broadcastPacket(ForwardPacketPtr outPacket);
     
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
+    
+        virtual ForwardClient* createClientFromPool();
 
 	public:
 		ENetHost * host = nullptr;
 		uint8_t broadcastChannelID = 0;
+    private:
+        Pool<ForwardClientENet> poolForwardClientENet;
 	};
 
 
@@ -241,7 +254,8 @@ class ForwardServerWS : public ForwardServer {
         };
 	public:
 		ForwardServerWS() :
-			ForwardServer(NetType::WS)
+            ForwardServer(NetType::WS),
+            poolForwardClientWS(sizeof(ForwardClientWS))
 		{}
 		ForwardServerWS(const ForwardServerWS& x) = delete;
 		ForwardServerWS& operator=(const ForwardServerWS& x) = delete;
@@ -267,6 +281,10 @@ class ForwardServerWS : public ForwardServer {
         virtual void broadcastPacket(ForwardPacketPtr outPacket);
 
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
+    
+        virtual ForwardClient* createClientFromPool();
+    
+        ForwardClientWS* destroyClientByHDL(websocketpp::connection_hdl hdl);
     private:
 		std::string getUri() {
 			if (address == "127.0.0.1" || address == "localhost") {
@@ -289,6 +307,7 @@ class ForwardServerWS : public ForwardServer {
 		WebsocketClient serverAsClient;
 		std::map<websocketpp::connection_hdl, UniqID, std::owner_less<websocketpp::connection_hdl> > hdlToClientId;
         std::list<WSEvent> eventQueue;
+        Pool<ForwardClientWS> poolForwardClientWS;
 	};
 
 }

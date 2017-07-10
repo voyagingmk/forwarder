@@ -15,9 +15,7 @@ UniqID ForwardCtrl::ForwardCtrlCount = 0;
 
 ForwardCtrl::ForwardCtrl() :
 	poolForwardServerENet(sizeof(ForwardServerENet)),
-	poolForwardClientENet(sizeof(ForwardClientENet)),
 	poolForwardServerWS(sizeof(ForwardServerWS)),
-	poolForwardClientWS(sizeof(ForwardClientWS)),
 	poolForwardServerTCP(sizeof(ForwardServerTcp)),
 	serverNum(0),
 	released(false),
@@ -75,18 +73,7 @@ void ForwardCtrl::release() {
 	while (servers.size() > 0) {
 		ForwardServer* server = servers.back();
 		servers.pop_back();
-        server->doDisconnect();
-		if (!server->isClientMode) {
-			for (auto it = server->clients.begin(); it != server->clients.end(); it++) {
-				auto client = it->second;
-				if (server->netType == NetType::WS) {
-					poolForwardClientWS.del(dynamic_cast<ForwardClientWS*>(client));
-				}
-				else if (server->netType == NetType::ENet) {
-					poolForwardClientENet.del(dynamic_cast<ForwardClientENet*>(client));
-				}
-			}
-		}
+        server->release();
 		if (server->netType == NetType::WS) {
 			poolForwardServerWS.del(dynamic_cast<ForwardServerWS*>(server));
 		} else if (server->netType == NetType::ENet) {
@@ -96,9 +83,7 @@ void ForwardCtrl::release() {
 		}
 	}
 	poolForwardServerENet.clear();
-	poolForwardClientENet.clear();
 	poolForwardServerWS.clear();
-	poolForwardClientWS.clear();
 	poolForwardServerTCP.clear();
 	handleFuncs.clear();
 }
@@ -155,16 +140,6 @@ ForwardServer* ForwardCtrl::createServerByNetType(NetType& netType) {
 		return static_cast<ForwardServer*>(poolForwardServerWS.add());
 	} else if (netType == NetType::TCP) {
 		return static_cast<ForwardServer*>(poolForwardServerTCP.add());
-	}
-	return nullptr;
-}
-
-ForwardClient* ForwardCtrl::createClientByNetType(NetType netType) {
-	if (netType == NetType::ENet) {
-		return static_cast<ForwardClient*>(poolForwardClientENet.add());
-	}
-	else if (netType == NetType::WS) {
-		return static_cast<ForwardClient*>(poolForwardClientWS.add());
 	}
 	return nullptr;
 }
@@ -983,7 +958,7 @@ void ForwardCtrl::onTCPReceived(ForwardServer* server, int fd, uint8_t* msg) {
 void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
 	ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
 	UniqID id = wsServer->idGenerator.getNewID();
-	ForwardClientWS* client = poolForwardClientWS.add();
+	ForwardClientWS* client = (ForwardClientWS*)wsServer->createClientFromPool();
 	client->id = id;
     client->hdl = hdl;
     uint16_t port = con->get_port();
@@ -1010,21 +985,11 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
 }
 
 void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
-	auto it = wsServer->hdlToClientId.find(hdl);
-	if (it != wsServer->hdlToClientId.end()) {
-		UniqID id = it->second;
-		logDebug("[WS,c:{0}] disconnected.", id);
-		wsServer->hdlToClientId.erase(it);
-		auto it = wsServer->clients.find(id);
-		if (it != wsServer->clients.end()) {
-			ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
-			wsServer->clients.erase(it);
-			poolForwardClientWS.del(client);
-			curProcessClient = client;
-		}
+    curProcessClient = wsServer->destroyClientByHDL(hdl);
+    if (wsServer->isClientMode) {
+        wsServer->clientID = 0;
+        wsServer->setupReconnectTimer();
     }
-    wsServer->clientID = 0;
-    wsServer->setupReconnectTimer();
 	curProcessServer = wsServer;
 	curEvent = Event::Disconnected;
 }
@@ -1078,22 +1043,22 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 	(this->*handleFunc)(param);
 }
 
-void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
-	UniqID id = server->idGenerator.getNewID();
-	ForwardClientENet* client = poolForwardClientENet.add();
+void ForwardCtrl::onENetConnected(ForwardServerENet* enetServer, ENetPeer* peer) {
+	UniqID id = enetServer->idGenerator.getNewID();
+	ForwardClientENet* client = (ForwardClientENet*)enetServer->createClientFromPool();
 
 	client->id = id;
 	client->peer = peer;
 	client->ip = peer->address.host;
 	peer->data = client;
-	server->clients[id] = static_cast<ForwardClient*>(client);
+	enetServer->clients[id] = static_cast<ForwardClient*>(client);
 	char str[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &peer->address.host, str, INET_ADDRSTRLEN);
 	curEvent = Event::Connected;
-	if (server->isClientMode) {
-		server->clientID = id;
+	if (enetServer->isClientMode) {
+		enetServer->clientID = id;
 	}
-    client->setPeerTimeout(0, server->timeoutMin, server->timeoutMax);
+    client->setPeerTimeout(0, enetServer->timeoutMin, enetServer->timeoutMax);
 	logDebug("[forwarder][enet][c:{0}] connected, from {1}:{2}.",
              client->id,
              str,
@@ -1101,36 +1066,32 @@ void ForwardCtrl::onENetConnected(ForwardServer* server, ENetPeer* peer) {
 	curProcessClient = client;
 }
 
-void ForwardCtrl::onENetDisconnected(ForwardServer* server, ENetPeer* peer) {
+void ForwardCtrl::onENetDisconnected(ForwardServerENet* enetServer, ENetPeer* peer) {
 	ForwardClientENet* client = peer->data ? (ForwardClientENet*)peer->data : nullptr;
+	peer->data = nullptr;
 	if (client) {
-		logDebug("[forwarder][enet][c:{0}] disconnected.", client->id);
-		peer->data = nullptr;
-		auto it = server->clients.find(client->id);
-		if (it != server->clients.end())
-			server->clients.erase(it);
-		poolForwardClientENet.del(client);
+		enetServer->destroyClientByPtr(client);
 	}
-	if (server->isClientMode && server->reconnect) {
-		server->doReconnect();
+	if (enetServer->isClientMode && enetServer->reconnect) {
+		enetServer->doReconnect();
 	}
-	if (server->isClientMode) {
-		server->clientID = 0;
+	if (enetServer->isClientMode) {
+		enetServer->clientID = 0;
 	}
 	curEvent = Event::Disconnected;
 	curProcessClient = client;
 }
 
-void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPacket* inPacket) {
+void ForwardCtrl::onENetReceived(ForwardServerENet* enetServer, ENetPeer* peer, ENetPacket* inPacket) {
 	ForwardClient* client = (ForwardClient*)peer->data;
-	logDebug("[forwarder][enet.recv][{0}][cli:{1}][len:{2}]", server->desc, client->id, inPacket->dataLength);
+	logDebug("[forwarder][enet.recv][{0}][cli:{1}][len:{2}]", enetServer->desc, client->id, inPacket->dataLength);
 	ForwardHeader* header;
 	ReturnCode err = getHeader(header, inPacket);
 	if (err == ReturnCode::Err) {
 		logWarn("[forwarder][enet.recv] getHeader err");
 		return;
 	}
-	HandleRule rule = server->getRule(header->getProtocol());
+	HandleRule rule = enetServer->getRule(header->getProtocol());
 	if (rule == HandleRule::Unknown) {
 		logWarn("[forwarder][enet.recv] wrong protocol:{0}", (int)header->getProtocol());
 		return;
@@ -1140,7 +1101,7 @@ void ForwardCtrl::onENetReceived(ForwardServer* server, ENetPeer* peer, ENetPack
 	param.header = header;
 	param.packet = createPacket(inPacket);
 	param.client = client;
-	param.server = server;
+	param.server = static_cast<ForwardServer*>(enetServer);
     curProcessPacketENet = param.packet;
 	(this->*handleFunc)(param);
 }
