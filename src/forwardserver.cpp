@@ -584,6 +584,7 @@ namespace forwarder {
         }
         doDisconnect();
         hdlToClientId.clear();
+        eventQueue.clear();
         poolForwardClientWS.clear();
     }
     
@@ -753,13 +754,14 @@ namespace forwarder {
             hdlToClientId.erase(it);
             auto it2 = clients.find(id);
             if (it2 != clients.end()) {
-                clients.erase(it2);
                 ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it2->second);
                 if(client) {
                     poolForwardClientWS.del(client);
                 }
+                clients.erase(it2);
                 return client;
             }
         }
+        return nullptr;
     }
 }
