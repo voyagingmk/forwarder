@@ -285,6 +285,15 @@ class ForwardServerWS : public ForwardServer {
         virtual ForwardClient* createClientFromPool();
     
         ForwardClientWS* destroyClientByHDL(websocketpp::connection_hdl hdl);
+    
+        UniqID getClientIDByHDL(websocketpp::connection_hdl hdl) {
+            auto it = hdlToClientId.find(hdl);
+            if (it != hdlToClientId.end()) {
+                UniqID id = it->second;
+                return id;
+            }
+            return 0;
+        }
     private:
 		std::string getUri() {
 			if (address == "127.0.0.1" || address == "localhost") {

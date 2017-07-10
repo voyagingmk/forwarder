@@ -751,11 +751,13 @@ namespace forwarder {
             UniqID id = it->second;
             logDebug("[WS,c:{0}] disconnected.", id);
             hdlToClientId.erase(it);
-            auto it = clients.find(id);
-            if (it != clients.end()) {
-                clients.erase(it);
-                ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it->second);
-                poolForwardClientWS.del(client);
+            auto it2 = clients.find(id);
+            if (it2 != clients.end()) {
+                clients.erase(it2);
+                ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it2->second);
+                if(client) {
+                    poolForwardClientWS.del(client);
+                }
                 return client;
             }
         }
