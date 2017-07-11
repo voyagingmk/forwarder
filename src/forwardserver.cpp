@@ -739,13 +739,14 @@ namespace forwarder {
     }
     
     void ForwardServerWS::onWSError(websocketpp::connection_hdl hdl) {
+	    logDebug("[forwarder] ForwardServerWS onWSError eventQueue");
         eventQueue.emplace_back(WSEventType::Error, hdl, nullptr);
     }
     
     void ForwardServerWS::onWSReceived(websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
         eventQueue.emplace_back(WSEventType::Msg, hdl, msg);
     }
-    
+
     ForwardClientWS* ForwardServerWS::destroyClientByHDL(websocketpp::connection_hdl hdl) {
         auto it = hdlToClientId.find(hdl);
         if (it != hdlToClientId.end()) {

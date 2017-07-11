@@ -22,7 +22,7 @@ namespace forwarder {
 		inline size_t getCount() const noexcept {
 			return count;
 		}
-		inline size_t getPecycledLength() const noexcept {
+		inline size_t getRecycledLength() const noexcept {
 			return recycled.size();
 		}
 	private:

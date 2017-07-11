@@ -309,7 +309,7 @@ class ForwardServerWS : public ForwardServer {
         void onWSDisconnected(websocketpp::connection_hdl hdl);
     
         void onWSError(websocketpp::connection_hdl hdl);
-        
+
         void onWSReceived(websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg);
     public:
 		WebsocketServer server;

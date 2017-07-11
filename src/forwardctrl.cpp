@@ -999,6 +999,10 @@ void ForwardCtrl::onWSDisconnected(ForwardServerWS* wsServer, websocketpp::conne
 
 
 void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
+	UniqID clientID = wsServer->getClientIDByHDL(hdl);
+	if (!clientID) {
+		return;
+	}
 	auto con = wsServer->server.get_con_from_hdl(hdl);
 	logDebug("[forwarder] onWSError:");
 	logDebug("get_state:{0}", con->get_state());
@@ -1007,7 +1011,7 @@ void ForwardCtrl::onWSError(ForwardServerWS* wsServer, websocketpp::connection_h
 	logDebug("remote_close_code:{0}", con->get_remote_close_code());
 	logDebug("remote_close_reason:{0}", con->get_remote_close_reason());
 	logDebug("get_ec:{0} ,msg:{1}", con->get_ec().value(), con->get_ec().message());
-	wsServer->doDisconnectClient(wsServer->getClientIDByHDL(hdl));
+	// wsServer->doDisconnectClient(wsServer->getClientIDByHDL(hdl));
 }
 
 
@@ -1343,7 +1347,7 @@ Document ForwardCtrl::stat() const {
 				dIdGenerator.AddMember(k, v, d.GetAllocator());
 			}; 
 			Value maxCount((int)server->idGenerator.getCount());
-			Value recyled((int)server->idGenerator.getPecycledLength());
+			Value recyled((int)server->idGenerator.getRecycledLength());
 			add("max", maxCount);
 			add("recyled", recyled);
 			addToServer("idGenerator", dIdGenerator);
