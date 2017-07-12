@@ -957,7 +957,6 @@ void ForwardCtrl::onTCPReceived(ForwardServer* server, int fd, uint8_t* msg) {
 
 void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
 	ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
-	UniqID id = wsServer->idGenerator.getNewID();
 	ForwardClientWS* client = (ForwardClientWS*)wsServer->createClientFromPool();
 	client->id = id;
     client->hdl = hdl;
@@ -1051,10 +1050,7 @@ void ForwardCtrl::onWSReceived(ForwardServerWS* wsServer, websocketpp::connectio
 }
 
 void ForwardCtrl::onENetConnected(ForwardServerENet* enetServer, ENetPeer* peer) {
-	UniqID id = enetServer->idGenerator.getNewID();
 	ForwardClientENet* client = (ForwardClientENet*)enetServer->createClientFromPool();
-
-	client->id = id;
 	client->peer = peer;
 	client->ip = peer->address.host;
 	peer->data = client;

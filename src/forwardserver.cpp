@@ -233,6 +233,7 @@ namespace forwarder {
             if (it != clients.end())
                clients.erase(it);
             poolForwardClientENet.del(client);
+            idGenerator.recycleID(client->id);
         }
         return client;
     }
@@ -264,7 +265,10 @@ namespace forwarder {
     }
     
     ForwardClient* ForwardServerENet::createClientFromPool() {
-        return static_cast<ForwardClient*>(poolForwardClientENet.add());
+        ForwardClient* c = static_cast<ForwardClient*>(poolForwardClientENet.add());
+        c->id = idGenerator.getNewID();
+        return c;
+        
     }
     
     void ForwardServerENet::release() {
@@ -706,7 +710,9 @@ namespace forwarder {
     }
     
     ForwardClient* ForwardServerWS::createClientFromPool() {
-        return static_cast<ForwardClient*>(poolForwardClientWS.add());
+        ForwardClient* c = static_cast<ForwardClient*>(poolForwardClientWS.add());
+        c->id = idGenerator.getNewID();
+        return c;
     }
     
     void ForwardServerWS::setupReconnectTimer() {
@@ -758,6 +764,7 @@ namespace forwarder {
                 ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it2->second);
                 if(client) {
                     poolForwardClientWS.del(client);
+                    idGenerator.recycleID(client->id);
                 }
                 clients.erase(it2);
                 return client;
