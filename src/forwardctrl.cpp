@@ -958,7 +958,6 @@ void ForwardCtrl::onTCPReceived(ForwardServer* server, int fd, uint8_t* msg) {
 void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connection_hdl hdl) {
 	ForwardServerWS::WebsocketServer::connection_ptr con = wsServer->server.get_con_from_hdl(hdl);
 	ForwardClientWS* client = (ForwardClientWS*)wsServer->createClientFromPool();
-	client->id = id;
     client->hdl = hdl;
     uint16_t port = con->get_port();
     std::string host = con->get_remote_endpoint();
@@ -975,9 +974,9 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
     }
 	asio::ip::address_v4::bytes_type ip = asio::ip::address_v4::from_string(host).to_bytes();
 	memcpy(&client->ip, ip.data(), 4);
-	wsServer->clients[id] = static_cast<ForwardClient*>(client);
-	wsServer->hdlToClientId[hdl] = id;
-	logDebug("[WS,c:{0}] connected, from {1}:{2}", id, host, port);
+	wsServer->clients[client->id] = static_cast<ForwardClient*>(client);
+	wsServer->hdlToClientId[hdl] = client->id;
+	logDebug("[WS,c:{0}] connected, from {1}:{2}", client->id, host, port);
 	curEvent = Event::Connected; 
 	curProcessServer = wsServer;
 	curProcessClient = client;
@@ -1054,16 +1053,16 @@ void ForwardCtrl::onENetConnected(ForwardServerENet* enetServer, ENetPeer* peer)
 	client->peer = peer;
 	client->ip = peer->address.host;
 	peer->data = client;
-	enetServer->clients[id] = static_cast<ForwardClient*>(client);
+	enetServer->clients[client->id] = static_cast<ForwardClient*>(client);
 	char str[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &peer->address.host, str, INET_ADDRSTRLEN);
 	curEvent = Event::Connected;
 	if (enetServer->isClientMode) {
-		enetServer->clientID = id;
+		enetServer->clientID = client->id;
 	}
     client->setPeerTimeout(0, enetServer->timeoutMin, enetServer->timeoutMax);
 	logDebug("[forwarder][enet][c:{0}] connected, from {1}:{2}.",
-             client->id,
+             client->client->id,
              str,
              peer->address.port);
 	curProcessClient = client;
