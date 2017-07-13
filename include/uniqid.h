@@ -18,6 +18,9 @@ namespace forwarder {
         void setRecycleEnabled(bool b) noexcept {
             recycleEnabled = b;
         }
+        bool isRecycleEnabled() noexcept {
+            return recycleEnabled;
+        }
 		void recycleID(UniqID id) noexcept;
 		inline size_t getCount() const noexcept {
 			return count;
@@ -25,8 +28,8 @@ namespace forwarder {
 		inline size_t getRecycledLength() const noexcept {
 			return recycled.size();
 		}
-	private:
-		std::list<UniqID> recycled;
+    private:
+        std::set<UniqID> recycled;
         UniqID count;
         int recycleThreshold;
         bool recycleEnabled;

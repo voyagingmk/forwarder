@@ -11,6 +11,7 @@
 #include <memory>
 #include <list>
 #include <vector>
+#include <set>
 #include <map>
 #include <array>
 #include <cstdint>
