@@ -1062,7 +1062,7 @@ void ForwardCtrl::onENetConnected(ForwardServerENet* enetServer, ENetPeer* peer)
 	}
     client->setPeerTimeout(0, enetServer->timeoutMin, enetServer->timeoutMax);
 	logDebug("[forwarder][enet][c:{0}] connected, from {1}:{2}.",
-             client->client->id,
+             client->id,
              str,
              peer->address.port);
 	curProcessClient = client;
