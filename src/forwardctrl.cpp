@@ -1231,8 +1231,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
         if(wsServer->eventQueue.size() == 0) {
             wsServer->poll();
         }
-        
-        while(wsServer->eventQueue.size() > 0) {
+        if(wsServer->eventQueue.size() > 0) {
             auto it = wsServer->eventQueue.front();
             wsServer->eventQueue.pop_front();
             switch(it.event) {
