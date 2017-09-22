@@ -1194,7 +1194,8 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 	if (pServer->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
 		int ret = enet_host_service(server->host, &event, ms);
-		if (ret > 0) {
+        if (ret > 0) {
+            curEvent = Event::PollAgain;
 			//logDebug("event.type = {0}", event.type);
 			curProcessServer = pServer;
 			switch (event.type) {
@@ -1241,6 +1242,9 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
         if(wsServer->eventQueue.size() > 0) {
             auto it = wsServer->eventQueue.front();
             wsServer->eventQueue.pop_front();
+            if (wsServer->eventQueue.size() > 0) {
+                curEvent = Event::PollAgain;
+            }
             switch(it.event) {
                 case ForwardServerWS::WSEventType::Connected: {
                     onWSConnected(wsServer, it.hdl);

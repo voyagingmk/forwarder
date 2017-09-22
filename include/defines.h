@@ -35,12 +35,13 @@ namespace forwarder {
         return (sendFlags & needFlag) > 0;
     }
 
-	enum class Event {
-		Nothing = 0,
+    enum class Event {
+        Nothing = 0,
 		Connected = 1,
 		Disconnected = 2,
         Message = 3,
-        Forward = 4
+        Forward = 4,
+        PollAgain = 5
 	};
 
 	enum class Convert {
