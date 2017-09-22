@@ -28,6 +28,8 @@ ForwardCtrl::ForwardCtrl() :
     curProcessPacketWS(nullptr),
     curProcessPacketENet(nullptr),
 	curProcessDataLength(0),
+    curInPacketSize(0),
+    curOutPacketSize(0),
 	id(0)
 {
 #ifdef DEBUG_MODE
@@ -866,7 +868,9 @@ ReturnCode ForwardCtrl::handlePacket_Forward(ForwardParam& param) {
 	param.packet = outPacket;
 	param.client = outClient;
 	param.server = outServer;
-
+    
+    curOutPacketSize = outPacket->getTotalLength();
+    
     ReturnCode ret = ReturnCode::Ok;
 	if (outClient) {
 		//single send
@@ -1179,6 +1183,8 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 	curProcessHeader = nullptr;
 	curProcessData = nullptr;
 	curProcessDataLength = 0;
+    curInPacketSize = 0;
+    curOutPacketSize = 0;
     curProcessPacketWS = nullptr;
     if(curProcessPacketENet) {
         ENetPacket* enetPacket = static_cast<ENetPacket*>(curProcessPacketENet->getRawPtr());
@@ -1198,6 +1204,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 				break;
 			}
 			case ENET_EVENT_TYPE_RECEIVE: {
+                curInPacketSize = event.packet->dataLength;
 				onENetReceived(server, event.peer, event.packet);
 				break;
 			}
@@ -1244,6 +1251,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
                     break;
                 }
                 case ForwardServerWS::WSEventType::Msg: {
+                    curInPacketSize = it.msg->get_payload().size();
                     onWSReceived(wsServer, it.hdl, it.msg);
                     break;
                 }

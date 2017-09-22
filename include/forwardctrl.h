@@ -125,6 +125,14 @@ namespace forwarder {
 		inline size_t getCurProcessDataLength() const {
 			return curProcessDataLength;
 		}
+        
+        inline size_t getCurInPacketSize() const {
+            return curInPacketSize;
+        }
+
+        inline size_t getCurOutPacketSize() const {
+            return curOutPacketSize;
+        }
 
 		void pollOnceByServerID(UniqID serverId, int ms = 0);
 		
@@ -290,6 +298,8 @@ namespace forwarder {
         ForwardPacketPtr curProcessPacketENet; // will be destroyed after process!
 		uint8_t* curProcessData;
 		size_t curProcessDataLength;
+        size_t curInPacketSize;  // the length of packet which recieved from remote peer after poll
+        size_t curOutPacketSize; // forward packet length, only for forward mode
         
         /* 
             special use
