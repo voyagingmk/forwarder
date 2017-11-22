@@ -170,12 +170,21 @@ namespace forwarder {
     }
     
     void ForwardServerENet::doReconnect() {
+#ifdef DEBUG_MODE
+        printf("[forwarder] ForwardServerENet doReconnect\n");
+#endif
         logInfo("[forwarder] ENet doReconnect");
         ENetAddress enetAddress;
-        enet_address_set_host(&enetAddress, address.c_str());
+        auto ret1 = enet_address_set_host(&enetAddress, address.c_str());
+        if (ret1 != 0) {
+            printf("[forwarder] doReconnect enet_address_set_host failed\n");
+        }
         enetAddress.port = port;
         size_t channelLimit = 1;
-        enet_host_connect(host, &enetAddress, channelLimit, 0);
+        auto ret2 = enet_host_connect(host, &enetAddress, channelLimit, 0);
+        if (ret2 == NULL) {
+            printf("[forwarder] doReconnect enet_host_connect failed\n");
+        }
     };
     
     void ForwardServerENet::doDisconnect() {
