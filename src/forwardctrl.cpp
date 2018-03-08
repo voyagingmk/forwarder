@@ -543,9 +543,9 @@ ForwardPacketPtr ForwardCtrl::createPacket(NetType netType, size_t len, SendFlag
         enet_uint32 enet_flags = 0;
         if(sendFlags == 0) {
             // default
-            enet_flags = ENET_PACKET_FLAG_RELIABLE;
+            enet_flags |= ENET_PACKET_FLAG_RELIABLE;
         } else if(hasFlag(sendFlags, SendFlag_Reliable)) {
-            enet_flags = ENET_PACKET_FLAG_RELIABLE;
+            enet_flags |= ENET_PACKET_FLAG_RELIABLE;
         } else if(hasFlag(sendFlags, SendFlag_Unreliable)) {
             enet_flags = 0;
         }
@@ -978,6 +978,9 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
     }
 	asio::ip::address_v4::bytes_type ip = asio::ip::address_v4::from_string(host).to_bytes();
 	memcpy(&client->ip, ip.data(), 4);
+    if (wsServer->isClientMode) {
+        wsServer->clientID = client->id;
+    }
 	wsServer->clients[client->id] = static_cast<ForwardClient*>(client);
 	wsServer->hdlToClientId[hdl] = client->id;
 	logDebug("[WS,c:{0}] connected, from {1}:{2}", client->id, host, port);
@@ -1267,6 +1270,9 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
                 default: {
                     break;
                 }
+            }
+            if (curProcessPacketWS) {
+                break;
             }
         }
 	}
