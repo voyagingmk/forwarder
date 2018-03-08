@@ -31,14 +31,8 @@ namespace forwarder {
         if (serverConfig.HasMember("address")) {
             address = serverConfig["address"].GetString();
         }
-        if (encrypt) {
-            if (serverConfig.HasMember("encryptkey")) {
-                initCipherKey(serverConfig["encryptkey"].GetString());
-            }
-            else {
-                logError("[forwarder] encrypt mode, but no encryptkey");
-                return ReturnCode::Err;
-            }
+        if (serverConfig.HasMember("encryptkey")) {
+            initCipherKey(serverConfig["encryptkey"].GetString());
         }
         if (serverConfig.HasMember("destId"))
             destId = serverConfig["destId"].GetInt();
@@ -147,7 +141,7 @@ namespace forwarder {
         size_t channelLimit = 1;
         //address.host = ENET_HOST_ANY;
         enet_uint32 incomingBandwidth = 0;  /* assume any amount of incoming bandwidth */
-        enet_uint32 outgoingBandwidth = 0;	/* assume any amount of outgoing bandwidth */
+        enet_uint32 outgoingBandwidth = 0;    /* assume any amount of outgoing bandwidth */
         if (serverConfig.HasMember("bandwidth")) {
             incomingBandwidth = serverConfig["bandwidth"]["incoming"].GetUint();
             outgoingBandwidth = serverConfig["bandwidth"]["outgoing"].GetUint();
@@ -170,21 +164,12 @@ namespace forwarder {
     }
     
     void ForwardServerENet::doReconnect() {
-#ifdef DEBUG_MODE
-        printf("[forwarder] ForwardServerENet doReconnect\n");
-#endif
         logInfo("[forwarder] ENet doReconnect");
         ENetAddress enetAddress;
-        auto ret1 = enet_address_set_host(&enetAddress, address.c_str());
-        if (ret1 != 0) {
-            printf("[forwarder] doReconnect enet_address_set_host failed\n");
-        }
+        enet_address_set_host(&enetAddress, address.c_str());
         enetAddress.port = port;
         size_t channelLimit = 1;
-        auto ret2 = enet_host_connect(host, &enetAddress, channelLimit, 0);
-        if (ret2 == NULL) {
-            printf("[forwarder] doReconnect enet_host_connect failed\n");
-        }
+        enet_host_connect(host, &enetAddress, channelLimit, 0);
     };
     
     void ForwardServerENet::doDisconnect() {
@@ -240,24 +225,31 @@ namespace forwarder {
             logDebug("[forwarder][enet][c:{0}] disconnected.", client->id);
             auto it = clients.find(client->id);
             if (it != clients.end())
-               clients.erase(it);
+                clients.erase(it);
             poolForwardClientENet.del(client);
             idGenerator.recycleID(client->id);
         }
         return client;
     }
     
-    void ForwardServerENet::broadcastPacket(ForwardPacketPtr outPacket) {
+    ReturnCode ForwardServerENet::broadcastPacket(ForwardPacketPtr outPacket) {
         ENetPacket* enetPacket = static_cast<ENetPacket*>(outPacket->getRawPtr());
+        ReturnCode ret = ReturnCode::Ok;
         for (auto it : clients) {
             ForwardClientENet* client = dynamic_cast<ForwardClientENet*>(it.second);
             uint8_t channelID = 0;
-            if (client->peer->state != ENET_PEER_STATE_CONNECTED)
+            if (client->peer->state != ENET_PEER_STATE_CONNECTED) {
+                ret = ReturnCode::Err;
                 continue;
-            enet_peer_send(client->peer, channelID, enetPacket);
+            }
+            if(enet_peer_send(client->peer, channelID, enetPacket)) {
+                ret = ReturnCode::Err;
+            }
         }
-        if (enetPacket->referenceCount == 0)
+        if (enetPacket->referenceCount == 0) {
             enet_packet_destroy(enetPacket);
+        }
+        return ret;
     }
     
     
@@ -346,7 +338,7 @@ namespace forwarder {
         
         m_sfd = sfd;
         return 0;
-   	}
+    }
     
     int ForwardServerTcp::makeSocketNonBlocking(int sfd) {
         int flags, s;
@@ -407,7 +399,7 @@ namespace forwarder {
         logInfo ("[forwarder] init tcp server ok");
 #endif
     }
-
+    
     
     void ForwardServerTcp::release() {
         if (released) {
@@ -420,8 +412,8 @@ namespace forwarder {
         close (m_sfd);
 #endif
     }
-
-
+    
+    
     void ForwardServerTcp::doReconnect() {
         
     }
@@ -482,7 +474,7 @@ namespace forwarder {
                     }
                     
                     ret = getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf,
-                                    sizeof sbuf, NI_NUMERICHOST | NI_NUMERICSERV);
+                                      sizeof sbuf, NI_NUMERICHOST | NI_NUMERICSERV);
                     if (ret == 0) {
                         logInfo("Accepted connection on descriptor {0} (host={1}, port={2})\n", infd, hbuf, sbuf);
                     }
@@ -511,7 +503,7 @@ namespace forwarder {
     }
     
     
-    void ForwardServerTcp::broadcastPacket(ForwardPacketPtr outPacket) {
+    ReturnCode ForwardServerTcp::broadcastPacket(ForwardPacketPtr outPacket) {
         
     }
     
@@ -531,6 +523,44 @@ namespace forwarder {
     
     void ForwardServerWS::init(rapidjson::Value& serverConfig) {
         if (!isClientMode) {
+            server.set_message_handler(websocketpp::lib::bind(
+                                                              &ForwardServerWS::onWSReceived,
+                                                              this,
+                                                              websocketpp::lib::placeholders::_1,
+                                                              websocketpp::lib::placeholders::_2));
+            server.set_open_handler(websocketpp::lib::bind(
+                                                           &ForwardServerWS::onWSConnected,
+                                                           this,
+                                                           websocketpp::lib::placeholders::_1));
+            server.set_close_handler(websocketpp::lib::bind(
+                                                            &ForwardServerWS::onWSDisconnected,
+                                                            this,
+                                                            websocketpp::lib::placeholders::_1));
+            server.set_fail_handler(websocketpp::lib::bind(
+                                                           &ForwardServerWS::onWSError,
+                                                           this,
+                                                           websocketpp::lib::placeholders::_1));
+        }
+        else {
+            serverAsClient.set_message_handler(websocketpp::lib::bind(
+                                                                      &ForwardServerWS::onWSReceived,
+                                                                      this,
+                                                                      websocketpp::lib::placeholders::_1,
+                                                                      websocketpp::lib::placeholders::_2));
+            serverAsClient.set_open_handler(websocketpp::lib::bind(
+                                                                   &ForwardServerWS::onWSConnected,
+                                                                   this,
+                                                                   websocketpp::lib::placeholders::_1));
+            serverAsClient.set_close_handler(websocketpp::lib::bind(
+                                                                    &ForwardServerWS::onWSDisconnected,
+                                                                    this,
+                                                                    websocketpp::lib::placeholders::_1));
+            serverAsClient.set_fail_handler(websocketpp::lib::bind(
+                                                                   &ForwardServerWS::onWSError,
+                                                                   this,
+                                                                   websocketpp::lib::placeholders::_1));
+        }
+        if (!isClientMode) {
             server.set_error_channels(websocketpp::log::elevel::none);
             server.set_access_channels(websocketpp::log::alevel::none);
             server.init_asio();
@@ -539,48 +569,10 @@ namespace forwarder {
             server.start_accept();
         }
         else {
-            serverAsClient.set_error_channels(websocketpp::log::elevel::none);
-            serverAsClient.set_access_channels(websocketpp::log::alevel::none);
+            serverAsClient.set_error_channels(websocketpp::log::elevel::devel);
+            serverAsClient.set_access_channels(websocketpp::log::alevel::devel);
             serverAsClient.init_asio();
             doReconnect();
-        }
-        if (!isClientMode) {
-            server.set_message_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSReceived,
-                this,
-                websocketpp::lib::placeholders::_1,
-                websocketpp::lib::placeholders::_2));
-            server.set_open_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSConnected,
-                this,
-                websocketpp::lib::placeholders::_1));
-            server.set_close_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSDisconnected,
-                this,
-                websocketpp::lib::placeholders::_1));
-            server.set_fail_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSError,
-                this,
-                websocketpp::lib::placeholders::_1));
-        }
-        else {
-            serverAsClient.set_message_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSReceived,
-                this,
-                websocketpp::lib::placeholders::_1,
-                websocketpp::lib::placeholders::_2));
-            serverAsClient.set_open_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSConnected,
-                this,
-                websocketpp::lib::placeholders::_1));
-            serverAsClient.set_close_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSDisconnected,
-                this,
-                websocketpp::lib::placeholders::_1));
-            serverAsClient.set_fail_handler(websocketpp::lib::bind(
-                &ForwardServerWS::onWSError,
-                this,
-                websocketpp::lib::placeholders::_1));
         }
     }
     
@@ -691,26 +683,42 @@ namespace forwarder {
         return false;
     }
     
-    void ForwardServerWS::broadcastPacket(ForwardPacketPtr outPacket) {
+    ReturnCode ForwardServerWS::broadcastPacket(ForwardPacketPtr outPacket) {
         for (auto it : clients) {
             ForwardClientWS* client = dynamic_cast<ForwardClientWS*>(it.second);
             websocketpp::lib::error_code ec;
-            server.send(client->hdl,
-                        outPacket->getRawPtr(),
-                        outPacket->getTotalLength(),
-                        websocketpp::frame::opcode::value::BINARY,
-                        ec);
+            if (!isClientMode) {
+                server.send(client->hdl,
+                            outPacket->getRawPtr(),
+                            outPacket->getTotalLength(),
+                            websocketpp::frame::opcode::value::BINARY,
+                            ec);
+            } else {
+                serverAsClient.send(client->hdl,
+                                    outPacket->getRawPtr(),
+                                    outPacket->getTotalLength(),
+                                    websocketpp::frame::opcode::value::BINARY,
+                                    ec);
+            }
         }
     }
     
     ReturnCode ForwardServerWS::sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) {
         ForwardClientWS* wsClient = dynamic_cast<ForwardClientWS*>(client);
         websocketpp::lib::error_code ec;
-        server.send(wsClient->hdl,
-                    outPacket->getRawPtr(),
-                    outPacket->getTotalLength(),
-                    websocketpp::frame::opcode::value::BINARY,
-                    ec);
+        if (!isClientMode) {
+            server.send(wsClient->hdl,
+                        outPacket->getRawPtr(),
+                        outPacket->getTotalLength(),
+                        websocketpp::frame::opcode::value::BINARY,
+                        ec);
+        } else {
+            serverAsClient.send(wsClient->hdl,
+                                outPacket->getRawPtr(),
+                                outPacket->getTotalLength(),
+                                websocketpp::frame::opcode::value::BINARY,
+                                ec);
+        }
         if (ec) {
             logError("[sendPacket] ws, err: {0}", ec.message());
             return ReturnCode::Err;
@@ -728,10 +736,10 @@ namespace forwarder {
         if (isClientMode) {
             if (reconnect) {
                 serverAsClient.set_timer(reconnectdelay, websocketpp::lib::bind(
-                    &ForwardServerWS::onWSReconnectTimeOut,
-                    this,
-                    websocketpp::lib::placeholders::_1
-                    ));
+                                                                                &ForwardServerWS::onWSReconnectTimeOut,
+                                                                                this,
+                                                                                websocketpp::lib::placeholders::_1
+                                                                                ));
             }
         }
     }
@@ -754,14 +762,14 @@ namespace forwarder {
     }
     
     void ForwardServerWS::onWSError(websocketpp::connection_hdl hdl) {
-	    logDebug("[forwarder] ForwardServerWS onWSError eventQueue");
+        logDebug("[forwarder] ForwardServerWS onWSError eventQueue");
         eventQueue.emplace_back(WSEventType::Error, hdl, nullptr);
     }
     
     void ForwardServerWS::onWSReceived(websocketpp::connection_hdl hdl, ForwardServerWS::WebsocketServer::message_ptr msg) {
         eventQueue.emplace_back(WSEventType::Msg, hdl, msg);
     }
-
+    
     ForwardClientWS* ForwardServerWS::destroyClientByHDL(websocketpp::connection_hdl hdl) {
         auto it = hdlToClientId.find(hdl);
         if (it != hdlToClientId.end()) {
@@ -782,3 +790,4 @@ namespace forwarder {
         return nullptr;
     }
 }
+

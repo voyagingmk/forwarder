@@ -88,7 +88,7 @@ namespace forwarder {
 
         virtual void poll() {};
         
-        virtual void broadcastPacket(ForwardPacketPtr outPacket) {};
+        virtual ReturnCode broadcastPacket(ForwardPacketPtr outPacket) {};
 
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket) { return ReturnCode::Err; };
         
@@ -156,7 +156,7 @@ class ForwardServerTcp: public ForwardServer {
     
         virtual void poll();
     
-        virtual void broadcastPacket(ForwardPacketPtr outPacket);
+        virtual ReturnCode broadcastPacket(ForwardPacketPtr outPacket);
     
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
     
@@ -211,7 +211,7 @@ class ForwardServerENet : public ForwardServer {
     
         ForwardClientENet* destroyClientByPtr(ForwardClientENet*);
     
-        virtual void broadcastPacket(ForwardPacketPtr outPacket);
+        virtual ReturnCode broadcastPacket(ForwardPacketPtr outPacket);
     
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
     
@@ -278,7 +278,7 @@ class ForwardServerWS : public ForwardServer {
     
 		virtual void poll();
     
-        virtual void broadcastPacket(ForwardPacketPtr outPacket);
+        virtual ReturnCode broadcastPacket(ForwardPacketPtr outPacket);
 
         virtual ReturnCode sendPacket(ForwardClient* client, ForwardPacketPtr outPacket);
     

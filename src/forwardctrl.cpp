@@ -1194,6 +1194,7 @@ void ForwardCtrl::pollOnce(ForwardServer* pServer, int ms) {
 	if (pServer->netType == NetType::ENet) {
 		ForwardServerENet* server = dynamic_cast<ForwardServerENet*>(pServer);
 		int ret = enet_host_service(server->host, &event, ms);
+        logDebug("[forwarder] enet.evt = {0}", ret);
         if (ret > 0) {
             curEvent = Event::PollAgain;
 			//logDebug("event.type = {0}", event.type);
