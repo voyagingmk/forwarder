@@ -614,7 +614,7 @@ void ForwardCtrl::encodeData(
 		}
 		memcpy(ivTmp, iv, ivSize);
 		uint8_t* encryptedData = newData + ivSize;
-		unsigned char ecount_buf[AES_BLOCK_SIZE];
+        unsigned char ecount_buf[AES_BLOCK_SIZE] = {0};
 		unsigned int num = 0;
 		AES_ctr128_encrypt(data, encryptedData, dataLength, &outServer->encryptkey, ivTmp, ecount_buf, &num);
 		data = newData;
@@ -965,8 +965,8 @@ void ForwardCtrl::onWSConnected(ForwardServerWS* wsServer, websocketpp::connecti
     client->hdl = hdl;
     uint16_t port = con->get_port();
     std::string host = con->get_remote_endpoint();
-    if (host == "localhost") {
-        host = "127.0.0.1";
+    if (host == "localhost" || host == "127.0.0.1") {
+        host = con->get_request_header("x-forwarded-for");
     } else {
         auto p1 = host.find("[::ffff:");
         auto p2 = host.find("]:");
